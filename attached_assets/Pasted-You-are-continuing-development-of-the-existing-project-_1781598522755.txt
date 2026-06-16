@@ -1,0 +1,416 @@
+You are continuing development of the existing project.
+
+IMPORTANT:
+
+Follow the existing architecture, coding standards, theme, and folder structure.
+
+Implement ONLY the Subscription Management module.
+
+Do NOT implement:
+
+- Invoice generation
+- Payments
+- Reports
+
+==================================================
+OBJECTIVE
+==================================================
+
+Allow SuperAdmin to assign plans to customers.
+
+A subscription connects:
+
+Customer → Plan Pricing
+
+Each customer can have only one ACTIVE subscription.
+
+Historical subscriptions must be preserved.
+
+==================================================
+DATABASE DESIGN
+==================================================
+
+Create:
+
+subscriptions
+
+Fields:
+
+- id (UUID)
+
+- subscription_code (unique)
+
+- customer_id (FK → customers.id)
+
+- plan_id (FK → plans.id)
+- plan_pricing_id (FK → plan_pricing.id)
+
+Snapshot fields:
+
+- plan_name_snapshot
+- plan_code_snapshot
+
+- speed_mbps_snapshot
+
+- billing_cycle_snapshot
+
+- base_price_snapshot
+- gst_percentage_snapshot
+- total_price_snapshot
+
+Dates:
+
+- start_date
+- renewal_date
+- expiry_date
+
+Statuses:
+
+- ACTIVE
+- EXPIRED
+- SUSPENDED
+- CANCELLED
+
+Additional:
+
+- remarks
+
+- created_at
+- updated_at
+- deleted_at
+
+==================================================
+SUBSCRIPTION CODE
+==================================================
+
+Generate automatically.
+
+Format:
+
+TDB-SUB-00001
+
+Never reuse codes.
+
+==================================================
+BUSINESS RULES
+==================================================
+
+Rules:
+
+- One customer can have only one ACTIVE subscription
+- Customer must be ACTIVE
+- Plan must be ACTIVE
+- Plan pricing must be ACTIVE
+
+Store snapshots at creation time.
+
+Historical subscriptions must never change when plans are edited.
+
+==================================================
+EXPIRY CALCULATION
+==================================================
+
+Calculate automatically based on billing cycle.
+
+MONTHLY:
+
+start_date + 1 month
+
+QUARTERLY:
+
+start_date + 3 months
+
+HALF_YEARLY:
+
+start_date + 6 months
+
+ANNUALLY:
+
+start_date + 12 months
+
+renewal_date = expiry_date
+
+==================================================
+RENEWALS
+==================================================
+
+Renewal creates a new billing period.
+
+Update:
+
+- renewal_date
+- expiry_date
+
+Preserve historical data.
+
+Create renewal audit logs.
+
+==================================================
+PLAN CHANGES
+==================================================
+
+Support:
+
+- Upgrade
+- Downgrade
+
+Implementation for Phase 1:
+
+1. End current subscription
+2. Create a new subscription
+
+Do not implement prorated billing.
+
+==================================================
+API ROUTES
+==================================================
+
+Prefix:
+
+/api/v1/subscriptions
+
+Create:
+
+GET    /api/v1/subscriptions
+
+POST   /api/v1/subscriptions
+
+GET    /api/v1/subscriptions/{id}
+
+PUT    /api/v1/subscriptions/{id}
+
+POST   /api/v1/subscriptions/{id}/renew
+
+PATCH  /api/v1/subscriptions/{id}/status
+
+POST   /api/v1/subscriptions/{id}/change-plan
+
+SuperAdmin only.
+
+==================================================
+PAGINATION STANDARD
+==================================================
+
+Support:
+
+- page
+- page_size
+- search
+- sort_by
+- sort_order
+
+Default:
+
+10
+
+Allowed:
+
+10, 25, 50, 100
+
+Response:
+
+{
+  "items": [],
+  "total": 0,
+  "page": 1,
+  "page_size": 10,
+  "total_pages": 0
+}
+
+==================================================
+SEARCH
+==================================================
+
+Search across:
+
+- subscription_code
+- customer_code
+- customer_name
+- plan_name_snapshot
+
+Server-side only.
+
+==================================================
+SORTING
+==================================================
+
+Allow:
+
+- subscription_code
+- customer_name
+- renewal_date
+- expiry_date
+- status
+
+==================================================
+VALIDATION
+==================================================
+
+Prevent:
+
+- Multiple ACTIVE subscriptions for one customer
+- Assigning inactive plans
+- Assigning inactive customers
+
+==================================================
+FRONTEND
+==================================================
+
+Create routes:
+
+/admin/subscriptions
+/admin/subscriptions/new
+/admin/subscriptions/:id
+
+==================================================
+SUBSCRIPTION LIST
+==================================================
+
+Use reusable DataTable.
+
+Columns:
+
+- Subscription Code
+- Customer
+- Plan
+- Billing Cycle
+- Renewal Date
+- Expiry Date
+- Status
+- Actions
+
+Features:
+
+- Pagination
+- Search
+- Sorting
+- Status filter
+
+==================================================
+SUBSCRIPTION CREATE PAGE
+==================================================
+
+Flow:
+
+1. Select customer
+
+Display:
+
+- Customer code
+- Customer status
+
+2. Select plan
+
+3. Select billing cycle
+
+Display automatically:
+
+- Base price
+- GST
+- Total amount
+
+4. Select start date
+
+System calculates:
+
+- Renewal date
+- Expiry date
+
+==================================================
+SUBSCRIPTION DETAILS PAGE
+==================================================
+
+Display:
+
+Customer Information
+
+Subscription Information
+
+Pricing Snapshot
+
+Dates
+
+Status
+
+Placeholder sections:
+
+- Invoices
+- Payment history
+
+Do not implement billing.
+
+==================================================
+CUSTOMER DETAILS PAGE
+==================================================
+
+Update customer details page.
+
+Show:
+
+Current subscription summary.
+
+Do not display invoices yet.
+
+==================================================
+CLIENT PORTAL
+==================================================
+
+Create:
+
+/client/subscription
+
+Display:
+
+- Plan name
+- Speed
+- Billing cycle
+- Start date
+- Renewal date
+- Expiry date
+- Status
+
+Read-only.
+
+==================================================
+AUDIT LOGGING
+==================================================
+
+Track:
+
+- subscription_created
+- subscription_renewed
+- subscription_status_changed
+- subscription_plan_changed
+
+==================================================
+TESTING
+==================================================
+
+Create tests for:
+
+- Subscription creation
+- Snapshot creation
+- Duplicate active subscription rejection
+- Expiry calculation
+- Renewal flow
+- Plan changes
+
+==================================================
+ACCEPTANCE CRITERIA
+==================================================
+
+Success means:
+
+1. SuperAdmin can assign plans to customers
+2. Only one ACTIVE subscription exists per customer
+3. Subscription codes are generated automatically
+4. Pricing snapshots are stored
+5. Expiry dates are calculated correctly
+6. Renewals work
+7. Plan changes work
+8. Client can view subscription details
+9. Pagination works
+10. Search works
+11. Audit logs are created
+
+Do not implement invoices or payments.

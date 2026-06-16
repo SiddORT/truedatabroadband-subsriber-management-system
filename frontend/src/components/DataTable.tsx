@@ -45,13 +45,13 @@ export interface DataTableProps<T> {
   emptyMessage?: string;
 }
 
-/**
- * Reusable, server-side-ready data table scaffold.
- *
- * Pagination, search and sorting are controlled — the parent owns the
- * `state` and fetches data accordingly. This component is intentionally NOT
- * connected to any business module (Phase 1 scaffold only).
- */
+function getPageNumbers(current: number, total: number): (number | "...")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  if (current <= 4) return [1, 2, 3, 4, 5, "...", total];
+  if (current >= total - 3) return [1, "...", total - 4, total - 3, total - 2, total - 1, total];
+  return [1, "...", current - 1, current, current + 1, "...", total];
+}
+
 export function DataTable<T>({
   columns,
   rows,
@@ -78,6 +78,8 @@ export function DataTable<T>({
       state.sortBy === key && state.sortDir === "asc" ? "desc" : "asc";
     onStateChange({ ...state, sortBy: key, sortDir, page: 1 });
   };
+
+  const pageNumbers = getPageNumbers(state.page, totalPages);
 
   return (
     <div className="flex flex-col gap-4">
@@ -179,7 +181,8 @@ export function DataTable<T>({
         <span>
           {from}–{to} of {total}
         </span>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-1">
           <Button
             variant="outline"
             size="sm"
@@ -187,11 +190,28 @@ export function DataTable<T>({
             onClick={() => onStateChange({ ...state, page: state.page - 1 })}
           >
             <ChevronLeft className="h-4 w-4" />
-            Previous
+            Prev
           </Button>
-          <span className="px-1">
-            Page {state.page} of {totalPages}
-          </span>
+
+          {pageNumbers.map((p, i) =>
+            p === "..." ? (
+              <span key={`ellipsis-${i}`} className="px-1 select-none">
+                …
+              </span>
+            ) : (
+              <Button
+                key={p}
+                type="button"
+                variant={state.page === p ? "default" : "outline"}
+                size="sm"
+                onClick={() => onStateChange({ ...state, page: p as number })}
+                className="min-w-[36px] px-2"
+              >
+                {p}
+              </Button>
+            ),
+          )}
+
           <Button
             variant="outline"
             size="sm"

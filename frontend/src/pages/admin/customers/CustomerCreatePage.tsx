@@ -56,7 +56,7 @@ const STEP_FIELDS: Record<number, string[]> = {
       "pincode","district","city","state",
       "billing_same_as_installation","billing_address_line_1","billing_city","billing_state","billing_pincode"],
   2: ["spokesperson_name","spokesperson_mobile","spokesperson_email","spokesperson_designation",
-      "connection_date","reference_source","sales_person","notes"],
+      "connection_date","reference_source","reference_source_other","sales_person","notes"],
   3: [],
 };
 
@@ -94,6 +94,7 @@ const schema = z
     spokesperson_designation: z.string().optional(),
     connection_date: z.string().optional(),
     reference_source: z.string().optional(),
+    reference_source_other: z.string().optional(),
     sales_person: z.string().optional(),
     notes: z.string().optional(),
   })
@@ -464,7 +465,8 @@ function Step2({ register, watch, errors, setValue }: { register: any; watch: an
 
 // ── Step 3 ────────────────────────────────────────────────────────────────────
 
-function Step3({ register, errors }: { register: any; errors: any }) {
+function Step3({ register, watch, errors }: { register: any; watch: any; errors: any }) {
+  const refSource = watch("reference_source");
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
       <div>
@@ -499,6 +501,14 @@ function Step3({ register, errors }: { register: any; errors: any }) {
               </select>
             </Field>
           </div>
+          {refSource === "Other" && (
+            <Field label="Please specify" error={errors.reference_source_other?.message}>
+              <Input
+                placeholder="e.g. Billboard, Friend recommendation…"
+                {...register("reference_source_other")}
+              />
+            </Field>
+          )}
           <Field label="Salesperson">
             <Input placeholder="Assigned salesperson" {...register("sales_person")} />
           </Field>
@@ -586,7 +596,9 @@ export function CustomerCreatePage() {
         company_name:             values.company_name             || undefined,
         district:                 values.district                 || undefined,
         connection_date:          values.connection_date          || undefined,
-        reference_source:         values.reference_source         || undefined,
+        reference_source:         values.reference_source === "Other"
+                                    ? (values.reference_source_other || undefined)
+                                    : (values.reference_source || undefined),
         sales_person:             values.sales_person             || undefined,
         notes:                    values.notes                    || undefined,
         spokesperson_mobile:      values.spokesperson_mobile      || undefined,
@@ -655,7 +667,7 @@ export function CustomerCreatePage() {
               onSubmit={isLastStep ? handleSubmit(onSubmit) : (e) => { e.preventDefault(); handleNext(); }}>
               {step === 0 && <Step1 register={register} watch={watch} errors={errors} />}
               {step === 1 && <Step2 register={register} watch={watch} errors={errors} setValue={setValue} />}
-              {step === 2 && <Step3 register={register} errors={errors} />}
+              {step === 2 && <Step3 register={register} watch={watch} errors={errors} />}
               {step === 3 && (
                 <Step4 profilePhotoRef={profilePhotoRef} kycDocRef={kycDocRef}
                   agreementDocRef={agreementDocRef} fileNames={fileNames} setFileNames={setFileNames} />
