@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -218,23 +218,39 @@ function FileUploadZone({
   const [preview, setPreview] = useState<{ url: string | null; mimeType: string; ext: string }>({
     url: null, mimeType: "", ext: "",
   });
+  // Use a ref so we only revoke on true unmount, not on React Strict Mode
+  // double-effect invocation which would revoke the URL before display.
+  const blobUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
-    return () => { if (preview.url) URL.revokeObjectURL(preview.url); };
-  }, [preview.url]);
+    return () => {
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
+    };
+  }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) { setPreview({ url: null, mimeType: "", ext: "" }); onChange(""); return; }
+    if (!file) {
+      if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
+      setPreview({ url: null, mimeType: "", ext: "" });
+      onChange("");
+      return;
+    }
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
     let url: string | null = null;
     if (file.type.startsWith("image/")) {
-      if (preview.url) URL.revokeObjectURL(preview.url);
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
       url = URL.createObjectURL(file);
+      blobUrlRef.current = url;
+    } else {
+      if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
     }
     setPreview({ url, mimeType: file.type, ext });
     onChange(file.name);
-  };
+  }, [onChange]);
 
   const showReplace = hasExisting && !fileName;
   const showNew     = hasExisting &&  fileName;
