@@ -11,6 +11,9 @@ import { CustomerListPage } from "@/pages/admin/customers/CustomerListPage";
 import { CustomerCreatePage } from "@/pages/admin/customers/CustomerCreatePage";
 import { CustomerDetailPage } from "@/pages/admin/customers/CustomerDetailPage";
 import { CustomerEditPage } from "@/pages/admin/customers/CustomerEditPage";
+import { PlanListPage } from "@/pages/admin/plans/PlanListPage";
+import { PlanCreatePage } from "@/pages/admin/plans/PlanCreatePage";
+import { PlanDetailPage } from "@/pages/admin/plans/PlanDetailPage";
 
 /** Redirect to /change-password if logged in and forced, else to login. */
 function RootRedirect() {
@@ -94,6 +97,32 @@ export default function App() {
         element={
           <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
             <CustomerEditPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Plans & Pricing */}
+      <Route
+        path="/admin/plans"
+        element={
+          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+            <PlanListPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/plans/new"
+        element={
+          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+            <PlanCreatePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/plans/:id"
+        element={
+          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+            <PlanDetailPage />
           </ProtectedRoute>
         }
       />
