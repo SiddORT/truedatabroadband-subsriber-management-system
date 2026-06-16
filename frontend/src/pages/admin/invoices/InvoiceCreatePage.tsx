@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -70,12 +70,132 @@ const INPUT_CLS =
 const RUPEE_INPUT_CLS =
   "w-full rounded-lg border border-input bg-background py-2 pl-7 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30";
 
-interface CustomItem {
+type ItemDiscountType = "" | "percentage" | "fixed";
+type DiscountType     = "" | "percentage" | "fixed";
+
+interface ChargeRow {
+  id: number;
   description: string;
+  locked: boolean;          // true = fixed label (Installation / Service)
   amount: string;
+  discountType: ItemDiscountType;
+  discountValue: string;
 }
 
-type DiscountType = "" | "percentage" | "fixed";
+// ── Per-row charge card ────────────────────────────────────────────────────
+interface ChargeRowUIProps {
+  row: ChargeRow;
+  onUpdate: (patch: Partial<ChargeRow>) => void;
+  onRemove: () => void;
+  gross: number;
+  disc: number;
+  net: number;
+}
+
+function ChargeRowUI({ row, onUpdate, onRemove, gross, disc, net }: ChargeRowUIProps) {
+  const discBtn = (v: ItemDiscountType, label: string) => (
+    <button
+      key={v}
+      type="button"
+      onClick={() => onUpdate({ discountType: v, discountValue: "" })}
+      className={`shrink-0 rounded border px-2 py-1 text-[11px] font-semibold transition-colors ${
+        row.discountType === v
+          ? "border-primary bg-primary text-white"
+          : "border-border bg-muted/40 text-foreground hover:bg-muted"
+      }`}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="rounded-lg border border-border bg-background p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Description */}
+        {row.locked ? (
+          <span className="min-w-[140px] flex-1 text-sm font-medium text-foreground">
+            {row.description}
+          </span>
+        ) : (
+          <input
+            value={row.description}
+            onChange={(e) => onUpdate({ description: e.target.value })}
+            placeholder="Description (e.g. Router Fee)"
+            className="min-w-[120px] flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+        )}
+
+        {/* Amount */}
+        <div className="relative w-28 shrink-0">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+            ₹
+          </span>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={row.amount}
+            onChange={(e) => onUpdate({ amount: e.target.value })}
+            placeholder="0.00"
+            className="w-full rounded-lg border border-input bg-background py-2 pl-7 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+        </div>
+
+        {/* Discount type toggle */}
+        <div className="flex shrink-0 gap-1">
+          {discBtn("",          "None")}
+          {discBtn("percentage","%")}
+          {discBtn("fixed",     "₹")}
+        </div>
+
+        {/* Discount value — only when type is set */}
+        {row.discountType && (
+          <div className="relative w-20 shrink-0">
+            <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+              {row.discountType === "percentage" ? "%" : "₹"}
+            </span>
+            <input
+              type="number"
+              min="0"
+              max={row.discountType === "percentage" ? "100" : undefined}
+              step="0.01"
+              value={row.discountValue}
+              onChange={(e) => onUpdate({ discountValue: e.target.value })}
+              placeholder="0"
+              className="w-full rounded-lg border border-input bg-background py-2 pl-5 pr-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+        )}
+
+        {/* Delete button — only for unlocked rows */}
+        {!row.locked && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Discount preview: strikethrough gross → discount → net */}
+      {disc > 0 && gross > 0 && (
+        <div className="mt-2 flex items-center gap-2 pl-1 text-xs">
+          <span className="text-muted-foreground line-through">
+            ₹{gross.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+          </span>
+          <span className="font-medium text-accent">
+            −₹{disc.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+          </span>
+          <span className="font-semibold text-foreground">
+            = ₹{net.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function InvoiceCreatePage() {
   const navigate = useNavigate();
@@ -93,12 +213,13 @@ export function InvoiceCreatePage() {
   const [invoiceDate, setInvoiceDate] = useState(today());
   const [dueDate, setDueDate] = useState("");
   const [remarks, setRemarks] = useState("");
-  // Step 4 — named default charges
-  const [installationCharges, setInstallationCharges] = useState("");
-  const [serviceCharges, setServiceCharges] = useState("");
-  // Step 4 — custom line items
-  const [customItems, setCustomItems] = useState<CustomItem[]>([]);
-  // Step 4 — discount
+  // Step 4 — unified charge rows (installation & service are locked pre-populated rows)
+  const chargeIdRef = useRef(3);
+  const [chargeRows, setChargeRows] = useState<ChargeRow[]>([
+    { id: 1, description: "Installation Charges", locked: true,  amount: "", discountType: "", discountValue: "" },
+    { id: 2, description: "Service Charges",       locked: true,  amount: "", discountType: "", discountValue: "" },
+  ]);
+  // Step 4 — invoice-level discount (applies to base plan or overall total)
   const [discountType, setDiscountType] = useState<DiscountType>("");
   const [discountScope, setDiscountScope] = useState<"base" | "overall">("base");
   const [discountValue, setDiscountValue] = useState("");
@@ -125,13 +246,16 @@ export function InvoiceCreatePage() {
   const gstPct = Number(selectedSub?.gst_percentage_snapshot ?? 0);
 
   // ── Amount calculations ─────────────────────────────────────────────────
-  const instAmt = Number(installationCharges) || 0;
-  const svcAmt = Number(serviceCharges) || 0;
-  const customTotal = customItems.reduce(
-    (s, i) => s + (Number(i.amount) || 0),
-    0
-  );
-  const lineItemsTotal = instAmt + svcAmt + customTotal;
+  function rowGross(r: ChargeRow) { return Number(r.amount) || 0; }
+  function rowItemDisc(r: ChargeRow) {
+    const g = rowGross(r);
+    if (!r.discountType || !r.discountValue || Number(r.discountValue) <= 0 || g <= 0) return 0;
+    if (r.discountType === "percentage") return Math.round(g * Number(r.discountValue) * 100) / 10000;
+    return Math.min(Number(r.discountValue), g);
+  }
+  function rowNet(r: ChargeRow) { return Math.max(0, rowGross(r) - rowItemDisc(r)); }
+
+  const lineItemsTotal = chargeRows.reduce((s, r) => rowGross(r) > 0 ? s + rowNet(r) : s, 0);
 
   const gstOnFullBase = Math.round(baseAmt * gstPct) / 100;
 
@@ -166,33 +290,46 @@ export function InvoiceCreatePage() {
   const step2Done = !!billingStart && !!billingEnd;
   const step3Done = !!invoiceDate;
 
-  // ── Custom items helpers ────────────────────────────────────────────────
-  function addCustomItem() {
-    setCustomItems((prev) => [...prev, { description: "", amount: "" }]);
+  // ── Charge row helpers ──────────────────────────────────────────────────
+  function addChargeRow() {
+    const id = chargeIdRef.current++;
+    setChargeRows((prev) => [
+      ...prev,
+      { id, description: "", locked: false, amount: "", discountType: "", discountValue: "" },
+    ]);
   }
 
-  function removeCustomItem(idx: number) {
-    setCustomItems((prev) => prev.filter((_, i) => i !== idx));
+  function removeChargeRow(id: number) {
+    setChargeRows((prev) => prev.filter((r) => r.id !== id));
   }
 
-  function updateCustomItem(idx: number, field: keyof CustomItem, val: string) {
-    setCustomItems((prev) =>
-      prev.map((item, i) => (i === idx ? { ...item, [field]: val } : item))
-    );
+  function updateChargeRow(id: number, patch: Partial<ChargeRow>) {
+    setChargeRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   }
 
   // ── Build payload ───────────────────────────────────────────────────────
   function buildLineItems() {
-    const items: { description: string; amount: string }[] = [];
-    if (instAmt > 0)
-      items.push({ description: "Installation Charges", amount: String(instAmt) });
-    if (svcAmt > 0)
-      items.push({ description: "Service Charges", amount: String(svcAmt) });
-    customItems.forEach((ci) => {
-      if (ci.description.trim() && Number(ci.amount) > 0)
-        items.push({ description: ci.description.trim(), amount: ci.amount });
-    });
-    return items;
+    return chargeRows
+      .filter((r) => rowGross(r) > 0 && r.description.trim())
+      .map((r) => {
+        const gross = rowGross(r);
+        const disc  = rowItemDisc(r);
+        const net   = rowNet(r);
+        if (disc > 0) {
+          return {
+            description:     r.description.trim(),
+            amount:          net.toFixed(2),
+            original_amount: gross.toFixed(2),
+            discount_type:   r.discountType,
+            discount_value:  r.discountValue,
+            discount_amount: disc.toFixed(2),
+          };
+        }
+        return {
+          description: r.description.trim(),
+          amount:      net.toFixed(2),
+        };
+      });
   }
 
   const mutation = useMutation({
@@ -412,122 +549,53 @@ export function InvoiceCreatePage() {
 
             {/* Step 4 — Charges & Discount */}
             <Card>
-              <CardContent className="space-y-6 pt-5">
+              <CardContent className="space-y-5 pt-5">
                 <StepBadge step={4} label="Charges & Discount" done={false} />
 
-                {/* ── Standard named charges ──────────────────────── */}
-                <div>
-                  <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Standard Charges
-                  </p>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-sm font-medium">
-                        Installation Charges
-                      </label>
-                      <div className="relative">
-                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                          ₹
-                        </span>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={installationCharges}
-                          onChange={(e) => setInstallationCharges(e.target.value)}
-                          placeholder="0.00"
-                          className={RUPEE_INPUT_CLS}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-sm font-medium">
-                        Service Charges
-                      </label>
-                      <div className="relative">
-                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                          ₹
-                        </span>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={serviceCharges}
-                          onChange={(e) => setServiceCharges(e.target.value)}
-                          placeholder="0.00"
-                          className={RUPEE_INPUT_CLS}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* ── Additional custom charges ──────────────────── */}
+                {/* ── Unified charges grid ──────────────────────────── */}
                 <div>
                   <div className="mb-3 flex items-center justify-between">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Additional Charges
-                    </p>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Charges &amp; Items
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        Each row: amount · then choose None / % / ₹ discount
+                      </p>
+                    </div>
                     <Button
                       variant="outline"
                       size="sm"
                       type="button"
-                      onClick={addCustomItem}
+                      onClick={addChargeRow}
                     >
                       <Plus className="mr-1.5 h-3.5 w-3.5" />
-                      Add Charge
+                      Add Row
                     </Button>
                   </div>
 
-                  {customItems.length === 0 ? (
-                    <p className="text-xs italic text-muted-foreground">
-                      No additional charges. Click "Add Charge" to add custom line items.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {customItems.map((item, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                          <input
-                            value={item.description}
-                            onChange={(e) =>
-                              updateCustomItem(i, "description", e.target.value)
-                            }
-                            placeholder="Description (e.g. Router Fee)"
-                            className="min-w-0 flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                          />
-                          <div className="relative w-36 shrink-0">
-                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                              ₹
-                            </span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={item.amount}
-                              onChange={(e) =>
-                                updateCustomItem(i, "amount", e.target.value)
-                              }
-                              placeholder="0.00"
-                              className={RUPEE_INPUT_CLS}
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeCustomItem(i)}
-                            className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div className="space-y-2">
+                    {chargeRows.map((row) => (
+                      <ChargeRowUI
+                        key={row.id}
+                        row={row}
+                        onUpdate={(patch) => updateChargeRow(row.id, patch)}
+                        onRemove={() => removeChargeRow(row.id)}
+                        gross={rowGross(row)}
+                        disc={rowItemDisc(row)}
+                        net={rowNet(row)}
+                      />
+                    ))}
+                  </div>
                 </div>
 
-                {/* ── Discount ────────────────────────────────────── */}
-                <div>
+                {/* ── Invoice-level discount ────────────────────────── */}
+                <div className="border-t border-border pt-5">
                   <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Discount
+                    Invoice Discount
+                  </p>
+                  <p className="mb-3 text-[11px] text-muted-foreground">
+                    Applied to the base plan price or the entire bill total — separate from per-item discounts above.
                   </p>
 
                   {/* Type toggle */}
@@ -558,82 +626,76 @@ export function InvoiceCreatePage() {
                     ))}
                   </div>
 
-                  {/* Applies-to scope (only shown when a discount type is selected) */}
                   {discountType && (
-                    <div className="mb-4">
-                      <p className="mb-2 text-xs text-muted-foreground font-medium">Applies to</p>
-                      <div className="flex gap-2">
-                        {(
-                          [
-                            { value: "base" as const, label: "Base Plan", desc: "Discount on plan price — reduces GST" },
-                            { value: "overall" as const, label: "Overall Total", desc: "Discount on full bill (base + GST + items)" },
-                          ]
-                        ).map(({ value, label, desc }) => (
-                          <button
-                            key={value}
-                            type="button"
-                            onClick={() => setDiscountScope(value)}
-                            title={desc}
-                            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                              discountScope === value
-                                ? "border-primary bg-primary text-white"
-                                : "border-border bg-background text-foreground hover:bg-muted"
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        ))}
+                    <>
+                      {/* Applies-to scope */}
+                      <div className="mb-4">
+                        <p className="mb-2 text-xs font-medium text-muted-foreground">
+                          Applies to
+                        </p>
+                        <div className="flex gap-2">
+                          {[
+                            { value: "base" as const,    label: "Base Plan",    desc: "Reduces plan price — GST is recalculated on discounted base" },
+                            { value: "overall" as const, label: "Overall Total", desc: "Flat reduction from the full bill after GST + all charges" },
+                          ].map(({ value, label, desc }) => (
+                            <button
+                              key={value}
+                              type="button"
+                              onClick={() => setDiscountScope(value)}
+                              title={desc}
+                              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                                discountScope === value
+                                  ? "border-primary bg-primary text-white"
+                                  : "border-border bg-background text-foreground hover:bg-muted"
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="mt-1.5 text-[11px] text-muted-foreground">
+                          {discountScope === "base"
+                            ? "Discount reduces the plan base charge; GST is calculated on the discounted base."
+                            : "Discount is applied after GST and all charges are summed (final bill reduction)."}
+                        </p>
                       </div>
-                      <p className="mt-1.5 text-[11px] text-muted-foreground">
-                        {discountScope === "base"
-                          ? "Discount reduces the plan base charge; GST is calculated on the discounted base."
-                          : "Discount is applied after GST and all charges are summed (final bill reduction)."}
-                      </p>
-                    </div>
-                  )}
 
-                  {discountType && (
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-sm font-medium">
-                          {discountType === "percentage"
-                            ? "Discount Percentage"
-                            : "Discount Amount (₹)"}
-                          <span className="text-red-500"> *</span>
-                        </label>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                            {discountType === "percentage" ? "%" : "₹"}
-                          </span>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-sm font-medium">
+                            {discountType === "percentage" ? "Percentage (%)" : "Amount (₹)"}
+                            <span className="text-red-500"> *</span>
+                          </label>
+                          <div className="relative">
+                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                              {discountType === "percentage" ? "%" : "₹"}
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              max={discountType === "percentage" ? "100" : undefined}
+                              step="0.01"
+                              value={discountValue}
+                              onChange={(e) => setDiscountValue(e.target.value)}
+                              placeholder={discountType === "percentage" ? "e.g. 10" : "0.00"}
+                              className={RUPEE_INPUT_CLS}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-sm font-medium">
+                            Label{" "}
+                            <span className="text-xs text-muted-foreground">(optional)</span>
+                          </label>
                           <input
-                            type="number"
-                            min="0"
-                            max={discountType === "percentage" ? "100" : undefined}
-                            step="0.01"
-                            value={discountValue}
-                            onChange={(e) => setDiscountValue(e.target.value)}
-                            placeholder={
-                              discountType === "percentage" ? "e.g. 10" : "0.00"
-                            }
-                            className={RUPEE_INPUT_CLS}
+                            value={discountLabel}
+                            onChange={(e) => setDiscountLabel(e.target.value)}
+                            placeholder="e.g. Festival Offer"
+                            className={INPUT_CLS}
                           />
                         </div>
                       </div>
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-sm font-medium">
-                          Discount Label{" "}
-                          <span className="text-xs text-muted-foreground">
-                            (optional)
-                          </span>
-                        </label>
-                        <input
-                          value={discountLabel}
-                          onChange={(e) => setDiscountLabel(e.target.value)}
-                          placeholder="e.g. Festival Offer"
-                          className={INPUT_CLS}
-                        />
-                      </div>
-                    </div>
+                    </>
                   )}
                 </div>
               </CardContent>
@@ -767,36 +829,40 @@ export function InvoiceCreatePage() {
                       </span>
                     </div>
 
-                    {instAmt > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Installation Charges
-                        </span>
-                        <span className="font-medium">₹{fmtMoney(instAmt)}</span>
-                      </div>
-                    )}
-
-                    {svcAmt > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Service Charges
-                        </span>
-                        <span className="font-medium">₹{fmtMoney(svcAmt)}</span>
-                      </div>
-                    )}
-
-                    {customItems
-                      .filter((ci) => Number(ci.amount) > 0)
-                      .map((ci, i) => (
-                        <div key={i} className="flex justify-between">
-                          <span className="max-w-[60%] truncate text-muted-foreground">
-                            {ci.description || `Charge ${i + 1}`}
-                          </span>
-                          <span className="font-medium">
-                            ₹{fmtMoney(Number(ci.amount))}
-                          </span>
-                        </div>
-                      ))}
+                    {chargeRows
+                      .filter((r) => rowGross(r) > 0)
+                      .map((r, i) => {
+                        const g = rowGross(r);
+                        const d = rowItemDisc(r);
+                        const n = rowNet(r);
+                        return (
+                          <div key={r.id}>
+                            <div className="flex justify-between">
+                              <span className="max-w-[60%] truncate text-muted-foreground">
+                                {r.description || `Charge ${i + 1}`}
+                              </span>
+                              <span className="font-medium">
+                                {d > 0 ? (
+                                  <span className="line-through text-muted-foreground/60 mr-1">
+                                    ₹{fmtMoney(g)}
+                                  </span>
+                                ) : null}
+                                ₹{fmtMoney(n)}
+                              </span>
+                            </div>
+                            {d > 0 && (
+                              <div className="flex justify-between text-xs text-accent pl-1">
+                                <span>
+                                  {r.discountType === "percentage"
+                                    ? `Item discount (${r.discountValue}%)`
+                                    : "Item discount"}
+                                </span>
+                                <span>−₹{fmtMoney(d)}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
 
                     {/* Overall-scope discount: appears after all charges, before total */}
                     {discountAmt > 0 && discountScope === "overall" && (

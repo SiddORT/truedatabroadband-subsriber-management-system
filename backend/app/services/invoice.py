@@ -133,7 +133,16 @@ class InvoiceService:
         for item in (payload.line_items or []):
             amt = Decimal(str(item.amount)).quantize(Decimal("0.01"))
             if amt > 0:
-                line_items_data.append({"description": item.description, "amount": str(amt)})
+                entry: dict = {"description": item.description, "amount": str(amt)}
+                if item.original_amount is not None:
+                    entry["original_amount"] = str(Decimal(str(item.original_amount)).quantize(Decimal("0.01")))
+                if item.discount_type:
+                    entry["discount_type"] = item.discount_type
+                if item.discount_value is not None:
+                    entry["discount_value"] = str(item.discount_value)
+                if item.discount_amount is not None:
+                    entry["discount_amount"] = str(Decimal(str(item.discount_amount)).quantize(Decimal("0.01")))
+                line_items_data.append(entry)
                 line_items_total += amt
 
         discount_type = payload.discount_type

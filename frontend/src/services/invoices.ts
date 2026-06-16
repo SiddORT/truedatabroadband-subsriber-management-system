@@ -13,6 +13,10 @@ interface ListParams {
 interface LineItemPayload {
   description: string;
   amount: string;
+  original_amount?: string;
+  discount_type?: string;
+  discount_value?: string;
+  discount_amount?: string;
 }
 
 async function list(params: ListParams = {}): Promise<InvoiceListResponse> {
@@ -36,6 +40,7 @@ async function create(payload: {
   discount_type?: "percentage" | "fixed";
   discount_value?: string;
   discount_label?: string;
+  discount_scope?: "base" | "overall";
 }): Promise<Invoice> {
   const { data } = await api.post("/invoices", payload);
   return data;

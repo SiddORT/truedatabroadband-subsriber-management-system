@@ -16,7 +16,11 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class LineItemIn(BaseModel):
     description: str = Field(..., min_length=1, max_length=200)
-    amount: Decimal = Field(..., ge=0)
+    amount: Decimal = Field(..., ge=0)        # net amount (after per-item discount)
+    original_amount: Optional[Decimal] = None  # gross amount before per-item discount
+    discount_type: Optional[str] = None        # "percentage" | "fixed"
+    discount_value: Optional[Decimal] = None
+    discount_amount: Optional[Decimal] = None
 
 
 # ── Request ───────────────────────────────────────────────────────────────────

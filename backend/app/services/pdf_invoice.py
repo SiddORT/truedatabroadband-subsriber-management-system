@@ -344,11 +344,45 @@ def generate_invoice_pdf(invoice: "Invoice", logo_path: str | None = None) -> by
     ])
 
     for item in line_items:
-        rows.append([
-            _p(item.get("description", ""), _s("li", fontName=_FONT_BD, fontSize=8)),
-            _p("", tc_sm),
-            _p(_cur(Decimal(str(item.get("amount", "0")))), tc_r),
-        ])
+        net_amt   = Decimal(str(item.get("amount", "0")))
+        orig_amt  = item.get("original_amount")
+        item_disc = item.get("discount_amount")
+        item_dtype = item.get("discount_type", "")
+        item_dval  = item.get("discount_value", "")
+        has_item_disc = orig_amt and item_disc and Decimal(str(item_disc)) > 0
+        if has_item_disc:
+            # Row 1: description | "Gross: ₹X" | gross amount
+            rows.append([
+                _p(item.get("description", ""), _s("li", fontName=_FONT_BD, fontSize=8)),
+                _p(
+                    f"Before item discount: {_cur(Decimal(str(orig_amt)))}",
+                    _s("ld", fontSize=7, textColor=GREY),
+                ),
+                _p(_cur(Decimal(str(orig_amt))), _s("or", fontSize=7.5, textColor=GREY, alignment=2)),
+            ])
+            # Row 2: discount line
+            disc_label = (
+                f"Item discount ({item_dval}%)"
+                if item_dtype == "percentage"
+                else "Item discount"
+            )
+            rows.append([
+                _p("", tc_sm),
+                _p(disc_label, _s("dl", fontSize=7, textColor=ACCENT)),
+                _p(f"\u2212{_cur(Decimal(str(item_disc)))}", _s("dv2", fontSize=7.5, textColor=ACCENT, alignment=2)),
+            ])
+            # Row 3: net line
+            rows.append([
+                _p("", tc_sm),
+                _p("Net amount", _s("nl", fontSize=7, fontName=_FONT_BD)),
+                _p(_cur(net_amt), tc_r),
+            ])
+        else:
+            rows.append([
+                _p(item.get("description", ""), _s("li", fontName=_FONT_BD, fontSize=8)),
+                _p("", tc_sm),
+                _p(_cur(net_amt), tc_r),
+            ])
 
     # Overall-scope discount: shown after all items
     if discount_amount > 0 and discount_scope == "overall":
