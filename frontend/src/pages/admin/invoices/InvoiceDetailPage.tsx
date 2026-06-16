@@ -18,7 +18,7 @@ import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/contexts/ToastContext";
 import { invoicesService } from "@/services/invoices";
 import { paymentsService } from "@/services/payments";
-import { getApiErrorMessage } from "@/services/api";
+import { api, getApiErrorMessage } from "@/services/api";
 import {
   type Invoice,
   INVOICE_STATUS_COLORS,
@@ -174,8 +174,26 @@ export function InvoiceDetailPage() {
     onError: (err) => showToast(getApiErrorMessage(err), "error"),
   });
 
+  // ── PDF preview ──────────────────────────────────────────────────────────
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  async function loadPdfPreview() {
+    if (pdfBlobUrl) return;
+    setPdfLoading(true);
+    try {
+      const resp = await api.get(`/invoices/${id}/pdf`, { responseType: "blob" });
+      const blob = new Blob([resp.data], { type: "application/pdf" });
+      setPdfBlobUrl(URL.createObjectURL(blob));
+    } catch {
+      showToast("Failed to load PDF preview", "error");
+    } finally {
+      setPdfLoading(false);
+    }
+  }
+
   // ── Active tab ───────────────────────────────────────────────────────────
-  const [tab, setTab] = useState<"payments" | "history">("payments");
+  const [tab, setTab] = useState<"payments" | "history" | "preview">("payments");
 
   if (isLoading || !inv) {
     return (
@@ -373,16 +391,37 @@ export function InvoiceDetailPage() {
             <Card>
               <CardContent className="pt-6">
                 <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Pricing
+                  Pricing Breakdown
                 </p>
                 <table className="w-full text-sm">
                   <tbody className="divide-y divide-border">
-                    <tr className="py-2">
-                      <td className="py-2 text-muted-foreground">Base Amount</td>
+                    <tr>
+                      <td className="py-2 text-muted-foreground">Plan Base Amount</td>
                       <td className="py-2 text-right font-medium">
                         {fmtMoney(inv.base_amount)}
                       </td>
                     </tr>
+                    {Number(inv.discount_amount) > 0 && (
+                      <>
+                        <tr>
+                          <td className="py-2 text-accent">
+                            {inv.discount_type === "percentage"
+                              ? `Discount (${inv.discount_value}%)`
+                              : "Discount"}
+                            {inv.discount_label ? ` — ${inv.discount_label}` : ""}
+                          </td>
+                          <td className="py-2 text-right font-medium text-accent">
+                            −{fmtMoney(inv.discount_amount)}
+                          </td>
+                        </tr>
+                        <tr className="text-xs text-muted-foreground">
+                          <td className="py-1.5">Taxable Base</td>
+                          <td className="py-1.5 text-right">
+                            {fmtMoney(Number(inv.base_amount) - Number(inv.discount_amount))}
+                          </td>
+                        </tr>
+                      </>
+                    )}
                     <tr>
                       <td className="py-2 text-muted-foreground">
                         GST ({inv.gst_percentage}%)
@@ -391,6 +430,12 @@ export function InvoiceDetailPage() {
                         {fmtMoney(inv.gst_amount)}
                       </td>
                     </tr>
+                    {inv.line_items && inv.line_items.map((item, i) => (
+                      <tr key={i}>
+                        <td className="py-2 text-muted-foreground">{item.description}</td>
+                        <td className="py-2 text-right font-medium">{fmtMoney(item.amount)}</td>
+                      </tr>
+                    ))}
                     <tr className="font-semibold">
                       <td className="py-2 text-foreground">Total Amount</td>
                       <td className="py-2 text-right text-base font-bold text-primary">
@@ -469,10 +514,13 @@ export function InvoiceDetailPage() {
         {/* ── Tabs: Payments + History ─────────────────────────────────── */}
         <Card>
           <div className="flex border-b border-border">
-            {(["payments", "history"] as const).map((t) => (
+            {(["payments", "history", "preview"] as const).map((t) => (
               <button
                 key={t}
-                onClick={() => setTab(t)}
+                onClick={() => {
+                  setTab(t);
+                  if (t === "preview") loadPdfPreview();
+                }}
                 className={`px-5 py-3 text-sm font-medium capitalize transition-colors ${
                   tab === t
                     ? "border-b-2 border-primary text-primary"
@@ -481,7 +529,9 @@ export function InvoiceDetailPage() {
               >
                 {t === "payments"
                   ? `Payments (${inv.payments.length})`
-                  : `Change History (${inv.change_logs.length})`}
+                  : t === "history"
+                  ? `Change History (${inv.change_logs.length})`
+                  : "PDF Preview"}
               </button>
             ))}
           </div>
@@ -540,6 +590,25 @@ export function InvoiceDetailPage() {
                   </tbody>
                 </table>
               )
+            ) : tab === "preview" ? (
+              <div className="p-4">
+                {pdfLoading ? (
+                  <div className="flex h-64 items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    Loading PDF preview…
+                  </div>
+                ) : pdfBlobUrl ? (
+                  <iframe
+                    src={pdfBlobUrl}
+                    title="Invoice PDF Preview"
+                    className="h-[820px] w-full rounded-lg border border-border"
+                  />
+                ) : (
+                  <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
+                    Click "PDF Preview" to load the document.
+                  </div>
+                )}
+              </div>
             ) : inv.change_logs.length === 0 ? (
               <div className="py-12 text-center text-sm text-muted-foreground">
                 No change history yet.
