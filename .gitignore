@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Environment
+.env
+backend/.env
+frontend/.env
+
+# Storage (runtime-generated)
+storage/customers/
+storage/invoices/
+storage/company/
+storage/exports/
+storage/temp/
+
+# Logs / OS
+*.log
+.DS_Store
+
+# IDE
+.idea/
+.vscode/

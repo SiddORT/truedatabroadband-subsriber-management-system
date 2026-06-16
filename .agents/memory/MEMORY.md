@@ -1,0 +1,1 @@
+- [Email validator .local](email-validator-local-domain.md) — Pydantic EmailStr rejects `.local` domains; use plain `str` for fields that accept `admin@truedata.local`.
