@@ -147,7 +147,6 @@ export function InvoiceCreatePage() {
   const step1Done = !!subscriptionId;
   const step2Done = !!billingStart && !!billingEnd;
   const step3Done = !!invoiceDate;
-  const canSubmit = step1Done && step2Done && step3Done && !mutation.isPending;
 
   // ── Custom items helpers ────────────────────────────────────────────────
   function addCustomItem() {
