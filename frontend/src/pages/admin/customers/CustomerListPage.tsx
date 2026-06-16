@@ -97,6 +97,16 @@ export function CustomerListPage() {
 
   const columns: DataTableColumn<Customer>[] = [
     {
+      key: "_sr",
+      header: "Sr. No.",
+      className: "w-14 text-center",
+      render: (_row, index) => (
+        <span className="text-sm text-muted-foreground tabular-nums">
+          {(tableState.page - 1) * tableState.pageSize + index + 1}
+        </span>
+      ),
+    },
+    {
       key: "customer_code",
       header: "Code",
       sortable: true,

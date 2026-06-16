@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # Project
-    PROJECT_NAME: str = "True Data Broadband Services Pvt. Ltd."
+    PROJECT_NAME: str = "True Data Broadband Pvt. Ltd."
     API_V1_PREFIX: str = "/api/v1"
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
 

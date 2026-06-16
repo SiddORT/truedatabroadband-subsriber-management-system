@@ -22,7 +22,7 @@ export interface DataTableColumn<T> {
   key: string;
   header: string;
   sortable?: boolean;
-  render?: (row: T) => React.ReactNode;
+  render?: (row: T, index: number) => React.ReactNode;
   className?: string;
 }
 
@@ -159,12 +159,12 @@ export function DataTable<T>({
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((row) => (
+              rows.map((row, rowIndex) => (
                 <TableRow key={rowKey(row)}>
                   {columns.map((col) => (
                     <TableCell key={col.key} className={col.className}>
                       {col.render
-                        ? col.render(row)
+                        ? col.render(row, rowIndex)
                         : String((row as Record<string, unknown>)[col.key] ?? "")}
                     </TableCell>
                   ))}

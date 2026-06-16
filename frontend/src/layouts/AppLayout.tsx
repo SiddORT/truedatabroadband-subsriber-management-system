@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
-const COMPANY_NAME = "True Data Broadband Services Pvt. Ltd.";
+const COMPANY_NAME = "True Data Broadband Pvt. Ltd.";
 
 interface NavItem {
   label: string;

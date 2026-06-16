@@ -75,7 +75,7 @@ export function LoginPage({ role, title, subtitle, redirectTo }: LoginPageProps)
             built for reliability.
           </h2>
           <p className="max-w-md text-sm text-white/60">
-            True Data Broadband Services Pvt. Ltd. — a secure platform for
+            True Data Broadband Pvt. Ltd. — a secure platform for
             managing your network operations.
           </p>
         </div>

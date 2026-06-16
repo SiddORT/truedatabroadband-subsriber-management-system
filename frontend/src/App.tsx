@@ -31,7 +31,7 @@ export default function App() {
           <LoginPage
             role="SUPERADMIN"
             title="Admin Portal"
-            subtitle="Sign in to manage True Data Broadband Services."
+            subtitle="Sign in to manage True Data Broadband."
             redirectTo="/admin/dashboard"
           />
         }

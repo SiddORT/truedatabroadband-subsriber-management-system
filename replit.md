@@ -1,4 +1,4 @@
-# True Data Broadband Services Pvt. Ltd. — Broadband Management System
+# True Data Broadband Pvt. Ltd. — Broadband Management System
 
 ## Overview
 Phase 1 (Foundation & Authentication) of a broadband management system. This phase
