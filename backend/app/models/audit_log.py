@@ -25,6 +25,12 @@ ACTION_PRICING_CREATED = "pricing_created"
 ACTION_PRICING_UPDATED = "pricing_updated"
 ACTION_PRICING_DELETED = "pricing_deleted"
 
+# Subscription domain
+ACTION_SUBSCRIPTION_CREATED = "subscription_created"
+ACTION_SUBSCRIPTION_RENEWED = "subscription_renewed"
+ACTION_SUBSCRIPTION_STATUS_CHANGED = "subscription_status_changed"
+ACTION_SUBSCRIPTION_PLAN_CHANGED = "subscription_plan_changed"
+
 
 class AuditLog(Base):
     """

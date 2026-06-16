@@ -1,11 +1,18 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft, Key, ShieldOff, ShieldCheck, Edit, Loader2,
   CheckCircle2, XCircle, User, MapPin, CreditCard,
   FolderUp, Info, UserCheck, Building2, FileText, ExternalLink,
+  RefreshCw,
 } from "lucide-react";
+import { subscriptionsService } from "@/services/subscriptions";
+import {
+  SUBSCRIPTION_STATUS_COLORS,
+  SUBSCRIPTION_STATUS_LABELS,
+} from "@/types/subscription";
+import { BILLING_CYCLE_LABELS } from "@/types/plan";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -350,23 +357,167 @@ function MoreInfoTab({ customer }: { customer: Customer }) {
   );
 }
 
-function AccountTab() {
+function AccountTab({ customerId }: { customerId: string }) {
+  const { data: subs = [], isLoading } = useQuery({
+    queryKey: ["customer-subscriptions", customerId],
+    queryFn: () => subscriptionsService.listByCustomer(customerId),
+    enabled: !!customerId,
+  });
+
+  const active = subs.find((s) => s.status === "ACTIVE");
+
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      {[
-        { icon: Building2, title: "Subscription",    text: "Subscription details will appear here in a future phase." },
-        { icon: Info,      title: "Invoice History", text: "Invoice history will appear here in a future phase." },
-      ].map(({ icon: Icon, title, text }) => (
-        <div key={title} className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-border/60 p-10 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted/50">
-            <Icon className="h-6 w-6 text-muted-foreground/40" />
+    <div className="space-y-6">
+      {/* Current Subscription */}
+      <div>
+        <h4 className="mb-3 text-sm font-semibold text-foreground">
+          Current Subscription
+        </h4>
+        {isLoading ? (
+          <div className="flex h-24 items-center justify-center">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
           </div>
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <p className="text-xs text-muted-foreground/70 mt-1">{text}</p>
+        ) : active ? (
+          <div className="rounded-xl border border-border bg-muted/20 p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                  <RefreshCw className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    {active.plan_name_snapshot}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {active.speed_mbps_snapshot} Mbps ·{" "}
+                    {BILLING_CYCLE_LABELS[active.billing_cycle_snapshot] ??
+                      active.billing_cycle_snapshot}
+                  </p>
+                </div>
+              </div>
+              <span
+                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${SUBSCRIPTION_STATUS_COLORS[active.status]}`}
+              >
+                {SUBSCRIPTION_STATUS_LABELS[active.status]}
+              </span>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-3 text-sm sm:grid-cols-4">
+              <div>
+                <p className="text-xs text-muted-foreground">Sub. Code</p>
+                <p className="font-mono text-xs font-medium">
+                  {active.subscription_code}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Amount</p>
+                <p className="font-semibold text-primary">
+                  ₹
+                  {Number(active.total_price_snapshot).toLocaleString("en-IN", {
+                    minimumFractionDigits: 2,
+                  })}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Renewal Date</p>
+                <p className="font-medium">
+                  {new Date(active.renewal_date).toLocaleDateString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Expiry Date</p>
+                <p className="font-medium">
+                  {new Date(active.expiry_date).toLocaleDateString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 flex justify-end">
+              <Link
+                to={`/admin/subscriptions/${active.id}`}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                View details →
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-border/60 p-8 text-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/50">
+              <Building2 className="h-5 w-5 text-muted-foreground/40" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">
+                No Active Subscription
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground/70">
+                Assign a plan via Subscriptions →
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Subscription History */}
+      {subs.length > 1 && (
+        <div>
+          <h4 className="mb-3 text-sm font-semibold text-foreground">
+            History
+          </h4>
+          <div className="divide-y divide-border rounded-xl border border-border">
+            {subs
+              .filter((s) => s.status !== "ACTIVE")
+              .slice(0, 5)
+              .map((s) => (
+                <Link
+                  key={s.id}
+                  to={`/admin/subscriptions/${s.id}`}
+                  className="flex items-center justify-between px-4 py-3 hover:bg-muted/30"
+                >
+                  <div>
+                    <p className="font-mono text-xs font-medium text-foreground">
+                      {s.subscription_code}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {s.plan_name_snapshot} ·{" "}
+                      {new Date(s.start_date).toLocaleDateString("en-IN", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${SUBSCRIPTION_STATUS_COLORS[s.status]}`}
+                  >
+                    {SUBSCRIPTION_STATUS_LABELS[s.status]}
+                  </span>
+                </Link>
+              ))}
           </div>
         </div>
-      ))}
+      )}
+
+      {/* Invoice History placeholder */}
+      <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-border/60 p-8 text-center">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/50">
+          <Info className="h-5 w-5 text-muted-foreground/40" />
+        </div>
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">
+            Invoice History
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground/70">
+            Invoice history will appear here in a future phase.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -486,7 +637,7 @@ export function CustomerDetailPage() {
             {activeTab === "addresses" && <AddressesTab customer={customer} />}
             {activeTab === "identity"  && <IdentityDocsTab customer={customer} />}
             {activeTab === "more"      && <MoreInfoTab customer={customer} />}
-            {activeTab === "account"   && <AccountTab />}
+            {activeTab === "account"   && <AccountTab customerId={id!} />}
           </CardContent>
         </Card>
       </div>

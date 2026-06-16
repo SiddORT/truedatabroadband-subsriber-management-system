@@ -14,6 +14,10 @@ import { CustomerEditPage } from "@/pages/admin/customers/CustomerEditPage";
 import { PlanListPage } from "@/pages/admin/plans/PlanListPage";
 import { PlanCreatePage } from "@/pages/admin/plans/PlanCreatePage";
 import { PlanDetailPage } from "@/pages/admin/plans/PlanDetailPage";
+import { SubscriptionListPage } from "@/pages/admin/subscriptions/SubscriptionListPage";
+import { SubscriptionCreatePage } from "@/pages/admin/subscriptions/SubscriptionCreatePage";
+import { SubscriptionDetailPage } from "@/pages/admin/subscriptions/SubscriptionDetailPage";
+import { ClientSubscriptionPage } from "@/pages/client/ClientSubscriptionPage";
 
 /** Redirect to /change-password if logged in and forced, else to login. */
 function RootRedirect() {
@@ -127,11 +131,46 @@ export default function App() {
         }
       />
 
+      {/* Subscriptions */}
+      <Route
+        path="/admin/subscriptions"
+        element={
+          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+            <SubscriptionListPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/subscriptions/new"
+        element={
+          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+            <SubscriptionCreatePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/subscriptions/:id"
+        element={
+          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+            <SubscriptionDetailPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Client */}
       <Route
         path="/client/dashboard"
         element={
           <ProtectedRoute role="CLIENT" loginPath="/client/login">
             <ClientDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/client/subscription"
+        element={
+          <ProtectedRoute role="CLIENT" loginPath="/client/login">
+            <ClientSubscriptionPage />
           </ProtectedRoute>
         }
       />
