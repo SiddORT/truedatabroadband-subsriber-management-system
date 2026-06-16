@@ -221,6 +221,7 @@ export function SubscriptionListPage() {
               isLoading={isLoading}
               state={tableState}
               onStateChange={setTableState}
+              rowKey={(row) => row.id}
               emptyMessage="No subscriptions found. Assign a plan to a customer to get started."
             />
           </CardContent>
