@@ -20,31 +20,33 @@ def verify_password(plain_password: str, password_hash: str) -> bool:
     return pwd_context.verify(plain_password, password_hash)
 
 
-def _create_token(subject: str, token_type: str, expires_delta: timedelta) -> str:
+def create_access_token(subject: str) -> str:
     now = datetime.now(timezone.utc)
     payload: dict[str, Any] = {
         "sub": str(subject),
-        "type": token_type,
+        "type": ACCESS_TOKEN_TYPE,
         "iat": now,
-        "exp": now + expires_delta,
+        "exp": now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     }
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
-def create_access_token(subject: str) -> str:
-    return _create_token(
-        subject,
-        ACCESS_TOKEN_TYPE,
-        timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
-    )
+def create_refresh_token(subject: str, jti: str) -> str:
+    """
+    Create a refresh JWT that includes a *jti* (JWT Token ID) claim.
 
-
-def create_refresh_token(subject: str) -> str:
-    return _create_token(
-        subject,
-        REFRESH_TOKEN_TYPE,
-        timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
-    )
+    The jti is stored in the database so individual tokens can be revoked
+    without invalidating the signing key.
+    """
+    now = datetime.now(timezone.utc)
+    payload: dict[str, Any] = {
+        "sub": str(subject),
+        "jti": jti,
+        "type": REFRESH_TOKEN_TYPE,
+        "iat": now,
+        "exp": now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def decode_token(token: str) -> dict[str, Any]:
