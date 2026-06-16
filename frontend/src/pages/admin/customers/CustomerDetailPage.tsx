@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft, Key, ShieldOff, ShieldCheck, Edit, Loader2,
-  CheckCircle2, XCircle, Download, User, MapPin, CreditCard,
-  FolderUp, Info, UserCheck, Building2,
+  CheckCircle2, XCircle, User, MapPin, CreditCard,
+  FolderUp, Info, UserCheck, Building2, FileText, ExternalLink,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -42,13 +42,8 @@ function TabBar({ tabs, active, onChange }: { tabs: TabDef[]; active: string; on
         const isActive = active === key;
         return (
           <button key={key} onClick={() => onChange(key)}
-            className={`
-              flex shrink-0 items-center gap-2 border-b-2 px-5 py-3.5 text-sm font-medium transition-colors -mb-px
-              ${isActive
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"}
-            `}
-          >
+            className={`flex shrink-0 items-center gap-2 border-b-2 px-5 py-3.5 text-sm font-medium transition-colors -mb-px
+              ${isActive ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"}`}>
             <Icon className="h-4 w-4" />{label}
           </button>
         );
@@ -57,7 +52,7 @@ function TabBar({ tabs, active, onChange }: { tabs: TabDef[]; active: string; on
   );
 }
 
-// ── Info display ──────────────────────────────────────────────────────────────
+// ── Info primitives ───────────────────────────────────────────────────────────
 
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -80,8 +75,6 @@ function BoolRow({ label, value }: { label: string; value: boolean }) {
   );
 }
 
-// ── Section sub-header ────────────────────────────────────────────────────────
-
 function SectionTitle({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
   return (
     <div className="mb-3 flex items-center gap-2">
@@ -102,49 +95,90 @@ function InfoPanel({ icon, title, children }: { icon: React.ElementType; title: 
   );
 }
 
-// ── Document helpers ──────────────────────────────────────────────────────────
+// ── Document card with preview ─────────────────────────────────────────────────
 
-async function downloadDocument(customerId: string, docType: DocType, filename: string) {
-  const token = tokenService.getAccess();
-  const resp = await fetch(`/api/v1/customers/${customerId}/documents/${docType}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!resp.ok) throw new Error("Download failed");
-  const blob = await resp.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+function getDocFileType(path: string | null) {
+  const ext = path?.split(".").pop()?.toLowerCase() ?? "";
+  const isImage = ["jpg", "jpeg", "png", "webp", "gif"].includes(ext);
+  const isPdf   = ext === "pdf";
+  const isDoc   = ["doc", "docx"].includes(ext);
+  const isExcel = ["xls", "xlsx", "csv"].includes(ext);
+  const color = isPdf ? "text-red-500" : isDoc ? "text-blue-500" : isExcel ? "text-green-500" : "text-muted-foreground";
+  const badge = isPdf ? "PDF" : isDoc ? "DOC" : isExcel ? "XLS" : ext.toUpperCase() || "FILE";
+  const bg    = isPdf ? "bg-red-50" : isDoc ? "bg-blue-50" : isExcel ? "bg-green-50" : "bg-muted/40";
+  return { ext, isImage, isPdf, isDoc, isExcel, color, badge, bg };
 }
 
-function DocCard({ label, docType, customerId, hasDoc }: {
-  label: string; docType: DocType; customerId: string; hasDoc: boolean;
+function ImagePreview({ customerId, docType }: { customerId: string; docType: DocType }) {
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = tokenService.getAccess();
+    let objectUrl = "";
+    fetch(`/api/v1/customers/${customerId}/documents/${docType}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((r) => { if (!r.ok) throw new Error(); return r.blob(); })
+      .then((blob) => { objectUrl = URL.createObjectURL(blob); setUrl(objectUrl); })
+      .catch(() => {});
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [customerId, docType]);
+
+  if (!url) return <div className="h-28 w-full animate-pulse rounded-lg bg-muted/60" />;
+  return <img src={url} alt="preview" className="h-28 w-full rounded-lg object-cover shadow-sm" />;
+}
+
+function DocCard({ label, docType, customerId, hasDoc, docPath }: {
+  label: string; docType: DocType; customerId: string; hasDoc: boolean; docPath: string | null;
 }) {
   const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
-  const handleDownload = async () => {
+  const { isImage, color, badge, bg } = getDocFileType(docPath);
+
+  const handleOpen = async () => {
     setLoading(true);
-    try { await downloadDocument(customerId, docType, label); }
-    catch { showToast("Failed to download document", "error"); }
-    finally { setLoading(false); }
+    try {
+      const token = tokenService.getAccess();
+      const resp = await fetch(`/api/v1/customers/${customerId}/documents/${docType}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!resp.ok) throw new Error();
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } catch {
+      showToast("Failed to open document", "error");
+    } finally {
+      setLoading(false);
+    }
   };
+
   return (
-    <div className={`flex flex-col items-center gap-3 rounded-xl border-2 p-5 text-center transition-colors
-      ${hasDoc ? "border-green-200 bg-green-50/50" : "border-border/60 bg-muted/20"}`}>
-      <div className={`flex h-10 w-10 items-center justify-center rounded-full ${hasDoc ? "bg-green-100" : "bg-muted"}`}>
-        {hasDoc ? <CheckCircle2 className="h-5 w-5 text-green-600" /> : <XCircle className="h-5 w-5 text-muted-foreground/40" />}
-      </div>
-      <div>
-        <p className="text-sm font-semibold">{label}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">{hasDoc ? "Uploaded" : "Not uploaded"}</p>
-      </div>
-      {hasDoc && (
-        <Button variant="outline" size="sm" onClick={handleDownload} disabled={loading} className="w-full">
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-          Download
-        </Button>
+    <div className={`flex flex-col gap-3 rounded-xl border-2 p-4 transition-colors
+      ${hasDoc ? "border-primary/20 bg-card" : "border-border/40 bg-muted/10"}`}>
+      <p className="text-sm font-semibold">{label}</p>
+      {hasDoc ? (
+        <>
+          {isImage ? (
+            <ImagePreview customerId={customerId} docType={docType} />
+          ) : (
+            <div className="flex h-28 items-center justify-center rounded-lg bg-muted/30">
+              <div className={`flex flex-col items-center gap-1.5 rounded-xl p-4 ${bg}`}>
+                <FileText className={`h-8 w-8 ${color}`} />
+                <span className={`text-[10px] font-bold ${color}`}>{badge}</span>
+              </div>
+            </div>
+          )}
+          <Button variant="outline" size="sm" onClick={handleOpen} disabled={loading} className="w-full gap-1.5">
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
+            Open in New Tab
+          </Button>
+        </>
+      ) : (
+        <div className="flex h-28 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/50">
+          <XCircle className="h-6 w-6 text-muted-foreground/30" />
+          <p className="text-xs text-muted-foreground">Not uploaded</p>
+        </div>
       )}
     </div>
   );
@@ -172,9 +206,7 @@ function OverviewTab({ customer }: { customer: Customer }) {
         <InfoRow label="Mobile Number" value={customer.mobile_number} />
         <InfoRow label="Alternate Mobile" value={customer.alternate_mobile_number} />
         <InfoRow label="Email Address" value={customer.email} />
-        {(customer.spokesperson_name) && (
-          <InfoRow label="Spokesperson" value={customer.spokesperson_name} />
-        )}
+        {customer.spokesperson_name && <InfoRow label="Spokesperson" value={customer.spokesperson_name} />}
       </InfoPanel>
 
       <InfoPanel icon={CheckCircle2} title="Account Status">
@@ -191,42 +223,61 @@ function OverviewTab({ customer }: { customer: Customer }) {
         {customer.connection_date && (
           <InfoRow label="Connection Date" value={new Date(customer.connection_date).toLocaleDateString("en-IN")} />
         )}
-        {customer.reference_source && (
-          <InfoRow label="Reference" value={customer.reference_source} />
-        )}
+        {customer.reference_source && <InfoRow label="Reference" value={customer.reference_source} />}
       </InfoPanel>
     </div>
+  );
+}
+
+function AddressBlock({ title, address, district, city, state, pincode, landmark, line2 }: {
+  title: string; address?: string | null; district?: string | null; city?: string | null;
+  state?: string | null; pincode?: string | null; landmark?: string | null; line2?: string | null;
+}) {
+  return (
+    <InfoPanel icon={MapPin} title={title}>
+      <InfoRow label="Address Line 1" value={address} />
+      {line2 && <InfoRow label="Address Line 2" value={line2} />}
+      {landmark && <InfoRow label="Landmark" value={landmark} />}
+      <InfoRow label="Pincode" value={pincode} />
+      <InfoRow label="District" value={district} />
+      <InfoRow label="City" value={city} />
+      <InfoRow label="State" value={state} />
+    </InfoPanel>
   );
 }
 
 function AddressesTab({ customer }: { customer: Customer }) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      <InfoPanel icon={MapPin} title="Installation Address">
-        <InfoRow label="Address Line 1" value={customer.installation_address} />
-        <InfoRow label="Address Line 2" value={customer.address_line_2} />
-        <InfoRow label="Landmark" value={customer.landmark} />
-        <InfoRow label="City" value={customer.city} />
-        <InfoRow label="State" value={customer.state} />
-        <InfoRow label="Pincode" value={customer.pincode} />
-      </InfoPanel>
-      <InfoPanel icon={MapPin} title="Billing Address">
-        {customer.billing_same_as_installation ? (
+      <AddressBlock
+        title="Installation Address"
+        address={customer.installation_address}
+        line2={customer.address_line_2}
+        landmark={customer.landmark}
+        pincode={customer.pincode}
+        district={customer.district}
+        city={customer.city}
+        state={customer.state}
+      />
+      {customer.billing_same_as_installation ? (
+        <InfoPanel icon={MapPin} title="Billing Address">
           <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground">
             <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
             Same as installation address
           </div>
-        ) : (
-          <>
-            <InfoRow label="Address Line 1" value={customer.billing_address_line_1} />
-            <InfoRow label="Address Line 2" value={customer.billing_address_line_2} />
-            <InfoRow label="Landmark" value={customer.billing_landmark} />
-            <InfoRow label="City" value={customer.billing_city} />
-            <InfoRow label="State" value={customer.billing_state} />
-            <InfoRow label="Pincode" value={customer.billing_pincode} />
-          </>
-        )}
-      </InfoPanel>
+        </InfoPanel>
+      ) : (
+        <AddressBlock
+          title="Billing Address"
+          address={customer.billing_address_line_1}
+          line2={customer.billing_address_line_2}
+          landmark={customer.billing_landmark}
+          pincode={customer.billing_pincode}
+          district={customer.billing_district}
+          city={customer.billing_city}
+          state={customer.billing_state}
+        />
+      )}
     </div>
   );
 }
@@ -254,9 +305,12 @@ function IdentityDocsTab({ customer }: { customer: Customer }) {
             <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Uploaded Documents</span>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <DocCard label="Profile Photo" docType="profile_photo" customerId={customer.id} hasDoc={!!customer.profile_photo_path} />
-            <DocCard label="KYC Document" docType="kyc_document" customerId={customer.id} hasDoc={!!customer.kyc_document_path} />
-            <DocCard label="Agreement" docType="agreement_document" customerId={customer.id} hasDoc={!!customer.agreement_document_path} />
+            <DocCard label="Profile Photo" docType="profile_photo" customerId={customer.id}
+              hasDoc={!!customer.profile_photo_path} docPath={customer.profile_photo_path} />
+            <DocCard label="KYC Document" docType="kyc_document" customerId={customer.id}
+              hasDoc={!!customer.kyc_document_path} docPath={customer.kyc_document_path} />
+            <DocCard label="Agreement" docType="agreement_document" customerId={customer.id}
+              hasDoc={!!customer.agreement_document_path} docPath={customer.agreement_document_path} />
           </div>
         </div>
       </div>
@@ -300,7 +354,7 @@ function AccountTab() {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       {[
-        { icon: Building2, title: "Subscription", text: "Subscription details will appear here in a future phase." },
+        { icon: Building2, title: "Subscription",    text: "Subscription details will appear here in a future phase." },
         { icon: Info,      title: "Invoice History", text: "Invoice history will appear here in a future phase." },
       ].map(({ icon: Icon, title, text }) => (
         <div key={title} className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-border/60 p-10 text-center">
@@ -320,11 +374,11 @@ function AccountTab() {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 const TABS: TabDef[] = [
-  { key: "overview",  label: "Overview",        icon: User },
-  { key: "addresses", label: "Addresses",        icon: MapPin },
-  { key: "identity",  label: "Identity & Docs",  icon: CreditCard },
-  { key: "more",      label: "More Info",         icon: Info },
-  { key: "account",   label: "Account",           icon: Building2 },
+  { key: "overview",  label: "Overview",       icon: User },
+  { key: "addresses", label: "Addresses",       icon: MapPin },
+  { key: "identity",  label: "Identity & Docs", icon: CreditCard },
+  { key: "more",      label: "More Info",        icon: Info },
+  { key: "account",   label: "Account",          icon: Building2 },
 ];
 
 export function CustomerDetailPage() {
@@ -372,7 +426,6 @@ export function CustomerDetailPage() {
       </AppLayout>
     );
   }
-
   if (!customer) {
     return (
       <AppLayout title="Customer" portalLabel="Administration">
@@ -389,7 +442,6 @@ export function CustomerDetailPage() {
   return (
     <AppLayout title={customer.full_name} portalLabel="Administration">
       <div className="space-y-4">
-
         {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-start gap-3">
@@ -426,7 +478,7 @@ export function CustomerDetailPage() {
           </div>
         </div>
 
-        {/* Full-width tabbed card */}
+        {/* Tabbed card */}
         <Card className="overflow-hidden">
           <TabBar tabs={TABS} active={activeTab} onChange={setActiveTab} />
           <CardContent className="pt-5 pb-6">
@@ -439,7 +491,7 @@ export function CustomerDetailPage() {
         </Card>
       </div>
 
-      {/* Dialogs */}
+      {/* Status dialog */}
       <Dialog open={statusDialog.open} onClose={() => setStatusDialog({ open: false, newStatus: null })} title="Change Status">
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
@@ -457,6 +509,7 @@ export function CustomerDetailPage() {
         </div>
       </Dialog>
 
+      {/* Reset password dialog */}
       <Dialog open={resetDialog.open} onClose={() => setResetDialog({ open: false, tempPassword: null })} title="New Temporary Password">
         <div className="space-y-4">
           <div className="rounded-lg bg-muted/50 p-4">

@@ -26,7 +26,7 @@ export function Field({
   );
 }
 
-// ── Phone field — +91 country code prefix (India default) ────────────────────
+// ── Phone field — +91 country code prefix ─────────────────────────────────────
 
 export function PhoneField({
   label, error, required, className, hint, placeholder = "9876543210", registerProps,
@@ -53,7 +53,7 @@ export function PhoneField({
   );
 }
 
-// ── Pincode input — auto-fills city + state via India Post API ───────────────
+// ── Pincode input — auto-fills district + state via India Post API ─────────────
 
 interface PostOffice {
   Name: string;
@@ -65,6 +65,10 @@ interface PostalRecord {
   PostOffice: PostOffice[] | null;
 }
 
+/**
+ * onAutoFill receives (district, state) auto-fetched from the India Post API.
+ * City is left for the user to fill manually.
+ */
 export function PincodeAutoFillInput({
   label = "Pincode", error, required, className,
   registerProps,
@@ -72,7 +76,7 @@ export function PincodeAutoFillInput({
 }: {
   label?: string; error?: string; required?: boolean; className?: string;
   registerProps: Record<string, any>;
-  onAutoFill: (city: string, state: string) => void;
+  onAutoFill: (district: string, state: string) => void;
 }) {
   const [fetching, setFetching] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);

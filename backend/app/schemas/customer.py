@@ -61,18 +61,20 @@ class CustomerCreate(BaseModel):
     installation_address: str
     address_line_2: Optional[str] = None
     landmark: Optional[str] = None
+    pincode: str
+    district: Optional[str] = None
     city: str
     state: str
-    pincode: str
 
     # Billing address
     billing_same_as_installation: bool = True
     billing_address_line_1: Optional[str] = None
     billing_address_line_2: Optional[str] = None
     billing_landmark: Optional[str] = None
+    billing_pincode: Optional[str] = None
+    billing_district: Optional[str] = None
     billing_city: Optional[str] = None
     billing_state: Optional[str] = None
-    billing_pincode: Optional[str] = None
 
     # Spokesperson
     spokesperson_name: Optional[str] = None
@@ -179,18 +181,20 @@ class CustomerUpdate(BaseModel):
     installation_address: Optional[str] = None
     address_line_2: Optional[str] = None
     landmark: Optional[str] = None
+    pincode: Optional[str] = None
+    district: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
-    pincode: Optional[str] = None
 
     # Billing address
     billing_same_as_installation: Optional[bool] = None
     billing_address_line_1: Optional[str] = None
     billing_address_line_2: Optional[str] = None
     billing_landmark: Optional[str] = None
+    billing_pincode: Optional[str] = None
+    billing_district: Optional[str] = None
     billing_city: Optional[str] = None
     billing_state: Optional[str] = None
-    billing_pincode: Optional[str] = None
 
     # Spokesperson
     spokesperson_name: Optional[str] = None
@@ -289,18 +293,20 @@ class CustomerOut(BaseModel):
     installation_address: str
     address_line_2: Optional[str] = None
     landmark: Optional[str] = None
+    pincode: str
+    district: Optional[str] = None
     city: str
     state: str
-    pincode: str
 
     # Billing address
     billing_same_as_installation: bool = True
     billing_address_line_1: Optional[str] = None
     billing_address_line_2: Optional[str] = None
     billing_landmark: Optional[str] = None
+    billing_pincode: Optional[str] = None
+    billing_district: Optional[str] = None
     billing_city: Optional[str] = None
     billing_state: Optional[str] = None
-    billing_pincode: Optional[str] = None
 
     # Spokesperson
     spokesperson_name: Optional[str] = None

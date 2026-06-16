@@ -79,9 +79,10 @@ class Customer(Base, BaseModelMixin):
     installation_address: Mapped[str] = mapped_column(Text, nullable=False)
     address_line_2: Mapped[str | None] = mapped_column(Text, nullable=True)
     landmark: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    pincode: Mapped[str] = mapped_column(String(10), nullable=False)
+    district: Mapped[str | None] = mapped_column(String(100), nullable=True)
     city: Mapped[str] = mapped_column(String(100), nullable=False)
     state: Mapped[str] = mapped_column(String(100), nullable=False)
-    pincode: Mapped[str] = mapped_column(String(10), nullable=False)
 
     # ── Billing address ──────────────────────────────────────────────────────
     billing_same_as_installation: Mapped[bool] = mapped_column(
@@ -90,9 +91,10 @@ class Customer(Base, BaseModelMixin):
     billing_address_line_1: Mapped[str | None] = mapped_column(Text, nullable=True)
     billing_address_line_2: Mapped[str | None] = mapped_column(Text, nullable=True)
     billing_landmark: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    billing_pincode: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    billing_district: Mapped[str | None] = mapped_column(String(100), nullable=True)
     billing_city: Mapped[str | None] = mapped_column(String(100), nullable=True)
     billing_state: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    billing_pincode: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
     # ── Spokesperson ─────────────────────────────────────────────────────────
     spokesperson_name: Mapped[str | None] = mapped_column(String(255), nullable=True)

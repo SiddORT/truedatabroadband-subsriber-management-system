@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Loader2, ArrowLeft, ArrowRight, Upload, CheckCircle2, Check,
   Users, User, Building2, CreditCard, MapPin, Receipt,
-  UserCheck, Info, FolderUp,
+  UserCheck, Info, FolderUp, FileText,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -19,9 +19,7 @@ import { customersService } from "@/services/customers";
 import type { DocType } from "@/services/customers";
 import { getApiErrorMessage } from "@/services/api";
 import type { Customer, CustomerUpdatePayload } from "@/types/customer";
-import {
-  Field, PhoneField, PincodeAutoFillInput,
-} from "@/components/customers/CustomerFormParts";
+import { Field, PhoneField, PincodeAutoFillInput } from "@/components/customers/CustomerFormParts";
 
 // ── Static data ───────────────────────────────────────────────────────────────
 
@@ -35,15 +33,13 @@ const INDIAN_STATES = [
   "Jammu and Kashmir","Ladakh","Lakshadweep","Puducherry",
 ];
 const KYC_OPTIONS = [
-  { value: "AADHAAR", label: "Aadhaar Card" },
-  { value: "PAN",     label: "PAN Card" },
-  { value: "PASSPORT", label: "Passport" },
-  { value: "VOTER_ID", label: "Voter ID" },
-  { value: "DRIVING_LICENSE", label: "Driving License" },
+  { value: "AADHAAR",          label: "Aadhaar Card" },
+  { value: "PAN",              label: "PAN Card" },
+  { value: "PASSPORT",         label: "Passport" },
+  { value: "VOTER_ID",         label: "Voter ID" },
+  { value: "DRIVING_LICENSE",  label: "Driving License" },
 ];
-const REFERENCE_OPTIONS = [
-  "Online","Referral","Walk-In","Agent","Newspaper","Social Media","Other",
-];
+const REFERENCE_OPTIONS = ["Online","Referral","Walk-In","Agent","Newspaper","Social Media","Other"];
 
 // ── Steps ─────────────────────────────────────────────────────────────────────
 
@@ -56,7 +52,8 @@ const STEPS = [
 
 const STEP_FIELDS: Record<number, string[]> = {
   0: ["customer_type","company_name","gst_number","full_name","mobile_number","alternate_mobile_number","email"],
-  1: ["kyc_type","kyc_number","installation_address","address_line_2","landmark","city","state","pincode",
+  1: ["kyc_type","kyc_number","installation_address","address_line_2","landmark",
+      "pincode","district","city","state",
       "billing_same_as_installation","billing_address_line_1","billing_city","billing_state","billing_pincode"],
   2: ["spokesperson_name","spokesperson_mobile","spokesperson_email","spokesperson_designation",
       "connection_date","reference_source","sales_person","notes"],
@@ -79,16 +76,18 @@ const schema = z
     installation_address: z.string().min(3, "Address is required"),
     address_line_2: z.string().optional(),
     landmark: z.string().optional(),
+    pincode: z.string().regex(/^\d{6}$/, "Must be 6 digits"),
+    district: z.string().optional(),
     city: z.string().min(2, "City is required"),
     state: z.string().min(2, "State is required"),
-    pincode: z.string().regex(/^\d{6}$/, "Must be 6 digits"),
     billing_same_as_installation: z.boolean(),
     billing_address_line_1: z.string().optional(),
     billing_address_line_2: z.string().optional(),
     billing_landmark: z.string().optional(),
+    billing_pincode: z.string().optional(),
+    billing_district: z.string().optional(),
     billing_city: z.string().optional(),
     billing_state: z.string().optional(),
-    billing_pincode: z.string().optional(),
     spokesperson_name: z.string().optional(),
     spokesperson_mobile: z.string().regex(/^\d{10}$/, "Must be 10 digits").or(z.literal("")).optional(),
     spokesperson_email: z.string().email("Invalid email").or(z.literal("")).optional(),
@@ -115,10 +114,13 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>;
 
-// ── Clean payload (empty strings → undefined) ─────────────────────────────────
+const SELECT_CLS =
+  "w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
+
+// ── Payload builder ───────────────────────────────────────────────────────────
 
 function buildPayload(v: FormValues): CustomerUpdatePayload {
-  const billingDiff = !v.billing_same_as_installation;
+  const d = !v.billing_same_as_installation;
   return {
     customer_type: v.customer_type,
     company_name:  v.company_name  || undefined,
@@ -127,21 +129,23 @@ function buildPayload(v: FormValues): CustomerUpdatePayload {
     mobile_number: v.mobile_number,
     alternate_mobile_number:  v.alternate_mobile_number  || undefined,
     email: v.email,
-    kyc_type:   (v.kyc_type   as any) || undefined,
+    kyc_type:   (v.kyc_type as any) || undefined,
     kyc_number:  v.kyc_number  || undefined,
     installation_address: v.installation_address,
     address_line_2: v.address_line_2 || undefined,
     landmark:       v.landmark       || undefined,
-    city:  v.city,
-    state: v.state,
-    pincode: v.pincode,
+    pincode:  v.pincode,
+    district: v.district || undefined,
+    city:     v.city,
+    state:    v.state,
     billing_same_as_installation: v.billing_same_as_installation,
-    billing_address_line_1: billingDiff ? (v.billing_address_line_1 || undefined) : undefined,
-    billing_address_line_2: billingDiff ? (v.billing_address_line_2 || undefined) : undefined,
-    billing_landmark:       billingDiff ? (v.billing_landmark       || undefined) : undefined,
-    billing_city:           billingDiff ? (v.billing_city           || undefined) : undefined,
-    billing_state:          billingDiff ? (v.billing_state          || undefined) : undefined,
-    billing_pincode:        billingDiff ? (v.billing_pincode        || undefined) : undefined,
+    billing_address_line_1: d ? (v.billing_address_line_1 || undefined) : undefined,
+    billing_address_line_2: d ? (v.billing_address_line_2 || undefined) : undefined,
+    billing_landmark:       d ? (v.billing_landmark       || undefined) : undefined,
+    billing_pincode:        d ? (v.billing_pincode        || undefined) : undefined,
+    billing_district:       d ? (v.billing_district       || undefined) : undefined,
+    billing_city:           d ? (v.billing_city           || undefined) : undefined,
+    billing_state:          d ? (v.billing_state          || undefined) : undefined,
     spokesperson_name:        v.spokesperson_name        || undefined,
     spokesperson_mobile:      v.spokesperson_mobile      || undefined,
     spokesperson_email:       v.spokesperson_email       || undefined,
@@ -153,12 +157,7 @@ function buildPayload(v: FormValues): CustomerUpdatePayload {
   };
 }
 
-// ── SELECT style ──────────────────────────────────────────────────────────────
-
-const SELECT_CLS =
-  "w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
-
-// ── Section sub-header ────────────────────────────────────────────────────────
+// ── Section title ─────────────────────────────────────────────────────────────
 
 function SectionTitle({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
   return (
@@ -175,17 +174,13 @@ function SectionTitle({ icon: Icon, title }: { icon: React.ElementType; title: s
 
 function WizardProgress({ step, steps }: { step: number; steps: typeof STEPS }) {
   return (
-    <div className="flex items-start gap-0">
+    <div className="flex items-start">
       {steps.map(({ title }, i) => (
         <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
           <div className="flex w-full items-center">
             <div className={`h-0.5 flex-1 ${i === 0 ? "invisible" : i <= step ? "bg-primary" : "bg-border"}`} />
-            <div className={`
-              flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all
-              ${i < step ? "bg-primary text-white shadow-sm"
-                : i === step ? "bg-primary/10 text-primary ring-2 ring-primary ring-offset-1"
-                : "bg-muted text-muted-foreground"}
-            `}>
+            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all
+              ${i < step ? "bg-primary text-white shadow-sm" : i === step ? "bg-primary/10 text-primary ring-2 ring-primary ring-offset-1" : "bg-muted text-muted-foreground"}`}>
               {i < step ? <Check className="h-3.5 w-3.5" /> : i + 1}
             </div>
             <div className={`h-0.5 flex-1 ${i === steps.length - 1 ? "invisible" : i < step ? "bg-primary" : "bg-border"}`} />
@@ -199,7 +194,17 @@ function WizardProgress({ step, steps }: { step: number; steps: typeof STEPS }) 
   );
 }
 
-// ── File upload zone (edit-aware) ─────────────────────────────────────────────
+// ── File upload zone with preview ─────────────────────────────────────────────
+
+function getFileStyle(mimeType: string, ext: string) {
+  if (mimeType === "application/pdf" || ext === "pdf")
+    return { color: "text-red-600", bg: "bg-red-50", badge: "PDF" };
+  if (mimeType.includes("word") || ["doc","docx"].includes(ext))
+    return { color: "text-blue-600", bg: "bg-blue-50", badge: "DOC" };
+  if (mimeType.includes("excel") || mimeType.includes("spreadsheet") || ["xls","xlsx","csv"].includes(ext))
+    return { color: "text-green-600", bg: "bg-green-50", badge: "XLS" };
+  return { color: "text-muted-foreground", bg: "bg-muted/60", badge: ext.toUpperCase() || "FILE" };
+}
 
 function FileUploadZone({
   label, acceptHint, accept, inputRef, onChange, fileName, hasExisting,
@@ -208,59 +213,75 @@ function FileUploadZone({
   inputRef: React.RefObject<HTMLInputElement>;
   onChange: (name: string) => void;
   fileName: string;
-  hasExisting: boolean;
+  hasExisting?: boolean;
 }) {
+  const [preview, setPreview] = useState<{ url: string | null; mimeType: string; ext: string }>({
+    url: null, mimeType: "", ext: "",
+  });
+
+  useEffect(() => {
+    return () => { if (preview.url) URL.revokeObjectURL(preview.url); };
+  }, [preview.url]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) { setPreview({ url: null, mimeType: "", ext: "" }); onChange(""); return; }
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    let url: string | null = null;
+    if (file.type.startsWith("image/")) {
+      if (preview.url) URL.revokeObjectURL(preview.url);
+      url = URL.createObjectURL(file);
+    }
+    setPreview({ url, mimeType: file.type, ext });
+    onChange(file.name);
+  };
+
   const showReplace = hasExisting && !fileName;
   const showNew     = hasExisting &&  fileName;
+  const fileStyle = getFileStyle(preview.mimeType, preview.ext);
 
   return (
     <div className="space-y-2">
       <p className="text-sm font-medium">{label}</p>
-      <input ref={inputRef} type="file" accept={accept} className="hidden"
-        onChange={(e) => onChange(e.target.files?.[0]?.name ?? "")} />
+      <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={handleChange} />
       <button type="button" onClick={() => inputRef.current?.click()}
-        className={`
-          group flex w-full cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed px-4 py-6
+        className={`group flex w-full cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed px-4 py-6
           text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
-          ${showNew     ? "border-blue-400/60 bg-blue-50/50"
-            : showReplace ? "border-green-300/60 bg-green-50/40 hover:border-primary/50 hover:bg-primary/5"
-            : fileName    ? "border-green-400/60 bg-green-50/50"
-            : "border-border/60 bg-muted/20 hover:border-primary/50 hover:bg-primary/5"}
-        `}
-      >
-        {showNew ? (
+          ${fileName ? (showNew ? "border-blue-400/60 bg-blue-50/50" : "border-primary/30")
+            : showReplace ? "border-green-300/60 bg-green-50/40 hover:border-primary/50"
+            : "border-border/60 bg-muted/20 hover:border-primary/50 hover:bg-primary/5"}`}>
+        {fileName && preview.url ? (
           <>
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
-              <Upload className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-blue-700 truncate max-w-[160px]">{fileName}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Will replace existing file on save</p>
-            </div>
-          </>
-        ) : showReplace ? (
-          <>
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-green-700">Already uploaded</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Click to replace</p>
+            <img src={preview.url} alt={fileName} className="h-20 w-full rounded-lg object-cover shadow-sm" />
+            <div className="min-w-0 w-full">
+              <p className="truncate text-sm font-medium">{fileName}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{showNew ? "Will replace existing on save" : "Click to replace"}</p>
             </div>
           </>
         ) : fileName ? (
           <>
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+            <div className={`flex h-14 w-14 flex-col items-center justify-center rounded-xl ${fileStyle.bg}`}>
+              <FileText className={`h-6 w-6 ${fileStyle.color}`} />
+              <span className={`text-[9px] font-bold mt-0.5 ${fileStyle.color}`}>{fileStyle.badge}</span>
+            </div>
+            <div className="min-w-0 w-full">
+              <p className="truncate text-sm font-medium">{fileName}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{showNew ? "Will replace existing on save" : "Click to replace"}</p>
+            </div>
+          </>
+        ) : showReplace ? (
+          <>
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-green-100">
               <CheckCircle2 className="h-5 w-5 text-green-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-green-700 truncate max-w-[160px]">{fileName}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Click to change</p>
+              <p className="text-sm font-medium text-green-700">Already uploaded</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Click to replace</p>
             </div>
           </>
         ) : (
           <>
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/60 transition-colors group-hover:bg-primary/10">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted/60 transition-colors group-hover:bg-primary/10">
               <Upload className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-primary" />
             </div>
             <div>
@@ -274,10 +295,80 @@ function FileUploadZone({
   );
 }
 
+// ── Shared address fields ─────────────────────────────────────────────────────
+
+function AddressFields({
+  isBilling, register, errors, setValue, stateListId,
+}: {
+  isBilling: boolean; register: any; errors: any; setValue: any; stateListId: string;
+}) {
+  const pf = (f: string) => (isBilling ? `billing_${f}` : f) as any;
+  return (
+    <div className="grid grid-cols-1 gap-3">
+      {!isBilling && (
+        <>
+          <Field label="Address Line 1" error={errors.installation_address?.message} required>
+            <Input placeholder="House / Flat No., Building, Street" {...register("installation_address")} />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Address Line 2">
+              <Input placeholder="Area, Colony (optional)" {...register("address_line_2")} />
+            </Field>
+            <Field label="Landmark">
+              <Input placeholder="Near…" {...register("landmark")} />
+            </Field>
+          </div>
+        </>
+      )}
+      {isBilling && (
+        <>
+          <Field label="Address Line 1" error={errors.billing_address_line_1?.message} required>
+            <Input placeholder="House / Flat No., Building, Street" {...register("billing_address_line_1")} />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Address Line 2">
+              <Input placeholder="Area, Colony (optional)" {...register("billing_address_line_2")} />
+            </Field>
+            <Field label="Landmark">
+              <Input placeholder="Near…" {...register("billing_landmark")} />
+            </Field>
+          </div>
+        </>
+      )}
+      <div className="grid grid-cols-2 gap-3">
+        <PincodeAutoFillInput
+          label="Pincode" required
+          error={errors[pf("pincode")]?.message}
+          registerProps={register(pf("pincode"))}
+          onAutoFill={(district, state) => {
+            setValue(pf("district"), district, { shouldValidate: true });
+            setValue(pf("state"), state, { shouldValidate: true });
+          }}
+        />
+        <Field label="District" error={errors[pf("district")]?.message}>
+          <Input placeholder="Auto-filled from pincode" {...register(pf("district"))} />
+        </Field>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="City" error={errors[pf("city")]?.message} required>
+          <Input placeholder="Mumbai" {...register(pf("city"))} />
+        </Field>
+        <Field label="State" error={errors[pf("state")]?.message} required>
+          <input list={stateListId} placeholder="Maharashtra" {...register(pf("state"))}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+          <datalist id={stateListId}>
+            {INDIAN_STATES.map((s) => <option key={s} value={s} />)}
+          </datalist>
+        </Field>
+      </div>
+    </div>
+  );
+}
+
 // ── Step components ───────────────────────────────────────────────────────────
 
 function Step1({ register, watch, errors }: { register: any; watch: any; errors: any }) {
-  const customerType = watch("customer_type");
+  const ct = watch("customer_type");
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
       <div>
@@ -288,26 +379,24 @@ function Step1({ register, watch, errors }: { register: any; watch: any; errors:
               { value: "INDIVIDUAL", label: "Individual", desc: "Personal broadband connection", Icon: User },
               { value: "BUSINESS",   label: "Business",   desc: "Corporate or company account",  Icon: Building2 },
             ] as const).map(({ value, label, desc, Icon }) => {
-              const selected = customerType === value;
+              const sel = ct === value;
               return (
-                <label key={value} className={`
-                  relative flex cursor-pointer flex-col gap-2 rounded-xl border-2 p-4 transition-all select-none
-                  ${selected ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/40 hover:bg-muted/30"}
-                `}>
+                <label key={value} className={`relative flex cursor-pointer flex-col gap-2 rounded-xl border-2 p-4 transition-all select-none
+                  ${sel ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/40 hover:bg-muted/30"}`}>
                   <input type="radio" value={value} {...register("customer_type")} className="sr-only" />
                   <div className="flex items-center gap-2.5">
-                    <div className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors ${selected ? "bg-primary text-white" : "bg-muted text-muted-foreground"}`}>
+                    <div className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors ${sel ? "bg-primary text-white" : "bg-muted text-muted-foreground"}`}>
                       <Icon className="h-3.5 w-3.5" />
                     </div>
-                    <span className={`text-sm font-semibold ${selected ? "text-primary" : ""}`}>{label}</span>
+                    <span className={`text-sm font-semibold ${sel ? "text-primary" : ""}`}>{label}</span>
                   </div>
                   <span className="text-[11px] text-muted-foreground pl-9">{desc}</span>
-                  {selected && <CheckCircle2 className="absolute right-2.5 top-2.5 h-4 w-4 text-primary" />}
+                  {sel && <CheckCircle2 className="absolute right-2.5 top-2.5 h-4 w-4 text-primary" />}
                 </label>
               );
             })}
           </div>
-          {customerType === "BUSINESS" && (
+          {ct === "BUSINESS" && (
             <div className="rounded-xl border border-border/50 bg-muted/20 p-4 space-y-3">
               <Field label="Company Name" error={errors.company_name?.message} required>
                 <Input placeholder="Acme Pvt. Ltd." {...register("company_name")} />
@@ -340,9 +429,7 @@ function Step1({ register, watch, errors }: { register: any; watch: any; errors:
   );
 }
 
-function Step2({
-  register, watch, errors, setValue,
-}: { register: any; watch: any; errors: any; setValue: any }) {
+function Step2({ register, watch, errors, setValue }: { register: any; watch: any; errors: any; setValue: any }) {
   const billingSame = watch("billing_same_as_installation");
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
@@ -363,39 +450,8 @@ function Step2({
         </div>
         <div>
           <SectionTitle icon={MapPin} title="Installation Address" />
-          <div className="grid grid-cols-1 gap-3">
-            <Field label="Address Line 1" error={errors.installation_address?.message} required>
-              <Input placeholder="House / Flat No., Building, Street" {...register("installation_address")} />
-            </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Address Line 2">
-                <Input placeholder="Area, Colony (optional)" {...register("address_line_2")} />
-              </Field>
-              <Field label="Landmark">
-                <Input placeholder="Near…" {...register("landmark")} />
-              </Field>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <Field label="City" error={errors.city?.message} required>
-                <Input placeholder="Mumbai" {...register("city")} />
-              </Field>
-              <Field label="State" error={errors.state?.message} required>
-                <input list="edit-install-state" placeholder="Maharashtra" {...register("state")}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-                <datalist id="edit-install-state">
-                  {INDIAN_STATES.map((s) => <option key={s} value={s} />)}
-                </datalist>
-              </Field>
-              <PincodeAutoFillInput
-                label="Pincode" error={errors.pincode?.message} required
-                registerProps={register("pincode")}
-                onAutoFill={(city, state) => {
-                  setValue("city", city, { shouldValidate: true });
-                  setValue("state", state, { shouldValidate: true });
-                }}
-              />
-            </div>
-          </div>
+          <AddressFields isBilling={false} register={register} errors={errors} setValue={setValue}
+            stateListId="edit-install-state" />
         </div>
       </div>
       <div>
@@ -413,38 +469,9 @@ function Step2({
             </div>
           </label>
           {!billingSame && (
-            <div className="rounded-xl border border-border/50 bg-muted/20 p-4 space-y-3">
-              <Field label="Address Line 1" error={errors.billing_address_line_1?.message} required>
-                <Input placeholder="House / Flat No., Building, Street" {...register("billing_address_line_1")} />
-              </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Address Line 2">
-                  <Input placeholder="Area, Colony (optional)" {...register("billing_address_line_2")} />
-                </Field>
-                <Field label="Landmark">
-                  <Input placeholder="Near…" {...register("billing_landmark")} />
-                </Field>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <Field label="City" error={errors.billing_city?.message} required>
-                  <Input placeholder="Mumbai" {...register("billing_city")} />
-                </Field>
-                <Field label="State" error={errors.billing_state?.message} required>
-                  <input list="edit-billing-state" placeholder="Maharashtra" {...register("billing_state")}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-                  <datalist id="edit-billing-state">
-                    {INDIAN_STATES.map((s) => <option key={s} value={s} />)}
-                  </datalist>
-                </Field>
-                <PincodeAutoFillInput
-                  label="Pincode" error={errors.billing_pincode?.message} required
-                  registerProps={register("billing_pincode")}
-                  onAutoFill={(city, state) => {
-                    setValue("billing_city", city, { shouldValidate: true });
-                    setValue("billing_state", state, { shouldValidate: true });
-                  }}
-                />
-              </div>
+            <div className="rounded-xl border border-border/50 bg-muted/20 p-4">
+              <AddressFields isBilling={true} register={register} errors={errors} setValue={setValue}
+                stateListId="edit-billing-state" />
             </div>
           )}
         </div>
@@ -560,10 +587,7 @@ export function CustomerEditPage() {
   const {
     register, handleSubmit, reset, watch, trigger, setValue,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    mode: "onTouched",
-  });
+  } = useForm<FormValues>({ resolver: zodResolver(schema), mode: "onTouched" });
 
   useEffect(() => {
     if (!customer) return;
@@ -580,16 +604,18 @@ export function CustomerEditPage() {
       installation_address:     customer.installation_address,
       address_line_2:           customer.address_line_2           ?? "",
       landmark:                 customer.landmark                 ?? "",
+      pincode:                  customer.pincode,
+      district:                 customer.district                 ?? "",
       city:                     customer.city,
       state:                    customer.state,
-      pincode:                  customer.pincode,
       billing_same_as_installation: customer.billing_same_as_installation,
       billing_address_line_1:   customer.billing_address_line_1   ?? "",
       billing_address_line_2:   customer.billing_address_line_2   ?? "",
       billing_landmark:         customer.billing_landmark         ?? "",
+      billing_pincode:          customer.billing_pincode          ?? "",
+      billing_district:         customer.billing_district         ?? "",
       billing_city:             customer.billing_city             ?? "",
       billing_state:            customer.billing_state            ?? "",
-      billing_pincode:          customer.billing_pincode          ?? "",
       spokesperson_name:        customer.spokesperson_name        ?? "",
       spokesperson_mobile:      customer.spokesperson_mobile      ?? "",
       spokesperson_email:       customer.spokesperson_email       ?? "",
@@ -602,8 +628,7 @@ export function CustomerEditPage() {
   }, [customer, reset]);
 
   const updateMutation = useMutation({
-    mutationFn: (values: FormValues) =>
-      customersService.update(id!, buildPayload(values)),
+    mutationFn: (values: FormValues) => customersService.update(id!, buildPayload(values)),
     onSuccess: async () => {
       const uploads: Array<[DocType, React.RefObject<HTMLInputElement>]> = [
         ["profile_photo",      profileRef],
@@ -625,13 +650,9 @@ export function CustomerEditPage() {
   });
 
   const isLastStep = step === STEPS.length - 1;
-
   const handleNext = async () => {
     const fields = STEP_FIELDS[step] as (keyof FormValues)[];
-    if (fields.length > 0) {
-      const valid = await trigger(fields);
-      if (!valid) return;
-    }
+    if (fields.length > 0) { const valid = await trigger(fields); if (!valid) return; }
     setStep((s) => s + 1);
   };
 
@@ -650,13 +671,12 @@ export function CustomerEditPage() {
   return (
     <AppLayout title="Edit Customer" portalLabel="Administration">
       <div className="flex h-full flex-col space-y-4">
-
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => navigate(`/admin/customers/${id}`)} className="shrink-0">
             <ArrowLeft className="h-4 w-4" />Back
           </Button>
           <div>
-            <h2 className="text-xl font-semibold text-foreground">Edit Customer</h2>
+            <h2 className="text-xl font-semibold">Edit Customer</h2>
             <p className="font-mono text-sm text-muted-foreground">{customer.customer_code} · {customer.full_name}</p>
           </div>
         </div>
@@ -665,7 +685,6 @@ export function CustomerEditPage() {
           <div className="border-b border-border/40 px-6 pt-5 pb-6">
             <WizardProgress step={step} steps={STEPS} />
           </div>
-
           <div className="flex items-center justify-between px-6 pt-5 pb-3">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
@@ -690,8 +709,7 @@ export function CustomerEditPage() {
               {step === 1 && <Step2 register={register} watch={watch} errors={errors} setValue={setValue} />}
               {step === 2 && <Step3 register={register} errors={errors} />}
               {step === 3 && (
-                <Step4Docs
-                  customer={customer}
+                <Step4Docs customer={customer}
                   profileRef={profileRef} kycRef={kycRef} agreementRef={agreementRef}
                   fileNames={fileNames} setFileNames={setFileNames} />
               )}

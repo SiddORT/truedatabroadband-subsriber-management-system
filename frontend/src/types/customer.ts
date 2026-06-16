@@ -31,18 +31,20 @@ export interface Customer {
   installation_address: string;
   address_line_2: string | null;
   landmark: string | null;
+  pincode: string;
+  district: string | null;
   city: string;
   state: string;
-  pincode: string;
 
   // Billing address
   billing_same_as_installation: boolean;
   billing_address_line_1: string | null;
   billing_address_line_2: string | null;
   billing_landmark: string | null;
+  billing_pincode: string | null;
+  billing_district: string | null;
   billing_city: string | null;
   billing_state: string | null;
-  billing_pincode: string | null;
 
   // Spokesperson
   spokesperson_name: string | null;
@@ -85,45 +87,40 @@ export interface CustomerListResponse {
 }
 
 export interface CustomerCreatePayload {
-  // Type
   customer_type?: CustomerType;
   company_name?: string;
   gst_number?: string;
 
-  // Basic
   full_name: string;
   mobile_number: string;
   alternate_mobile_number?: string;
   email: string;
 
-  // Identity
   kyc_type?: KycType | "";
   kyc_number?: string;
 
-  // Installation address
   installation_address: string;
   address_line_2?: string;
   landmark?: string;
+  pincode: string;
+  district?: string;
   city: string;
   state: string;
-  pincode: string;
 
-  // Billing address
   billing_same_as_installation?: boolean;
   billing_address_line_1?: string;
   billing_address_line_2?: string;
   billing_landmark?: string;
+  billing_pincode?: string;
+  billing_district?: string;
   billing_city?: string;
   billing_state?: string;
-  billing_pincode?: string;
 
-  // Spokesperson
   spokesperson_name?: string;
   spokesperson_mobile?: string;
   spokesperson_email?: string;
   spokesperson_designation?: string;
 
-  // Additional
   connection_date?: string;
   reference_source?: string;
   sales_person?: string;
