@@ -165,8 +165,8 @@ function buildPayload(v: FormValues): CustomerUpdatePayload {
 function SectionTitle({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
   return (
     <div className="mb-4 flex items-center gap-2.5">
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-        <Icon className="h-3.5 w-3.5 text-primary" />
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent/10">
+        <Icon className="h-3.5 w-3.5 text-accent" />
       </div>
       <span className="text-sm font-semibold text-foreground">{title}</span>
     </div>
@@ -181,14 +181,14 @@ function WizardProgress({ step, steps }: { step: number; steps: typeof STEPS }) 
       {steps.map(({ title }, i) => (
         <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
           <div className="flex w-full items-center">
-            <div className={`h-0.5 flex-1 ${i === 0 ? "invisible" : i <= step ? "bg-primary" : "bg-border"}`} />
+            <div className={`h-0.5 flex-1 ${i === 0 ? "invisible" : i <= step ? "bg-accent" : "bg-border"}`} />
             <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all
-              ${i < step ? "bg-primary text-white shadow-sm" : i === step ? "bg-primary/10 text-primary ring-2 ring-primary ring-offset-1" : "bg-muted text-muted-foreground"}`}>
+              ${i < step ? "bg-accent text-white shadow-sm" : i === step ? "bg-accent/10 text-accent ring-2 ring-accent ring-offset-1" : "bg-muted text-muted-foreground"}`}>
               {i < step ? <Check className="h-3.5 w-3.5" /> : i + 1}
             </div>
-            <div className={`h-0.5 flex-1 ${i === steps.length - 1 ? "invisible" : i < step ? "bg-primary" : "bg-border"}`} />
+            <div className={`h-0.5 flex-1 ${i === steps.length - 1 ? "invisible" : i < step ? "bg-accent" : "bg-border"}`} />
           </div>
-          <span className={`hidden text-[11px] font-medium sm:block text-center leading-tight ${i === step ? "text-primary" : "text-muted-foreground"}`}>
+          <span className={`hidden text-[11px] font-medium sm:block text-center leading-tight ${i === step ? "text-accent" : "text-muted-foreground"}`}>
             {title}
           </span>
         </div>
@@ -720,8 +720,8 @@ export function CustomerEditPage() {
           </div>
           <div className="flex items-center justify-between px-6 pt-5 pb-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                <StepIcon className="text-primary" style={{ height: "1.125rem", width: "1.125rem" }} />
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/10">
+                <StepIcon className="text-accent" style={{ height: "1.125rem", width: "1.125rem" }} />
               </div>
               <div>
                 <h3 className="text-base font-semibold">{STEPS[step].title}</h3>

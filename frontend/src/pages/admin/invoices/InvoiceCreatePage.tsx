@@ -48,12 +48,12 @@ function StepBadge({ step, label, done }: StepBadgeProps) {
         className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
           done
             ? "bg-green-500 text-white"
-            : "bg-primary/10 text-primary"
+            : "bg-accent text-white"
         }`}
       >
         {done ? "✓" : step}
       </span>
-      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+      <span className="text-sm font-semibold text-foreground">
         {label}
       </span>
     </div>

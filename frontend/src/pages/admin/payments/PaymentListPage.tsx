@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Eye, IndianRupee, Plus } from "lucide-react";
+import { Eye, Plus } from "lucide-react";
 
 import { AppLayout } from "@/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   DataTable,
   type DataTableColumn,
@@ -155,17 +155,6 @@ export function PaymentListPage() {
         </div>
 
         <Card>
-          <CardHeader className="border-b border-border px-5 py-3.5">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <IndianRupee className="h-4 w-4" />
-              <span>
-                <span className="font-semibold text-foreground">
-                  {data?.total ?? 0}
-                </span>{" "}
-                payment{data?.total !== 1 ? "s" : ""}
-              </span>
-            </div>
-          </CardHeader>
           <CardContent className="p-0">
             <DataTable
               columns={columns}

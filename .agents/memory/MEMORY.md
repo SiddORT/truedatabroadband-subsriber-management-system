@@ -5,3 +5,4 @@
 - [Customer email storage](customer-email-storage.md) — customer.email is plain TEXT (for ILIKE search); user.email is encrypted via EncryptedString. Test mobile numbers must be numeric-only (validator: ^\d{10}$).
 - [Alembic PgEnum migration](alembic-pgenum-migration.md) — use postgresql.ENUM(create_type=False) + raw DO $$ SQL for enum creation; sa.Enum create_type=False fires _on_table_create regardless in this SQLAlchemy version.
 - [Phase completion tracker](phases.md) — tracks which phases are done and patterns established per phase.
+- [DataTable & UI patterns](datatable-ui-patterns.md) — DataTable accepts filtersNode/filterCount props for collapsible filter panel; accent (#D72B20) used for form step badges, WizardProgress, SectionTitle icons; list pages have no CardHeader (filters live inside DataTable).

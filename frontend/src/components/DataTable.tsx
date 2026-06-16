@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { ArrowUpDown, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import {
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  SlidersHorizontal,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,12 +49,15 @@ export interface DataTableProps<T> {
   rowKey: (row: T) => string;
   isLoading?: boolean;
   emptyMessage?: string;
+  filtersNode?: React.ReactNode;
+  filterCount?: number;
 }
 
 function getPageNumbers(current: number, total: number): (number | "...")[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
   if (current <= 4) return [1, 2, 3, 4, 5, "...", total];
-  if (current >= total - 3) return [1, "...", total - 4, total - 3, total - 2, total - 1, total];
+  if (current >= total - 3)
+    return [1, "...", total - 4, total - 3, total - 2, total - 1, total];
   return [1, "...", current - 1, current, current + 1, "...", total];
 }
 
@@ -61,8 +70,11 @@ export function DataTable<T>({
   rowKey,
   isLoading = false,
   emptyMessage = "No records found",
+  filtersNode,
+  filterCount = 0,
 }: DataTableProps<T>) {
   const [searchInput, setSearchInput] = useState(state.search);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const totalPages = Math.max(1, Math.ceil(total / state.pageSize));
   const from = total === 0 ? 0 : (state.page - 1) * state.pageSize + 1;
@@ -82,145 +94,187 @@ export function DataTable<T>({
   const pageNumbers = getPageNumbers(state.page, totalPages);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <form onSubmit={submitSearch} className="relative w-full max-w-xs">
+    <div className="flex flex-col">
+      {/* ── Search + Filter toggle toolbar ───────────────────────────────── */}
+      <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+        <form onSubmit={submitSearch} className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search..."
-            className="pl-9"
+            className="border-0 bg-muted/40 pl-9 focus-visible:bg-surface focus-visible:ring-1 focus-visible:ring-primary/30"
           />
         </form>
 
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>Rows per page</span>
-          <select
-            value={state.pageSize}
-            onChange={(e) =>
-              onStateChange({
-                ...state,
-                pageSize: Number(e.target.value),
-                page: 1,
-              })
-            }
-            className="h-9 rounded-lg border border-border bg-surface px-2 text-foreground focus-visible:outline-none focus-visible:shadow-focus"
-          >
-            {PAGE_SIZE_OPTIONS.map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="rounded-lg border border-border bg-surface shadow-card">
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              {columns.map((col) => (
-                <TableHead key={col.key} className={col.className}>
-                  {col.sortable ? (
-                    <button
-                      type="button"
-                      onClick={() => toggleSort(col.key)}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 transition-colors hover:text-foreground",
-                        state.sortBy === col.key && "text-foreground",
-                      )}
-                    >
-                      {col.header}
-                      <ArrowUpDown className="h-3.5 w-3.5" />
-                    </button>
-                  ) : (
-                    col.header
-                  )}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell
-                  colSpan={columns.length}
-                  className="py-10 text-center text-muted-foreground"
-                >
-                  Loading...
-                </TableCell>
-              </TableRow>
-            ) : rows.length === 0 ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell
-                  colSpan={columns.length}
-                  className="py-10 text-center text-muted-foreground"
-                >
-                  {emptyMessage}
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.map((row, rowIndex) => (
-                <TableRow key={rowKey(row)}>
-                  {columns.map((col) => (
-                    <TableCell key={col.key} className={col.className}>
-                      {col.render
-                        ? col.render(row, rowIndex)
-                        : String((row as Record<string, unknown>)[col.key] ?? "")}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+        {filtersNode && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setFiltersOpen((o) => !o)}
+            className={cn(
+              "shrink-0 gap-1.5",
+              filtersOpen &&
+                "border-primary/30 bg-primary/5 text-primary",
             )}
-          </TableBody>
-        </Table>
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Filters</span>
+            {filterCount > 0 && (
+              <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white">
+                {filterCount}
+              </span>
+            )}
+          </Button>
+        )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-        <span>
-          {from}–{to} of {total}
+      {/* ── Collapsible filter panel ──────────────────────────────────────── */}
+      {filtersNode && filtersOpen && (
+        <div className="flex flex-wrap items-center gap-3 border-b border-border bg-muted/30 px-4 py-3">
+          {filtersNode}
+        </div>
+      )}
+
+      {/* ── Table ────────────────────────────────────────────────────────── */}
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            {columns.map((col) => (
+              <TableHead key={col.key} className={col.className}>
+                {col.sortable ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleSort(col.key)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 transition-colors hover:text-foreground",
+                      state.sortBy === col.key && "text-foreground",
+                    )}
+                  >
+                    {col.header}
+                    <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                ) : (
+                  col.header
+                )}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {isLoading ? (
+            <TableRow className="hover:bg-transparent">
+              <TableCell
+                colSpan={columns.length}
+                className="py-12 text-center text-muted-foreground"
+              >
+                Loading…
+              </TableCell>
+            </TableRow>
+          ) : rows.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <TableCell
+                colSpan={columns.length}
+                className="py-12 text-center text-muted-foreground"
+              >
+                {emptyMessage}
+              </TableCell>
+            </TableRow>
+          ) : (
+            rows.map((row, rowIndex) => (
+              <TableRow key={rowKey(row)}>
+                {columns.map((col) => (
+                  <TableCell key={col.key} className={col.className}>
+                    {col.render
+                      ? col.render(row, rowIndex)
+                      : String(
+                          (row as Record<string, unknown>)[col.key] ?? "",
+                        )}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+
+      {/* ── Footer: count + rows-per-page + pagination ────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground">
+        <span className="tabular-nums">
+          {total === 0
+            ? "No records"
+            : `${from}–${to} of ${total}`}
         </span>
 
-        <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={state.page <= 1}
-            onClick={() => onStateChange({ ...state, page: state.page - 1 })}
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Prev
-          </Button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <span className="hidden sm:inline text-xs">Rows</span>
+            <select
+              value={state.pageSize}
+              onChange={(e) =>
+                onStateChange({
+                  ...state,
+                  pageSize: Number(e.target.value),
+                  page: 1,
+                })
+              }
+              className="h-8 rounded-md border border-border bg-surface px-2 text-sm text-foreground focus-visible:outline-none"
+            >
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          {pageNumbers.map((p, i) =>
-            p === "..." ? (
-              <span key={`ellipsis-${i}`} className="px-1 select-none">
-                …
-              </span>
-            ) : (
-              <Button
-                key={p}
-                type="button"
-                variant={state.page === p ? "default" : "outline"}
-                size="sm"
-                onClick={() => onStateChange({ ...state, page: p as number })}
-                className="min-w-[36px] px-2"
-              >
-                {p}
-              </Button>
-            ),
-          )}
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={state.page <= 1}
+              onClick={() =>
+                onStateChange({ ...state, page: state.page - 1 })
+              }
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Prev
+            </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={state.page >= totalPages}
-            onClick={() => onStateChange({ ...state, page: state.page + 1 })}
-          >
-            Next
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+            {pageNumbers.map((p, i) =>
+              p === "..." ? (
+                <span key={`ellipsis-${i}`} className="select-none px-1">
+                  …
+                </span>
+              ) : (
+                <Button
+                  key={p}
+                  type="button"
+                  variant={state.page === p ? "default" : "outline"}
+                  size="sm"
+                  onClick={() =>
+                    onStateChange({ ...state, page: p as number })
+                  }
+                  className="min-w-[36px] px-2"
+                >
+                  {p}
+                </Button>
+              ),
+            )}
+
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={state.page >= totalPages}
+              onClick={() =>
+                onStateChange({ ...state, page: state.page + 1 })
+              }
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
     </div>

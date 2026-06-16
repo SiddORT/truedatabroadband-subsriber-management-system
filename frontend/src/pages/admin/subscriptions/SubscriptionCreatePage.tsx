@@ -101,7 +101,7 @@ function StepBadge({
         className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors ${
           done
             ? "bg-green-500 text-white"
-            : "bg-primary text-white"
+            : "bg-accent text-white"
         }`}
       >
         {done ? <CheckCircle2 className="h-4 w-4" /> : step}
@@ -126,7 +126,7 @@ function SummaryRow({
     <div className="flex items-start justify-between gap-2 py-2">
       <span className="text-xs text-muted-foreground">{label}</span>
       <span
-        className={`text-right text-xs font-medium ${highlight ? "text-base font-bold text-primary" : "text-foreground"}`}
+        className={`text-right text-xs font-medium ${highlight ? "text-base font-bold text-accent" : "text-foreground"}`}
       >
         {value}
       </span>

@@ -5,7 +5,7 @@ import { Eye, Plus } from "lucide-react";
 
 import { AppLayout } from "@/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   DataTable,
   type DataTableColumn,
@@ -187,15 +187,17 @@ export function SubscriptionListPage() {
 
         {/* ── Table card ───────────────────────────────────────────────── */}
         <Card>
-          <CardHeader className="border-b border-border px-5 py-3.5">
-            <div className="flex flex-wrap items-center gap-3">
-              <p className="text-sm text-muted-foreground">
-                <span className="font-semibold text-foreground">
-                  {data?.total ?? 0}
-                </span>{" "}
-                subscription{data?.total !== 1 ? "s" : ""}
-              </p>
-              <div className="ml-auto flex items-center gap-2">
+          <CardContent className="p-0">
+            <DataTable
+              columns={columns}
+              rows={data?.items ?? []}
+              total={data?.total ?? 0}
+              isLoading={isLoading}
+              state={tableState}
+              onStateChange={setTableState}
+              rowKey={(row) => row.id}
+              emptyMessage="No subscriptions found. Assign a plan to a customer to get started."
+              filtersNode={
                 <select
                   value={statusFilter}
                   onChange={(e) => {
@@ -210,19 +212,8 @@ export function SubscriptionListPage() {
                     </option>
                   ))}
                 </select>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <DataTable
-              columns={columns}
-              rows={data?.items ?? []}
-              total={data?.total ?? 0}
-              isLoading={isLoading}
-              state={tableState}
-              onStateChange={setTableState}
-              rowKey={(row) => row.id}
-              emptyMessage="No subscriptions found. Assign a plan to a customer to get started."
+              }
+              filterCount={statusFilter ? 1 : 0}
             />
           </CardContent>
         </Card>

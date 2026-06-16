@@ -9,7 +9,7 @@ import {
   type DataTableColumn,
   type DataTableState,
 } from "@/components/DataTable";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/Dialog";
 import { AppLayout } from "@/layouts/AppLayout";
@@ -209,15 +209,17 @@ export function CustomerListPage() {
 
         {/* ── Table card ───────────────────────────────────────────────── */}
         <Card>
-          <CardHeader className="border-b border-border px-5 py-3.5">
-            <div className="flex flex-wrap items-center gap-3">
-              <p className="text-sm text-muted-foreground">
-                <span className="font-semibold text-foreground">
-                  {data?.total ?? 0}
-                </span>{" "}
-                customer{data?.total !== 1 ? "s" : ""}
-              </p>
-              <div className="ml-auto flex items-center gap-2">
+          <CardContent className="p-0">
+            <DataTable
+              columns={columns}
+              rows={data?.items ?? []}
+              total={data?.total ?? 0}
+              state={tableState}
+              onStateChange={setTableState}
+              rowKey={(row) => row.id}
+              isLoading={isLoading}
+              emptyMessage="No customers found. Create your first customer."
+              filtersNode={
                 <select
                   value={statusFilter}
                   onChange={(e) => {
@@ -233,19 +235,8 @@ export function CustomerListPage() {
                     </option>
                   ))}
                 </select>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <DataTable
-              columns={columns}
-              rows={data?.items ?? []}
-              total={data?.total ?? 0}
-              state={tableState}
-              onStateChange={setTableState}
-              rowKey={(row) => row.id}
-              isLoading={isLoading}
-              emptyMessage="No customers found. Create your first customer."
+              }
+              filterCount={statusFilter ? 1 : 0}
             />
           </CardContent>
         </Card>
