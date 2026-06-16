@@ -61,6 +61,13 @@ class CompanySettings(Base):
     invoice_footer_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     terms_and_conditions: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # ── Bank / Payment Details ──────────────────────────────────────────────
+    bank_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    account_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    account_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    ifsc_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    upi_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
     # ── Audit timestamps ───────────────────────────────────────────────────
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

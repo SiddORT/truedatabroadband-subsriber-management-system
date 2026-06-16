@@ -90,6 +90,8 @@ class Invoice(Base, BaseModelMixin):
     # ── Customer snapshots ─────────────────────────────────────────────────
     customer_code_snapshot: Mapped[str] = mapped_column(String(20), nullable=False)
     customer_name_snapshot: Mapped[str] = mapped_column(String(255), nullable=False)
+    customer_email_snapshot: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    customer_mobile_snapshot: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     # ── Connection snapshots ───────────────────────────────────────────────
     connection_name_snapshot: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -151,6 +153,13 @@ class Invoice(Base, BaseModelMixin):
 
     remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
     pdf_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    # ── Bank / payment snapshots (captured from CompanySettings at creation) ─
+    bank_name_snapshot: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    account_name_snapshot: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    account_number_snapshot: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    ifsc_code_snapshot: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    upi_id_snapshot: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # ── Relationships ──────────────────────────────────────────────────────
     subscription: Mapped["Subscription"] = relationship(  # type: ignore[name-defined]

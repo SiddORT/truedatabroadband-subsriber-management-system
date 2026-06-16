@@ -210,6 +210,8 @@ class InvoiceService:
             # Customer snapshots
             customer_code_snapshot=customer.customer_code,
             customer_name_snapshot=customer.full_name,
+            customer_email_snapshot=getattr(customer, "email", None),
+            customer_mobile_snapshot=getattr(customer, "mobile_number", None),
             # Connection snapshots
             connection_name_snapshot=sub.subscription_code,
             installation_address_snapshot=self._build_installation_address(customer),
@@ -245,6 +247,12 @@ class InvoiceService:
             # Status
             status=InvoiceStatus.UNPAID,
             remarks=payload.remarks,
+            # Bank / payment snapshots from company settings
+            bank_name_snapshot=getattr(cs, "bank_name", None),
+            account_name_snapshot=getattr(cs, "account_name", None),
+            account_number_snapshot=getattr(cs, "account_number", None),
+            ifsc_code_snapshot=getattr(cs, "ifsc_code", None),
+            upi_id_snapshot=getattr(cs, "upi_id", None),
         )
         invoice = self.repo.create(invoice)
 
