@@ -11,6 +11,14 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
+# ── Shared sub-models ─────────────────────────────────────────────────────────
+
+
+class LineItemIn(BaseModel):
+    description: str = Field(..., min_length=1, max_length=200)
+    amount: Decimal = Field(..., ge=0)
+
+
 # ── Request ───────────────────────────────────────────────────────────────────
 
 
@@ -19,8 +27,16 @@ class InvoiceCreate(BaseModel):
     billing_period_start: date
     billing_period_end: date
     invoice_date: date
-    due_date: Optional[date] = None  # auto-calculated if omitted
+    due_date: Optional[date] = None
     remarks: Optional[str] = None
+
+    # Custom line items (installation charges, service charges, etc.)
+    line_items: list[LineItemIn] = Field(default_factory=list)
+
+    # Discount applied to the base plan amount (before GST)
+    discount_type: Optional[str] = None   # "percentage" or "fixed"
+    discount_value: Optional[Decimal] = Field(default=None, ge=0)
+    discount_label: Optional[str] = Field(default=None, max_length=100)
 
 
 class InvoiceUpdate(BaseModel):
@@ -107,6 +123,16 @@ class InvoiceOut(BaseModel):
     gst_percentage: Decimal
     gst_amount: Decimal
     total_amount: Decimal
+
+    # Custom line items
+    line_items: Optional[list[Any]] = None
+    line_items_total: Decimal = Decimal("0.00")
+
+    # Discount
+    discount_type: Optional[str] = None
+    discount_value: Optional[Decimal] = None
+    discount_amount: Decimal = Decimal("0.00")
+    discount_label: Optional[str] = None
 
     # Payment tracking
     paid_amount: Decimal

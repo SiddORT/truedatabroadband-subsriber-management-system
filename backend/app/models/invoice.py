@@ -115,6 +115,20 @@ class Invoice(Base, BaseModelMixin):
     )
     balance_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
 
+    # ── Custom line items ──────────────────────────────────────────────────
+    line_items: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    line_items_total: Mapped[Decimal] = mapped_column(
+        Numeric(10, 2), nullable=False, default=Decimal("0.00")
+    )
+
+    # ── Discount ───────────────────────────────────────────────────────────
+    discount_type: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    discount_value: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    discount_amount: Mapped[Decimal] = mapped_column(
+        Numeric(10, 2), nullable=False, default=Decimal("0.00")
+    )
+    discount_label: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
     # ── Billing period ─────────────────────────────────────────────────────
     billing_period_start: Mapped[date] = mapped_column(Date, nullable=False)
     billing_period_end: Mapped[date] = mapped_column(Date, nullable=False)

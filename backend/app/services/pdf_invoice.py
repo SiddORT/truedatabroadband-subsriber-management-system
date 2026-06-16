@@ -101,6 +101,12 @@ def generate_invoice_pdf(invoice: "Invoice") -> bytes:
     label = ParagraphStyle(
         "label", parent=small, textColor=BRAND_MUTED, fontName="Helvetica"
     )
+    accent_small = ParagraphStyle(
+        "accent_small", parent=small, textColor=BRAND_ACCENT
+    )
+    accent_bold = ParagraphStyle(
+        "accent_bold", parent=bold, textColor=BRAND_ACCENT
+    )
 
     col_w = (W - 2 * MARGIN) / 2  # half-page column
 
@@ -144,7 +150,7 @@ def generate_invoice_pdf(invoice: "Invoice") -> bytes:
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
             ("TOPPADDING", (0, 0), (-1, -1), 2),
-            ("SPAN", (0, 0), (1, 0)),  # "INVOICE" spans both cols
+            ("SPAN", (0, 0), (1, 0)),
         ])
     )
 
@@ -198,14 +204,11 @@ def generate_invoice_pdf(invoice: "Invoice") -> bytes:
     story.append(_p(period_text, ParagraphStyle("period", parent=normal, textColor=BRAND_MUTED)))
     story.append(Spacer(1, 4 * mm))
 
-    # ── Line items ────────────────────────────────────────────────────────
-    item_header = [
-        _p("Description", bold),
-        _p("Amount", bold),
-    ]
+    # ── Line items table ──────────────────────────────────────────────────
+    item_header = [_p("Description", bold), _p("Amount", bold)]
     data_policy = invoice.data_policy_snapshot
     fup_text = f" (FUP: {invoice.fup_limit_gb_snapshot} GB)" if invoice.fup_limit_gb_snapshot else ""
-    description = (
+    plan_description = (
         f"{invoice.plan_name_snapshot}<br/>"
         f"<font color='#5C7C89' size='8'>"
         f"{invoice.speed_mbps_snapshot} Mbps · {data_policy}{fup_text} · "
@@ -214,33 +217,114 @@ def generate_invoice_pdf(invoice: "Invoice") -> bytes:
     )
     rows = [
         item_header,
-        [_p(description, normal), _p(_fmt_currency(invoice.base_amount), normal)],
-        [_p(f"GST @ {float(invoice.gst_percentage):.0f}%", small), _p(_fmt_currency(invoice.gst_amount), small)],
+        [_p(plan_description, normal), _p(_fmt_currency(invoice.base_amount), normal)],
+    ]
+
+    # Discount row
+    discount_amount = getattr(invoice, "discount_amount", None) or Decimal("0")
+    if discount_amount > 0:
+        disc_label_str = getattr(invoice, "discount_label", None) or ""
+        disc_type = getattr(invoice, "discount_type", None) or ""
+        disc_value = getattr(invoice, "discount_value", None)
+        if disc_type == "percentage" and disc_value:
+            disc_desc = f"Discount ({float(disc_value):.2g}%)"
+        else:
+            disc_desc = "Discount"
+        if disc_label_str:
+            disc_desc += f" — {disc_label_str}"
+        effective_base = invoice.base_amount - discount_amount
+        rows.append([
+            _p(disc_desc, accent_small),
+            _p(f"−{_fmt_currency(discount_amount)}", accent_small),
+        ])
+        rows.append([
+            _p("Taxable Base", small),
+            _p(_fmt_currency(effective_base), small),
+        ])
+
+    # GST row
+    rows.append([
+        _p(f"GST @ {float(invoice.gst_percentage):.0f}%", small),
+        _p(_fmt_currency(invoice.gst_amount), small),
+    ])
+
+    # Custom line items
+    line_items = getattr(invoice, "line_items", None) or []
+    for item in line_items:
+        rows.append([
+            _p(item.get("description", ""), normal),
+            _p(_fmt_currency(Decimal(str(item.get("amount", "0")))), normal),
+        ])
+
+    # Row styles
+    item_style = [
+        ("BACKGROUND", (0, 0), (-1, 0), BRAND_PRIMARY),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.5, BRAND_DARK),
+        ("LINEBELOW", (0, -1), (-1, -1), 0.5, GREY),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
     ]
     item_table = Table(rows, colWidths=[full_w * 0.75, full_w * 0.25])
-    item_table.setStyle(
-        TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), BRAND_PRIMARY),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("ALIGN", (1, 0), (1, -1), "RIGHT"),
-            ("LINEBELOW", (0, 0), (-1, 0), 0.5, BRAND_DARK),
-            ("LINEBELOW", (0, -1), (-1, -1), 0.5, GREY),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-            ("TOPPADDING", (0, 0), (-1, -1), 5),
-            ("LEFTPADDING", (0, 0), (-1, -1), 6),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-        ])
-    )
+    item_table.setStyle(TableStyle(item_style))
     story.append(item_table)
 
     # ── Totals ────────────────────────────────────────────────────────────
-    total_rows = [
-        ["", _p("Subtotal", label), _p(_fmt_currency(invoice.base_amount), normal)],
-        ["", _p(f"GST ({float(invoice.gst_percentage):.0f}%)", label), _p(_fmt_currency(invoice.gst_amount), normal)],
-        ["", _p("Total", ParagraphStyle("tot", parent=bold, fontSize=11)), _p(_fmt_currency(invoice.total_amount), ParagraphStyle("totv", parent=bold, fontSize=11, textColor=BRAND_ACCENT))],
-        ["", _p("Paid Amount", label), _p(_fmt_currency(invoice.paid_amount), ParagraphStyle("paid", parent=normal, textColor=colors.HexColor("#15803D")))],
-        ["", _p("Balance Due", ParagraphStyle("bal", parent=bold, textColor=BRAND_ACCENT)), _p(_fmt_currency(invoice.balance_amount), ParagraphStyle("balv", parent=bold, textColor=BRAND_ACCENT))],
-    ]
+    total_rows: list = []
+
+    # Base plan amount
+    total_rows.append(["", _p("Plan Base Amount", label), _p(_fmt_currency(invoice.base_amount), normal)])
+
+    # Discount
+    if discount_amount > 0:
+        total_rows.append([
+            "",
+            _p(disc_desc, accent_small),  # type: ignore[possibly-undefined]
+            _p(f"−{_fmt_currency(discount_amount)}", accent_small),
+        ])
+
+    # GST
+    total_rows.append([
+        "",
+        _p(f"GST ({float(invoice.gst_percentage):.0f}%)", label),
+        _p(_fmt_currency(invoice.gst_amount), normal),
+    ])
+
+    # Line items subtotal (if any)
+    line_items_total = getattr(invoice, "line_items_total", None) or Decimal("0")
+    if line_items_total > 0:
+        for item in line_items:
+            total_rows.append([
+                "",
+                _p(item.get("description", "Charge"), label),
+                _p(_fmt_currency(Decimal(str(item.get("amount", "0")))), normal),
+            ])
+
+    # Total
+    total_rows.append([
+        "",
+        _p("Total", ParagraphStyle("tot", parent=bold, fontSize=11)),
+        _p(_fmt_currency(invoice.total_amount), ParagraphStyle("totv", parent=bold, fontSize=11, textColor=BRAND_ACCENT)),
+    ])
+    # Paid
+    total_rows.append([
+        "",
+        _p("Paid Amount", label),
+        _p(_fmt_currency(invoice.paid_amount), ParagraphStyle("paid", parent=normal, textColor=colors.HexColor("#15803D"))),
+    ])
+    # Balance
+    total_rows.append([
+        "",
+        _p("Balance Due", ParagraphStyle("bal", parent=bold, textColor=BRAND_ACCENT)),
+        _p(_fmt_currency(invoice.balance_amount), ParagraphStyle("balv", parent=bold, textColor=BRAND_ACCENT)),
+    ])
+
+    total_idx_total = len(total_rows) - 3  # row index of "Total"
+    total_idx_balance = len(total_rows) - 1
+
     total_table = Table(total_rows, colWidths=[full_w * 0.45, full_w * 0.3, full_w * 0.25])
     total_table.setStyle(
         TableStyle([
@@ -248,9 +332,9 @@ def generate_invoice_pdf(invoice: "Invoice") -> bytes:
             ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
             ("TOPPADDING", (0, 0), (-1, -1), 3),
             ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-            ("LINEABOVE", (1, 2), (2, 2), 0.5, GREY),
-            ("LINEABOVE", (1, 4), (2, 4), 1, BRAND_ACCENT),
-            ("LINEBELOW", (1, 4), (2, 4), 1, BRAND_ACCENT),
+            ("LINEABOVE", (1, total_idx_total), (2, total_idx_total), 0.5, GREY),
+            ("LINEABOVE", (1, total_idx_balance), (2, total_idx_balance), 1, BRAND_ACCENT),
+            ("LINEBELOW", (1, total_idx_balance), (2, total_idx_balance), 1, BRAND_ACCENT),
         ])
     )
     story.append(total_table)

@@ -1,3 +1,8 @@
+export interface LineItem {
+  description: string;
+  amount: string;
+}
+
 export interface InvoiceListItem {
   id: string;
   invoice_number: string;
@@ -60,6 +65,14 @@ export interface Invoice extends InvoiceListItem {
   base_amount: string;
   gst_percentage: string;
   gst_amount: string;
+  // Line items
+  line_items: LineItem[] | null;
+  line_items_total: string;
+  // Discount
+  discount_type: "percentage" | "fixed" | null;
+  discount_value: string | null;
+  discount_amount: string;
+  discount_label: string | null;
   billing_period_start: string;
   billing_period_end: string;
   remarks: string | null;

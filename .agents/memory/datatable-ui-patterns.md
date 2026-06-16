@@ -33,6 +33,21 @@ description: DataTable component API, accent color usage rules, list page struct
 
 **No CardHeader** — count is shown in the DataTable footer ("X–Y of Total"). Filters live inside DataTable via `filtersNode`.
 
+## Invoice line items & discount (Phase 5+)
+
+DB columns on `invoices` (migration `0011`): `line_items` (JSONB), `line_items_total`, `discount_type` (`percentage`/`fixed`), `discount_value`, `discount_amount`, `discount_label`.
+
+Calculation order:
+1. `discount_amount = base × value/100` (percentage) or `min(value, base)` (fixed)
+2. `effective_base = base − discount_amount`
+3. `gst_amount = effective_base × gst_pct / 100`
+4. `line_items_total = sum(item.amount for item in line_items where amount > 0)`
+5. `total = effective_base + gst_amount + line_items_total`
+
+`InvoiceCreate` schema accepts `line_items: list[LineItemIn]`, `discount_type`, `discount_value`, `discount_label`. Backend filters zero-amount items before storing.
+
+Frontend UI (Step 4): dedicated "Installation Charges" + "Service Charges" fields always visible; custom rows added dynamically; discount type toggle (None / % / ₹). Summary panel shows live breakdown.
+
 ## Accent red (`#D72B20` = `text-accent` / `bg-accent`)
 
 Use accent (NOT primary) for decorative form UI indicators:

@@ -111,11 +111,34 @@ class InvoiceService:
         if pricing is None:
             raise InvoiceError("Plan pricing not found")
 
-        # GST calculation
+        # Discount applied to base (before GST)
         base = pricing.base_price
         gst_pct = pricing.gst_percentage
-        gst_amt = (base * gst_pct / 100).quantize(Decimal("0.01"))
-        total = base + gst_amt
+
+        discount_type = payload.discount_type
+        discount_value = payload.discount_value or Decimal("0")
+        discount_amount = Decimal("0.00")
+        if discount_type and discount_value > 0:
+            if discount_type == "percentage":
+                discount_amount = (base * discount_value / 100).quantize(Decimal("0.01"))
+            else:  # fixed
+                discount_amount = min(discount_value, base).quantize(Decimal("0.01"))
+
+        effective_base = base - discount_amount
+
+        # GST on effective (discounted) base
+        gst_amt = (effective_base * gst_pct / 100).quantize(Decimal("0.01"))
+
+        # Custom line items
+        line_items_data: list[dict] = []
+        line_items_total = Decimal("0.00")
+        for item in (payload.line_items or []):
+            amt = Decimal(str(item.amount)).quantize(Decimal("0.01"))
+            if amt > 0:
+                line_items_data.append({"description": item.description, "amount": str(amt)})
+                line_items_total += amt
+
+        total = effective_base + gst_amt + line_items_total
 
         # Company settings snapshot
         cs = CompanySettingsRepository(self.db).get_or_create()
@@ -169,6 +192,14 @@ class InvoiceService:
             # Payment tracking
             paid_amount=Decimal("0.00"),
             balance_amount=total,
+            # Custom line items
+            line_items=line_items_data if line_items_data else None,
+            line_items_total=line_items_total,
+            # Discount
+            discount_type=discount_type,
+            discount_value=discount_value if discount_amount > 0 else None,
+            discount_amount=discount_amount,
+            discount_label=payload.discount_label,
             # Dates
             billing_period_start=payload.billing_period_start,
             billing_period_end=payload.billing_period_end,

@@ -10,6 +10,11 @@ interface ListParams {
   status?: string;
 }
 
+interface LineItemPayload {
+  description: string;
+  amount: string;
+}
+
 async function list(params: ListParams = {}): Promise<InvoiceListResponse> {
   const { data } = await api.get("/invoices", { params });
   return data;
@@ -27,6 +32,10 @@ async function create(payload: {
   invoice_date: string;
   due_date?: string;
   remarks?: string;
+  line_items?: LineItemPayload[];
+  discount_type?: "percentage" | "fixed";
+  discount_value?: string;
+  discount_label?: string;
 }): Promise<Invoice> {
   const { data } = await api.post("/invoices", payload);
   return data;
