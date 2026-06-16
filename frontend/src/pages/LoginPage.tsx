@@ -62,12 +62,22 @@ export function LoginPage({ role, title, subtitle, redirectTo }: LoginPageProps)
     <div className="flex min-h-screen flex-col bg-background lg:flex-row">
       {/* Brand panel */}
       <div className="relative hidden flex-col justify-between bg-primary-dark p-12 text-white lg:flex lg:w-[42%]">
-        <div className="flex flex-col gap-2">
-          <img src="/logo.png" alt="True Data Broadband" className="h-10 w-auto" />
-          <p className="text-sm font-medium text-white/70 tracking-wide">
-            True Data Broadband Pvt. Ltd.
-          </p>
+        {/* Top: logo + company name */}
+        <div className="flex flex-col gap-3">
+          <img
+            src="/logo.png"
+            alt="True Data Broadband"
+            className="h-12 w-auto max-w-[220px] object-contain object-left"
+          />
+          <div>
+            <p className="text-base font-semibold tracking-wide text-white">
+              True Data Broadband
+            </p>
+            <p className="text-sm text-white/50">Pvt. Ltd.</p>
+          </div>
         </div>
+
+        {/* Mid: tagline */}
         <div className="space-y-4">
           <h2 className="text-3xl font-semibold leading-tight">
             Broadband management,
@@ -75,11 +85,21 @@ export function LoginPage({ role, title, subtitle, redirectTo }: LoginPageProps)
             built for reliability.
           </h2>
           <p className="max-w-md text-sm text-white/60">
-            True Data Broadband Pvt. Ltd. — a secure platform for
-            managing your network operations.
+            A secure platform for managing your network operations.
           </p>
         </div>
-        <img src="/ort-logo.png" alt="Powered by ORT" className="h-6 w-auto opacity-50" />
+
+        {/* Bottom: powered by */}
+        <div className="flex items-center gap-2.5">
+          <span className="text-xs text-white/40">Powered by</span>
+          <div className="rounded bg-white px-2 py-1">
+            <img
+              src="/ort-logo.png"
+              alt="ORT"
+              className="h-4 w-auto object-contain"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Form panel */}
