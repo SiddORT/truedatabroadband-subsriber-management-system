@@ -26,14 +26,22 @@ if TYPE_CHECKING:
     from app.models.invoice import Invoice
 
 # ── Fonts ─────────────────────────────────────────────────────────────────────
+import os as _os
+
+_FONT_DIR = _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), "assets", "fonts")
+_NOTO_REG  = _os.path.join(_FONT_DIR, "NotoSans-Regular.ttf")
+_NOTO_BOLD = _os.path.join(_FONT_DIR, "NotoSans-Bold.ttf")
+_NOTO_ITAL = _os.path.join(_FONT_DIR, "NotoSans-Italic.ttf")
+
 try:
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
-    pdfmetrics.registerFont(TTFont("DV",      "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
-    pdfmetrics.registerFont(TTFont("DV-Bold", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"))
-    pdfmetrics.registerFont(TTFont("DV-Ital", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf"))
-    pdfmetrics.registerFontFamily("DV", normal="DV", bold="DV-Bold", italic="DV-Ital")
-    _F, _FB, _FI = "DV", "DV-Bold", "DV-Ital"
+    # Noto Sans: full Unicode coverage including ₹ (U+20B9)
+    pdfmetrics.registerFont(TTFont("NS",      _NOTO_REG))
+    pdfmetrics.registerFont(TTFont("NS-Bold", _NOTO_BOLD))
+    pdfmetrics.registerFont(TTFont("NS-Ital", _NOTO_ITAL))
+    pdfmetrics.registerFontFamily("NS", normal="NS", bold="NS-Bold", italic="NS-Ital")
+    _F, _FB, _FI = "NS", "NS-Bold", "NS-Ital"
 except Exception:
     _F, _FB, _FI = "Helvetica", "Helvetica-Bold", "Helvetica-Oblique"
 
