@@ -35,6 +35,15 @@ ACTION_SUBSCRIPTION_PLAN_CHANGED = "subscription_plan_changed"
 ACTION_SETTINGS_UPDATED = "settings_updated"
 ACTION_SETTINGS_LOGO_UPLOADED = "settings_logo_uploaded"
 
+# Invoice domain
+ACTION_INVOICE_CREATED = "invoice_created"
+ACTION_INVOICE_UPDATED = "invoice_updated"
+ACTION_INVOICE_LOCKED = "invoice_locked"
+ACTION_INVOICE_CANCELLED = "invoice_cancelled"
+
+# Payment domain
+ACTION_PAYMENT_RECORDED = "payment_recorded"
+
 
 class AuditLog(Base):
     """

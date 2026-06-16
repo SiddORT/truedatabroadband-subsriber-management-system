@@ -1,0 +1,253 @@
+"""Invoice API — SuperAdmin only (+ client read-only endpoints)."""
+
+from __future__ import annotations
+
+import math
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.dependencies.auth import require_client, require_superadmin
+from app.models.user import User
+from app.repositories.invoice import InvoiceRepository
+from app.schemas.invoice import (
+    InvoiceCreate,
+    InvoiceListResponse,
+    InvoiceOut,
+    InvoiceStatusUpdate,
+    InvoiceUpdate,
+)
+from app.services.invoice import InvoiceError, InvoiceService
+
+router = APIRouter(prefix="/invoices", tags=["invoices"])
+
+
+def _not_found() -> HTTPException:
+    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+
+
+def _to_out(invoice, base_url: str = "") -> InvoiceOut:
+    out = InvoiceOut.model_validate(invoice)
+    if invoice.pdf_path:
+        out.pdf_url = f"/api/v1/invoices/{invoice.id}/pdf"
+    return out
+
+
+# ── Admin: list ──────────────────────────────────────────────────────────────
+
+@router.get("", response_model=InvoiceListResponse)
+def list_invoices(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    search: str = Query(""),
+    sort_by: str = Query("invoice_date"),
+    sort_order: str = Query("desc"),
+    status_filter: str | None = Query(None, alias="status"),
+    current_user: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+) -> InvoiceListResponse:
+    repo = InvoiceRepository(db)
+    items, total = repo.list_paginated(
+        page=page,
+        page_size=page_size,
+        search=search,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        status_filter=status_filter,
+    )
+    return InvoiceListResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=math.ceil(total / page_size) if total else 0,
+    )
+
+
+# ── Admin: create ─────────────────────────────────────────────────────────────
+
+@router.post("", response_model=InvoiceOut, status_code=status.HTTP_201_CREATED)
+def create_invoice(
+    payload: InvoiceCreate,
+    request: Request,
+    current_user: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+) -> InvoiceOut:
+    svc = InvoiceService(db)
+    try:
+        invoice = svc.create(
+            payload,
+            actor_id=current_user.id,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+    except InvoiceError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    return _to_out(invoice)
+
+
+# ── Admin: get detail ─────────────────────────────────────────────────────────
+
+@router.get("/{invoice_id}", response_model=InvoiceOut)
+def get_invoice(
+    invoice_id: uuid.UUID,
+    current_user: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+) -> InvoiceOut:
+    invoice = InvoiceRepository(db).get(invoice_id)
+    if invoice is None:
+        raise _not_found()
+    return _to_out(invoice)
+
+
+# ── Admin: edit ───────────────────────────────────────────────────────────────
+
+@router.patch("/{invoice_id}", response_model=InvoiceOut)
+def update_invoice(
+    invoice_id: uuid.UUID,
+    payload: InvoiceUpdate,
+    current_user: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+) -> InvoiceOut:
+    repo = InvoiceRepository(db)
+    invoice = repo.get(invoice_id)
+    if invoice is None:
+        raise _not_found()
+    svc = InvoiceService(db)
+    try:
+        invoice = svc.update(invoice, payload, actor_id=current_user.id)
+    except InvoiceError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    return _to_out(invoice)
+
+
+# ── Admin: status change ──────────────────────────────────────────────────────
+
+@router.patch("/{invoice_id}/status", response_model=InvoiceOut)
+def update_invoice_status(
+    invoice_id: uuid.UUID,
+    payload: InvoiceStatusUpdate,
+    current_user: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+) -> InvoiceOut:
+    repo = InvoiceRepository(db)
+    invoice = repo.get(invoice_id)
+    if invoice is None:
+        raise _not_found()
+    svc = InvoiceService(db)
+    try:
+        invoice = svc.update_status(
+            invoice, payload.status, payload.change_reason, actor_id=current_user.id
+        )
+    except InvoiceError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    return _to_out(invoice)
+
+
+# ── Admin: PDF download ───────────────────────────────────────────────────────
+
+@router.get("/{invoice_id}/pdf")
+def download_invoice_pdf(
+    invoice_id: uuid.UUID,
+    current_user: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+):
+    invoice = InvoiceRepository(db).get(invoice_id)
+    if invoice is None:
+        raise _not_found()
+    svc = InvoiceService(db)
+    try:
+        path = svc.get_pdf_path(invoice)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"PDF generation failed: {exc}",
+        )
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename=f"{invoice.invoice_number}.pdf",
+    )
+
+
+# ── Admin: change history ─────────────────────────────────────────────────────
+
+@router.get("/{invoice_id}/history")
+def get_invoice_history(
+    invoice_id: uuid.UUID,
+    current_user: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+):
+    invoice = InvoiceRepository(db).get(invoice_id)
+    if invoice is None:
+        raise _not_found()
+    from app.schemas.invoice import ChangeLogOut
+    return [ChangeLogOut.model_validate(log) for log in invoice.change_logs]
+
+
+# ── Client: list own invoices ─────────────────────────────────────────────────
+
+@router.get("/client/my", response_model=InvoiceListResponse)
+def client_list_invoices(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> InvoiceListResponse:
+    repo = InvoiceRepository(db)
+    items, total = repo.list_by_customer_user(current_user.id, page=page, page_size=page_size)
+    return InvoiceListResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=math.ceil(total / page_size) if total else 0,
+    )
+
+
+# ── Client: get detail ────────────────────────────────────────────────────────
+
+@router.get("/client/{invoice_id}", response_model=InvoiceOut)
+def client_get_invoice(
+    invoice_id: uuid.UUID,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> InvoiceOut:
+    from app.models.customer import Customer
+    from app.models.subscription import Subscription
+
+    invoice = InvoiceRepository(db).get(invoice_id)
+    if invoice is None:
+        raise _not_found()
+    sub = invoice.subscription
+    customer = sub.customer if sub else None
+    if customer is None or customer.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    return _to_out(invoice)
+
+
+# ── Client: PDF download ──────────────────────────────────────────────────────
+
+@router.get("/client/{invoice_id}/pdf")
+def client_download_pdf(
+    invoice_id: uuid.UUID,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+):
+    invoice = InvoiceRepository(db).get(invoice_id)
+    if invoice is None:
+        raise _not_found()
+    sub = invoice.subscription
+    customer = sub.customer if sub else None
+    if customer is None or customer.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    svc = InvoiceService(db)
+    path = svc.get_pdf_path(invoice)
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename=f"{invoice.invoice_number}.pdf",
+    )

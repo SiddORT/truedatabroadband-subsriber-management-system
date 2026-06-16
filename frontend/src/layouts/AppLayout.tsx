@@ -1,4 +1,14 @@
-import { LayoutDashboard, LogOut, Menu, RefreshCw, Settings, Users, Wifi } from "lucide-react";
+import {
+  IndianRupee,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  ReceiptText,
+  RefreshCw,
+  Settings,
+  Users,
+  Wifi,
+} from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -12,7 +22,6 @@ interface NavItem {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   href: string;
-  /** Prefix used to detect "active" — matches any sub-path */
   matchPrefix: string;
   roles?: string[];
 }
@@ -47,11 +56,54 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["SUPERADMIN"],
   },
   {
+    label: "Invoices",
+    icon: ReceiptText,
+    href: "/admin/invoices",
+    matchPrefix: "/admin/invoices",
+    roles: ["SUPERADMIN"],
+  },
+  {
+    label: "Payments",
+    icon: IndianRupee,
+    href: "/admin/payments",
+    matchPrefix: "/admin/payments",
+    roles: ["SUPERADMIN"],
+  },
+  {
     label: "Settings",
     icon: Settings,
     href: "/admin/settings",
     matchPrefix: "/admin/settings",
     roles: ["SUPERADMIN"],
+  },
+  // Client nav
+  {
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    href: "/client/dashboard",
+    matchPrefix: "/client/dashboard",
+    roles: ["CLIENT"],
+  },
+  {
+    label: "My Subscription",
+    icon: RefreshCw,
+    href: "/client/subscription",
+    matchPrefix: "/client/subscription",
+    roles: ["CLIENT"],
+  },
+  {
+    label: "My Invoices",
+    icon: ReceiptText,
+    href: "/client/invoices",
+    matchPrefix: "/client/invoices",
+    roles: ["CLIENT"],
+  },
+  {
+    label: "Payment History",
+    icon: IndianRupee,
+    href: "/client/payments",
+    matchPrefix: "/client/payments",
+    roles: ["CLIENT"],
   },
 ];
 
@@ -87,7 +139,7 @@ export function AppLayout({ title, portalLabel, children }: AppLayoutProps) {
           />
         </div>
 
-        <nav className="flex-1 space-y-1 px-3 py-5">
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-5">
           <p className="flex items-center gap-1.5 px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-sidebar-muted">
             <span className="h-1.5 w-1.5 rounded-full bg-accent" />
             {portalLabel}
@@ -96,7 +148,7 @@ export function AppLayout({ title, portalLabel, children }: AppLayoutProps) {
             const isActive = location.pathname.startsWith(item.matchPrefix);
             return (
               <Link
-                key={item.label}
+                key={item.label + item.href}
                 to={item.href}
                 onClick={() => setSidebarOpen(false)}
                 className={cn(

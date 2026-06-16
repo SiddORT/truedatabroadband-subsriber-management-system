@@ -19,6 +19,13 @@ import { SubscriptionCreatePage } from "@/pages/admin/subscriptions/Subscription
 import { SubscriptionDetailPage } from "@/pages/admin/subscriptions/SubscriptionDetailPage";
 import { ClientSubscriptionPage } from "@/pages/client/ClientSubscriptionPage";
 import { SettingsPage } from "@/pages/admin/settings/SettingsPage";
+import { InvoiceListPage } from "@/pages/admin/invoices/InvoiceListPage";
+import { InvoiceCreatePage } from "@/pages/admin/invoices/InvoiceCreatePage";
+import { InvoiceDetailPage } from "@/pages/admin/invoices/InvoiceDetailPage";
+import { PaymentListPage } from "@/pages/admin/payments/PaymentListPage";
+import { PaymentCreatePage } from "@/pages/admin/payments/PaymentCreatePage";
+import { ClientInvoicePage } from "@/pages/client/ClientInvoicePage";
+import { ClientPaymentPage } from "@/pages/client/ClientPaymentPage";
 
 /** Redirect to /change-password if logged in and forced, else to login. */
 function RootRedirect() {
@@ -56,7 +63,7 @@ export default function App() {
         }
       />
 
-      {/* Force-password-change wall (accessible while authenticated, any role) */}
+      {/* Force-password-change wall */}
       <Route path="/change-password" element={<ChangePasswordPage />} />
 
       {/* Unauthorized */}
@@ -158,6 +165,50 @@ export default function App() {
         }
       />
 
+      {/* Invoices */}
+      <Route
+        path="/admin/invoices"
+        element={
+          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+            <InvoiceListPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/invoices/new"
+        element={
+          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+            <InvoiceCreatePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/invoices/:id"
+        element={
+          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+            <InvoiceDetailPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Payments */}
+      <Route
+        path="/admin/payments"
+        element={
+          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+            <PaymentListPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/payments/new"
+        element={
+          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+            <PaymentCreatePage />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Settings */}
       <Route
         path="/admin/settings"
@@ -182,6 +233,22 @@ export default function App() {
         element={
           <ProtectedRoute role="CLIENT" loginPath="/client/login">
             <ClientSubscriptionPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/client/invoices"
+        element={
+          <ProtectedRoute role="CLIENT" loginPath="/client/login">
+            <ClientInvoicePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/client/payments"
+        element={
+          <ProtectedRoute role="CLIENT" loginPath="/client/login">
+            <ClientPaymentPage />
           </ProtectedRoute>
         }
       />
