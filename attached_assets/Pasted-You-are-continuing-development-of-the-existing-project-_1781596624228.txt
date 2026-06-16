@@ -1,0 +1,344 @@
+You are continuing development of the existing project.
+
+IMPORTANT:
+
+Follow the existing architecture, theme, coding standards, and folder structure.
+
+Implement ONLY the Plan Management module.
+
+Do NOT implement:
+
+- Subscriptions
+- Invoices
+- Payments
+- Reports
+
+==================================================
+OBJECTIVE
+==================================================
+
+Allow SuperAdmin to create broadband plans and configure pricing by billing cycle.
+
+Plans and pricing must be separate entities.
+
+==================================================
+DATABASE DESIGN
+==================================================
+
+Create two tables:
+
+plans
+
+Fields:
+
+- id (UUID)
+- plan_code (unique)
+- name
+- description
+
+- speed_mbps
+
+- data_policy
+- fup_limit_gb
+
+- is_active
+
+- created_at
+- updated_at
+- deleted_at
+
+Data policy values:
+
+- UNLIMITED
+- FUP
+
+If data_policy = FUP:
+
+fup_limit_gb is required.
+
+==================================================
+PLAN PRICING
+==================================================
+
+Create:
+
+plan_pricing
+
+Fields:
+
+- id (UUID)
+- plan_id (FK)
+
+- billing_cycle
+- base_price
+- gst_percentage
+
+- total_price
+
+- is_active
+
+- created_at
+- updated_at
+- deleted_at
+
+Billing cycle values:
+
+- MONTHLY
+- QUARTERLY
+- HALF_YEARLY
+- ANNUALLY
+
+Constraints:
+
+- One pricing row per billing cycle per plan
+
+Unique:
+
+(plan_id, billing_cycle)
+
+==================================================
+PLAN CODE GENERATION
+==================================================
+
+Format:
+
+TDB-PLAN-00001
+
+Generate automatically.
+
+Never reuse codes.
+
+==================================================
+BUSINESS RULES
+==================================================
+
+A plan:
+
+- Can have multiple billing cycles
+- Must have at least one active pricing option
+- Cannot be deleted if used in subscriptions (future)
+
+Use soft deletes only.
+
+==================================================
+API ROUTES
+==================================================
+
+Prefix:
+
+/api/v1/plans
+
+Create:
+
+GET    /api/v1/plans
+POST   /api/v1/plans
+GET    /api/v1/plans/{id}
+PUT    /api/v1/plans/{id}
+PATCH  /api/v1/plans/{id}/status
+
+Create pricing endpoints:
+
+POST   /api/v1/plans/{id}/pricing
+PUT    /api/v1/plans/{id}/pricing/{pricing_id}
+DELETE /api/v1/plans/{id}/pricing/{pricing_id}
+
+SuperAdmin only.
+
+==================================================
+PAGINATION STANDARD
+==================================================
+
+Support:
+
+- page
+- page_size
+- search
+- sort_by
+- sort_order
+
+Default page size:
+
+10
+
+Allowed:
+
+10, 25, 50, 100
+
+Response:
+
+{
+  "items": [],
+  "total": 0,
+  "page": 1,
+  "page_size": 10,
+  "total_pages": 0
+}
+
+==================================================
+SEARCH
+==================================================
+
+Search across:
+
+- plan_code
+- name
+- description
+
+Server-side only.
+
+==================================================
+SORTING
+==================================================
+
+Allow:
+
+- plan_code
+- name
+- speed_mbps
+- created_at
+
+==================================================
+VALIDATION
+==================================================
+
+Validate:
+
+- speed_mbps > 0
+- base_price >= 0
+- gst_percentage >= 0
+
+Calculate:
+
+total_price = base_price + GST
+
+Store total_price.
+
+Never calculate historical prices dynamically.
+
+==================================================
+FRONTEND
+==================================================
+
+Create routes:
+
+/admin/plans
+/admin/plans/new
+/admin/plans/:id
+
+==================================================
+PLAN LIST PAGE
+==================================================
+
+Use reusable DataTable.
+
+Columns:
+
+- Plan Code
+- Name
+- Speed
+- Data Policy
+- Active Pricing Count
+- Status
+- Actions
+
+Features:
+
+- Pagination
+- Search
+- Sorting
+
+==================================================
+PLAN CREATE PAGE
+==================================================
+
+Form fields:
+
+Basic Information:
+
+- Name
+- Description
+- Speed
+
+Usage Policy:
+
+- Unlimited
+- FUP
+
+Conditional:
+
+- FUP Limit
+
+Pricing:
+
+Allow adding multiple billing cycles.
+
+Example:
+
+[Monthly]      ₹799
+[Quarterly]    ₹2199
+[Half-Yearly]  ₹4299
+[Annually]     ₹8499
+
+Configure GST per pricing row.
+
+Use dynamic form arrays.
+
+==================================================
+PLAN DETAILS PAGE
+==================================================
+
+Display:
+
+- Plan information
+- Pricing matrix
+- Created date
+- Status
+
+Placeholder section:
+
+- Active subscriptions
+
+Do not implement subscriptions.
+
+==================================================
+AUDIT LOGGING
+==================================================
+
+Track:
+
+- plan_created
+- plan_updated
+- pricing_created
+- pricing_updated
+- pricing_deleted
+
+==================================================
+TESTING
+==================================================
+
+Create tests for:
+
+- Plan creation
+- Plan code generation
+- Duplicate billing cycle rejection
+- Pagination
+- Search
+- Price calculation
+
+==================================================
+ACCEPTANCE CRITERIA
+==================================================
+
+Success means:
+
+1. SuperAdmin can create plans
+2. Multiple billing cycles can be configured
+3. Duplicate billing cycles are prevented
+4. Plan codes are generated automatically
+5. Plan list supports pagination
+6. Plan list supports search
+7. Pricing calculations are correct
+8. Soft deletes work
+9. Audit logs are created
+
+Do not implement subscriptions, invoices, or payments.

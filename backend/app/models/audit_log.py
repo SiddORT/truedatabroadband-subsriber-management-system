@@ -18,6 +18,13 @@ ACTION_CUSTOMER_UPDATED = "customer_updated"
 ACTION_CUSTOMER_STATUS_CHANGED = "customer_status_changed"
 ACTION_CUSTOMER_PASSWORD_RESET = "customer_password_reset"
 
+# Plan domain
+ACTION_PLAN_CREATED = "plan_created"
+ACTION_PLAN_UPDATED = "plan_updated"
+ACTION_PRICING_CREATED = "pricing_created"
+ACTION_PRICING_UPDATED = "pricing_updated"
+ACTION_PRICING_DELETED = "pricing_deleted"
+
 
 class AuditLog(Base):
     """
