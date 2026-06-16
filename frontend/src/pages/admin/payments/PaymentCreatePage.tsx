@@ -42,7 +42,7 @@ export function PaymentCreatePage() {
     queryFn: () =>
       invoicesService.list({
         page: 1,
-        page_size: 200,
+        page_size: 100,
         sort_by: "invoice_date",
         sort_order: "desc",
       }),
