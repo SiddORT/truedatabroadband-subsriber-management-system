@@ -1,57 +1,95 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.dependencies.auth import get_current_active_user
+from app.models.audit_log import ACTION_LOGIN, ACTION_LOGOUT, ACTION_PASSWORD_CHANGE
 from app.models.user import User
+from app.repositories.audit_log import AuditLogRepository
 from app.schemas.auth import LoginRequest, LogoutRequest, MessageResponse
-from app.schemas.token import AccessToken, RefreshRequest, TokenPair
+from app.schemas.password import ChangePasswordRequest
+from app.schemas.token import LoginResponse, RefreshRequest, TokenPair
 from app.schemas.user import UserOut
-from app.services.auth import AuthError, AuthService
+from app.services.auth import AuthError, AuthService, PasswordPolicyError
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+_EXPIRES_IN = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
-@router.post("/login", response_model=TokenPair)
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _audit(
+    db: Session,
+    action: str,
+    request: Request,
+    user_id: object = None,
+) -> None:
+    AuditLogRepository(db).log(
+        action,
+        user_id=user_id,  # type: ignore[arg-type]
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+
+
+@router.post("/login", response_model=LoginResponse)
 def login(
     request: Request,
     payload: LoginRequest,
     db: Session = Depends(get_db),
-) -> TokenPair:
+) -> LoginResponse:
     service = AuthService(db)
     try:
         user = service.authenticate(payload.email, payload.password)
     except AuthError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(exc),
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc))
+
     access_token, refresh_token = service.issue_tokens(
         user,
         user_agent=request.headers.get("user-agent"),
         ip_address=request.client.host if request.client else None,
     )
-    return TokenPair(access_token=access_token, refresh_token=refresh_token)
+    _audit(db, ACTION_LOGIN, request, user_id=user.id)
+
+    return LoginResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        expires_in=_EXPIRES_IN,
+        user=UserOut.model_validate(user),
+    )
 
 
-@router.post("/refresh", response_model=AccessToken)
+@router.post("/refresh", response_model=TokenPair)
 def refresh(
     payload: RefreshRequest,
     db: Session = Depends(get_db),
-) -> AccessToken:
+) -> TokenPair:
+    """Rotate the refresh token and issue a fresh access token."""
     service = AuthService(db)
     try:
-        access_token = service.refresh_access_token(payload.refresh_token)
+        access_token, refresh_token = service.refresh_tokens(payload.refresh_token)
     except AuthError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(exc),
-        )
-    return AccessToken(access_token=access_token)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc))
+    return TokenPair(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        expires_in=_EXPIRES_IN,
+    )
 
 
 @router.post("/logout", response_model=MessageResponse)
 def logout(
+    request: Request,
     payload: LogoutRequest,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
@@ -60,10 +98,41 @@ def logout(
     Revoke the caller's refresh-token session.
 
     - Provide ``refresh_token`` to revoke that specific device session.
-    - Omit it to revoke **all** sessions for this user account.
+    - Omit it to revoke **all** sessions for this account.
     """
     AuthService(db).logout(current_user.id, payload.refresh_token)
+    _audit(db, ACTION_LOGOUT, request, user_id=current_user.id)
     return MessageResponse(message="Logged out successfully")
+
+
+@router.post("/change-password", response_model=MessageResponse)
+def change_password(
+    request: Request,
+    payload: ChangePasswordRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    """
+    Change the authenticated user's password.
+
+    Enforces the full password policy. On success, clears
+    ``must_change_password`` and revokes all existing sessions.
+    """
+    service = AuthService(db)
+    try:
+        service.change_password(
+            current_user, payload.old_password, payload.new_password
+        )
+    except PasswordPolicyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"message": "Password does not meet policy", "violations": exc.violations},
+        )
+    except AuthError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    _audit(db, ACTION_PASSWORD_CHANGE, request, user_id=current_user.id)
+    return MessageResponse(message="Password changed successfully")
 
 
 @router.get("/me", response_model=UserOut)

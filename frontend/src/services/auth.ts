@@ -1,10 +1,15 @@
-import { api, tokenStore } from "@/services/api";
-import type { LoginCredentials, TokenPair, User } from "@/types/auth";
+import { api, tokenService } from "@/services/api";
+import type {
+  ChangePasswordPayload,
+  LoginCredentials,
+  LoginResponse,
+  User,
+} from "@/types/auth";
 
 export const authService = {
-  async login(credentials: LoginCredentials): Promise<TokenPair> {
-    const { data } = await api.post<TokenPair>("/auth/login", credentials);
-    tokenStore.setTokens(data.access_token, data.refresh_token);
+  async login(credentials: LoginCredentials): Promise<LoginResponse> {
+    const { data } = await api.post<LoginResponse>("/auth/login", credentials);
+    tokenService.setTokens(data.access_token, data.refresh_token);
     return data;
   },
 
@@ -13,11 +18,15 @@ export const authService = {
     return data;
   },
 
-  async logout(): Promise<void> {
+  async logout(refreshToken?: string): Promise<void> {
     try {
-      await api.post("/auth/logout");
+      await api.post("/auth/logout", { refresh_token: refreshToken ?? null });
     } finally {
-      tokenStore.clear();
+      tokenService.clear();
     }
+  },
+
+  async changePassword(payload: ChangePasswordPayload): Promise<void> {
+    await api.post("/auth/change-password", payload);
   },
 };

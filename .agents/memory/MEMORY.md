@@ -1,1 +1,3 @@
 - [Email validator .local](email-validator-local-domain.md) — Pydantic EmailStr rejects `.local` domains; use plain `str` for fields that accept `admin@truedata.local`.
+- [Token re-export pattern](token-export-pattern.md) — tokenService lives in tokenService.ts; api.ts must re-export it by its own name AND any aliases, or the browser errors on missing named export.
+- [Auth architecture decisions](auth-architecture.md) — JWT 60-min access / 7-day refresh, DB-backed jti sessions, token rotation on /refresh, AuditLog table (append-only), password policy in AuthService, LoginResponse embeds user to skip extra /me call.

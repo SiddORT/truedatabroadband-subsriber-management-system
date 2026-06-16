@@ -7,16 +7,22 @@ import {
   type ReactNode,
 } from "react";
 
+import { tokenService } from "@/services/api";
 import { authService } from "@/services/auth";
-import { tokenStore } from "@/services/api";
-import type { LoginCredentials, User } from "@/types/auth";
+import type {
+  ChangePasswordPayload,
+  LoginCredentials,
+  User,
+} from "@/types/auth";
 
 interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  mustChangePassword: boolean;
   login: (credentials: LoginCredentials) => Promise<User>;
   logout: () => Promise<void>;
+  changePassword: (payload: ChangePasswordPayload) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(
@@ -27,10 +33,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Bootstrap: rehydrate session from stored access token.
   useEffect(() => {
     let active = true;
     const bootstrap = async () => {
-      if (!tokenStore.getAccess()) {
+      if (!tokenService.getAccess()) {
         setIsLoading(false);
         return;
       }
@@ -38,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const me = await authService.me();
         if (active) setUser(me);
       } catch {
-        tokenStore.clear();
+        tokenService.clear();
       } finally {
         if (active) setIsLoading(false);
       }
@@ -50,26 +57,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (credentials: LoginCredentials) => {
-    await authService.login(credentials);
-    const me = await authService.me();
-    setUser(me);
-    return me;
+    const response = await authService.login(credentials);
+    // Use the user embedded in the login response — no extra /me round-trip.
+    setUser(response.user);
+    return response.user;
   }, []);
 
   const logout = useCallback(async () => {
-    await authService.logout();
+    const rt = tokenService.getRefresh() ?? undefined;
+    await authService.logout(rt);
     setUser(null);
   }, []);
+
+  const changePassword = useCallback(
+    async (payload: ChangePasswordPayload) => {
+      await authService.changePassword(payload);
+      // Refresh user to pick up must_change_password = false.
+      const updated = await authService.me();
+      setUser(updated);
+    },
+    [],
+  );
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       isLoading,
       isAuthenticated: user !== null,
+      mustChangePassword: user?.must_change_password ?? false,
       login,
       logout,
+      changePassword,
     }),
-    [user, isLoading, login, logout],
+    [user, isLoading, login, logout, changePassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

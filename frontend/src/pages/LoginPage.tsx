@@ -1,14 +1,23 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useNavigate } from "react-router-dom";
 import { Loader2, ShieldCheck, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { useAuth } from "@/hooks/useAuth";
 import { getApiErrorMessage } from "@/services/api";
-import { authService } from "@/services/auth";
 import type { UserRole } from "@/types/auth";
+
+const schema = z.object({
+  email: z.string().min(1, "Email is required"),
+  password: z.string().min(1, "Password is required"),
+});
+type FormValues = z.infer<typeof schema>;
 
 interface LoginPageProps {
   role: UserRole;
@@ -20,30 +29,32 @@ interface LoginPageProps {
 export function LoginPage({ role, title, subtitle, redirectTo }: LoginPageProps) {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [serverError, setServerError] = useState<string | null>(null);
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
   const Icon = role === "SUPERADMIN" ? ShieldCheck : Users;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSubmitting(true);
+  const onSubmit = async (values: FormValues) => {
+    setServerError(null);
     try {
-      const user = await login({ email, password });
+      const user = await login(values);
       if (user.role !== role) {
-        await authService.logout();
-        setError(`This account is not authorized for the ${title}.`);
+        setServerError(`This account is not authorized for the ${title}.`);
+        return;
+      }
+      // Force password change takes priority over the normal destination.
+      if (user.must_change_password) {
+        navigate("/change-password", { replace: true });
         return;
       }
       navigate(redirectTo, { replace: true });
     } catch (err) {
-      setError(getApiErrorMessage(err, "Unable to sign in. Please try again."));
-    } finally {
-      setSubmitting(false);
+      setServerError(getApiErrorMessage(err, "Unable to sign in. Please try again."));
     }
   };
 
@@ -82,41 +93,44 @@ export function LoginPage({ role, title, subtitle, redirectTo }: LoginPageProps)
             <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
                 autoComplete="username"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@truedata.local"
-                required
+                aria-invalid={!!errors.email}
+                {...register("email")}
               />
+              {errors.email && (
+                <p className="text-xs text-destructive">{errors.email.message}</p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                required
+                aria-invalid={!!errors.password}
+                {...register("password")}
               />
+              {errors.password && (
+                <p className="text-xs text-destructive">{errors.password.message}</p>
+              )}
             </div>
 
-            {error && (
+            {serverError && (
               <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                {error}
+                {serverError}
               </div>
             )}
 
-            <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
               Sign in
             </Button>
           </form>
