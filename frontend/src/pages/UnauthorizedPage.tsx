@@ -1,14 +1,20 @@
 import { ShieldOff } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 
 export function UnauthorizedPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
-  const dashboardPath =
-    user?.role === "SUPERADMIN" ? "/admin/dashboard" : "/client/dashboard";
+  const handleClick = () => {
+    if (user) {
+      navigate(user.role === "SUPERADMIN" ? "/admin/dashboard" : "/client/dashboard");
+    } else {
+      navigate("/admin/login");
+    }
+  };
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4 text-center">
@@ -16,22 +22,14 @@ export function UnauthorizedPage() {
         <ShieldOff className="h-8 w-8" />
       </div>
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold text-foreground">
-          Access Denied
-        </h1>
+        <h1 className="text-2xl font-semibold text-foreground">Access Denied</h1>
         <p className="text-sm text-muted-foreground">
           You don't have permission to view this page.
         </p>
       </div>
-      {user ? (
-        <Button asChild>
-          <Link to={dashboardPath}>Go to my dashboard</Link>
-        </Button>
-      ) : (
-        <Button asChild>
-          <Link to="/admin/login">Sign in</Link>
-        </Button>
-      )}
+      <Button onClick={handleClick}>
+        {user ? "Go to my dashboard" : "Sign in"}
+      </Button>
     </div>
   );
 }
