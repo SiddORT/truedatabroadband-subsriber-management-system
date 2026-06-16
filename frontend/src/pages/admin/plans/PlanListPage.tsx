@@ -5,7 +5,7 @@ import { Plus, Eye, Zap, Infinity, AlertCircle } from "lucide-react";
 
 import { AppLayout } from "@/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   DataTable,
   type DataTableColumn,
@@ -43,17 +43,23 @@ function PolicyBadge({ policy, fup }: { policy: string; fup: number | null }) {
 
 function StatusBadge({ active }: { active: boolean }) {
   return active ? (
-    <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800 border border-green-200">
+    <span className="inline-flex items-center rounded-full border border-green-200 bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800">
       Active
     </span>
   ) : (
-    <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground border border-border">
+    <span className="inline-flex items-center rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
       Inactive
     </span>
   );
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────
+
+const STATUS_FILTER_OPTIONS = [
+  { label: "All Plans", value: "" },
+  { label: "Active Only", value: "active" },
+  { label: "Inactive Only", value: "inactive" },
+];
 
 export function PlanListPage() {
   const navigate = useNavigate();
@@ -64,9 +70,10 @@ export function PlanListPage() {
     sortBy: "created_at",
     sortDir: "desc",
   });
+  const [statusFilter, setStatusFilter] = useState("");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["plans", tableState],
+    queryKey: ["plans", tableState, statusFilter],
     queryFn: () =>
       plansService.list({
         page: tableState.page,
@@ -74,6 +81,8 @@ export function PlanListPage() {
         search: tableState.search,
         sort_by: tableState.sortBy ?? "created_at",
         sort_order: tableState.sortDir,
+        ...(statusFilter === "active" ? { is_active: true } : {}),
+        ...(statusFilter === "inactive" ? { is_active: false } : {}),
       }),
   });
 
@@ -106,7 +115,7 @@ export function PlanListPage() {
         <div>
           <p className="font-medium">{row.name}</p>
           {row.description && (
-            <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+            <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
               {row.description}
             </p>
           )}
@@ -122,7 +131,9 @@ export function PlanListPage() {
     {
       key: "data_policy",
       header: "Data Policy",
-      render: (row) => <PolicyBadge policy={row.data_policy} fup={row.fup_limit_gb} />,
+      render: (row) => (
+        <PolicyBadge policy={row.data_policy} fup={row.fup_limit_gb} />
+      ),
     },
     {
       key: "active_pricing_count",
@@ -130,18 +141,22 @@ export function PlanListPage() {
       render: (row) => (
         <span className="text-sm">
           {row.active_pricing_count === 0 ? (
-            <span className="text-muted-foreground italic">None</span>
+            <span className="italic text-muted-foreground">None</span>
           ) : (
             <span className="font-medium">
               {row.active_pricing_count}{" "}
-              <span className="text-muted-foreground font-normal">
+              <span className="font-normal text-muted-foreground">
                 {row.active_pricing_count === 1 ? "cycle" : "cycles"}
               </span>
             </span>
           )}
           {row.pricing.length > 0 && (
             <span className="ml-1.5 text-[11px] text-muted-foreground">
-              ({row.pricing.map((p) => BILLING_CYCLE_LABELS[p.billing_cycle][0]).join(", ")})
+              (
+              {row.pricing
+                .map((p) => BILLING_CYCLE_LABELS[p.billing_cycle][0])
+                .join(", ")}
+              )
             </span>
           )}
         </span>
@@ -163,7 +178,8 @@ export function PlanListPage() {
           onClick={() => navigate(`/admin/plans/${row.id}`)}
           className="gap-1.5"
         >
-          <Eye className="h-3.5 w-3.5" />View
+          <Eye className="h-3.5 w-3.5" />
+          View
         </Button>
       ),
     },
@@ -172,20 +188,54 @@ export function PlanListPage() {
   return (
     <AppLayout title="Plans" portalLabel="Administration">
       <div className="space-y-5">
-        <div className="flex items-center justify-between gap-4">
+        {/* ── Page header ──────────────────────────────────────────────── */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold">Broadband Plans</h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
+            <h2 className="text-xl font-semibold text-foreground">
+              Broadband Plans
+            </h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">
               Manage plans and configure billing cycle pricing.
             </p>
           </div>
-          <Button onClick={() => navigate("/admin/plans/new")} className="shrink-0">
-            <Plus className="h-4 w-4" />New Plan
+          <Button
+            onClick={() => navigate("/admin/plans/new")}
+            className="shrink-0"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            New Plan
           </Button>
         </div>
 
+        {/* ── Table card ───────────────────────────────────────────────── */}
         <Card>
-          <CardContent className="pt-5">
+          <CardHeader className="border-b border-border px-5 py-3.5">
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-sm text-muted-foreground">
+                <span className="font-semibold text-foreground">
+                  {data?.total ?? 0}
+                </span>{" "}
+                plan{data?.total !== 1 ? "s" : ""}
+              </p>
+              <div className="ml-auto flex items-center gap-2">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value);
+                    setTableState((s) => ({ ...s, page: 1 }));
+                  }}
+                  className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                >
+                  {STATUS_FILTER_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
             <DataTable
               columns={columns}
               rows={data?.items ?? []}

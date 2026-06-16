@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { Plus, RefreshCw, Eye, Edit, ShieldOff, Key } from "lucide-react";
+import { Plus, Eye, Edit, ShieldOff, Key } from "lucide-react";
 
 import {
   DataTable,
@@ -9,7 +9,7 @@ import {
   type DataTableColumn,
   type DataTableState,
 } from "@/components/DataTable";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/Dialog";
 import { AppLayout } from "@/layouts/AppLayout";
@@ -19,9 +19,9 @@ import { getApiErrorMessage } from "@/services/api";
 import type { Customer, CustomerStatus } from "@/types/customer";
 
 const STATUS_COLORS: Record<CustomerStatus, string> = {
-  ACTIVE: "bg-green-100 text-green-800",
-  SUSPENDED: "bg-amber-100 text-amber-800",
-  DISCONNECTED: "bg-red-100 text-red-800",
+  ACTIVE: "bg-green-100 text-green-800 border border-green-200",
+  SUSPENDED: "bg-amber-100 text-amber-800 border border-amber-200",
+  DISCONNECTED: "bg-red-100 text-red-800 border border-red-200",
 };
 
 const ALL_STATUSES: CustomerStatus[] = ["ACTIVE", "SUSPENDED", "DISCONNECTED"];
@@ -40,14 +40,12 @@ export function CustomerListPage() {
   });
   const [statusFilter, setStatusFilter] = useState<CustomerStatus | "">("");
 
-  // Status change dialog
   const [statusDialog, setStatusDialog] = useState<{
     open: boolean;
     customer: Customer | null;
     newStatus: CustomerStatus | null;
   }>({ open: false, customer: null, newStatus: null });
 
-  // Reset password dialog
   const [resetDialog, setResetDialog] = useState<{
     open: boolean;
     customer: Customer | null;
@@ -88,8 +86,7 @@ export function CustomerListPage() {
 
   const resetMutation = useMutation({
     mutationFn: (id: string) => customersService.resetPassword(id),
-    onSuccess: (data, id) => {
-      const customer = resetDialog.customer;
+    onSuccess: (data) => {
       setResetDialog((d) => ({ ...d, tempPassword: data.temp_password }));
     },
     onError: (err) => showToast(getApiErrorMessage(err), "error"),
@@ -135,24 +132,28 @@ export function CustomerListPage() {
       key: "created_at",
       header: "Created",
       sortable: true,
-      render: (row) => new Date(row.created_at).toLocaleDateString("en-IN"),
+      render: (row) => (
+        <span className="text-sm text-muted-foreground">
+          {new Date(row.created_at).toLocaleDateString("en-IN")}
+        </span>
+      ),
     },
     {
       key: "actions",
-      header: "Actions",
+      header: "",
       className: "text-right",
       render: (row) => (
-        <div className="flex items-center justify-end gap-1">
+        <div className="flex items-center justify-end gap-0.5">
           <button
             onClick={() => navigate(`/admin/customers/${row.id}`)}
-            className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             title="View"
           >
             <Eye className="h-4 w-4" />
           </button>
           <button
             onClick={() => navigate(`/admin/customers/${row.id}/edit`)}
-            className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             title="Edit"
           >
             <Edit className="h-4 w-4" />
@@ -165,7 +166,7 @@ export function CustomerListPage() {
                 newStatus: row.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE",
               })
             }
-            className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             title="Change status"
           >
             <ShieldOff className="h-4 w-4" />
@@ -174,7 +175,7 @@ export function CustomerListPage() {
             onClick={() =>
               setResetDialog({ open: true, customer: row, tempPassword: null })
             }
-            className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             title="Reset password"
           >
             <Key className="h-4 w-4" />
@@ -186,24 +187,36 @@ export function CustomerListPage() {
 
   return (
     <AppLayout title="Customers" portalLabel="Administration">
-      <div className="space-y-6">
+      <div className="space-y-5">
+        {/* ── Page header ──────────────────────────────────────────────── */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold text-foreground">Customers</h2>
-            <p className="text-sm text-muted-foreground">
-              {data?.total ?? 0} total customers
+            <h2 className="text-xl font-semibold text-foreground">
+              Customers
+            </h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Manage customer accounts and portal access.
             </p>
           </div>
-          <Button onClick={() => navigate("/admin/customers/new")}>
-            <Plus className="h-4 w-4" />
+          <Button
+            onClick={() => navigate("/admin/customers/new")}
+            className="shrink-0"
+          >
+            <Plus className="mr-2 h-4 w-4" />
             New Customer
           </Button>
         </div>
 
+        {/* ── Table card ───────────────────────────────────────────────── */}
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="border-b border-border px-5 py-3.5">
             <div className="flex flex-wrap items-center gap-3">
-              <CardTitle className="text-base">All Customers</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                <span className="font-semibold text-foreground">
+                  {data?.total ?? 0}
+                </span>{" "}
+                customer{data?.total !== 1 ? "s" : ""}
+              </p>
               <div className="ml-auto flex items-center gap-2">
                 <select
                   value={statusFilter}
@@ -211,7 +224,7 @@ export function CustomerListPage() {
                     setStatusFilter(e.target.value as CustomerStatus | "");
                     setTableState((s) => ({ ...s, page: 1 }));
                   }}
-                  className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 >
                   <option value="">All Statuses</option>
                   {ALL_STATUSES.map((s) => (
@@ -223,7 +236,7 @@ export function CustomerListPage() {
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             <DataTable
               columns={columns}
               rows={data?.items ?? []}
@@ -238,16 +251,18 @@ export function CustomerListPage() {
         </Card>
       </div>
 
-      {/* Status change confirmation */}
+      {/* ── Status change dialog ─────────────────────────────────────── */}
       <Dialog
         open={statusDialog.open}
-        onClose={() => setStatusDialog({ open: false, customer: null, newStatus: null })}
+        onClose={() =>
+          setStatusDialog({ open: false, customer: null, newStatus: null })
+        }
         title="Change Customer Status"
       >
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Change <strong>{statusDialog.customer?.full_name}</strong> status to{" "}
-            <strong>{statusDialog.newStatus}</strong>?
+            Change <strong>{statusDialog.customer?.full_name}</strong> status
+            to <strong>{statusDialog.newStatus}</strong>?
             {statusDialog.newStatus === "DISCONNECTED" && (
               <span className="mt-1 block text-red-600">
                 This will disable the customer's login access.
@@ -258,7 +273,11 @@ export function CustomerListPage() {
             <Button
               variant="outline"
               onClick={() =>
-                setStatusDialog({ open: false, customer: null, newStatus: null })
+                setStatusDialog({
+                  open: false,
+                  customer: null,
+                  newStatus: null,
+                })
               }
             >
               Cancel
@@ -280,29 +299,47 @@ export function CustomerListPage() {
         </div>
       </Dialog>
 
-      {/* Password reset dialog */}
+      {/* ── Password reset dialog ────────────────────────────────────── */}
       <Dialog
         open={resetDialog.open}
-        onClose={() => setResetDialog({ open: false, customer: null, tempPassword: null })}
-        title={resetDialog.tempPassword ? "New Temporary Password" : "Reset Password"}
+        onClose={() =>
+          setResetDialog({ open: false, customer: null, tempPassword: null })
+        }
+        title={
+          resetDialog.tempPassword
+            ? "New Temporary Password"
+            : "Reset Password"
+        }
       >
         {resetDialog.tempPassword ? (
           <div className="space-y-4">
-            <div className="rounded-lg bg-muted/50 p-4 text-sm space-y-2">
+            <div className="space-y-2 rounded-lg bg-muted/50 p-4 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Customer</span>
-                <span className="font-medium">{resetDialog.customer?.full_name}</span>
+                <span className="font-medium">
+                  {resetDialog.customer?.full_name}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">New Password</span>
-                <span className="font-mono font-semibold">{resetDialog.tempPassword}</span>
+                <span className="font-mono font-semibold">
+                  {resetDialog.tempPassword}
+                </span>
               </div>
             </div>
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+            <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
               Copy this password now — it will not be shown again.
             </p>
             <div className="flex justify-end">
-              <Button onClick={() => setResetDialog({ open: false, customer: null, tempPassword: null })}>
+              <Button
+                onClick={() =>
+                  setResetDialog({
+                    open: false,
+                    customer: null,
+                    tempPassword: null,
+                  })
+                }
+              >
                 Done
               </Button>
             </div>
@@ -318,7 +355,11 @@ export function CustomerListPage() {
               <Button
                 variant="outline"
                 onClick={() =>
-                  setResetDialog({ open: false, customer: null, tempPassword: null })
+                  setResetDialog({
+                    open: false,
+                    customer: null,
+                    tempPassword: null,
+                  })
                 }
               >
                 Cancel

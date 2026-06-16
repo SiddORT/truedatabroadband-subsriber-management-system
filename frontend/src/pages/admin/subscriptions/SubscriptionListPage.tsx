@@ -1,19 +1,20 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Eye, PlusCircle } from "lucide-react";
+import { Eye, Plus } from "lucide-react";
 
 import { AppLayout } from "@/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   DataTable,
-  DataTableColumn,
-  DataTableState,
+  type DataTableColumn,
+  type DataTableState,
   DEFAULT_PAGE_SIZE,
 } from "@/components/DataTable";
 import { subscriptionsService } from "@/services/subscriptions";
 import {
-  Subscription,
+  type Subscription,
   SUBSCRIPTION_STATUS_COLORS,
   SUBSCRIPTION_STATUS_LABELS,
 } from "@/types/subscription";
@@ -63,15 +64,19 @@ export function SubscriptionListPage() {
     {
       key: "_sr",
       header: "Sr. No.",
-      render: (_, __, i) =>
-        (tableState.page - 1) * tableState.pageSize + i + 1,
+      className: "w-14 text-center",
+      render: (_, index) => (
+        <span className="text-sm text-muted-foreground tabular-nums">
+          {(tableState.page - 1) * tableState.pageSize + index + 1}
+        </span>
+      ),
     },
     {
       key: "subscription_code",
       header: "Sub. Code",
       sortable: true,
       render: (row) => (
-        <span className="font-mono text-xs font-semibold text-primary">
+        <span className="font-mono text-sm font-medium text-primary">
           {row.subscription_code}
         </span>
       ),
@@ -143,13 +148,15 @@ export function SubscriptionListPage() {
     {
       key: "actions",
       header: "",
+      className: "w-20 text-right",
       render: (row) => (
         <Button
           variant="outline"
           size="sm"
           onClick={() => navigate(`/admin/subscriptions/${row.id}`)}
+          className="gap-1.5"
         >
-          <Eye className="mr-1 h-3.5 w-3.5" />
+          <Eye className="h-3.5 w-3.5" />
           View
         </Button>
       ),
@@ -157,48 +164,67 @@ export function SubscriptionListPage() {
   ];
 
   return (
-    <AppLayout title="Subscriptions" portalLabel="Admin Portal">
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+    <AppLayout title="Subscriptions" portalLabel="Administration">
+      <div className="space-y-5">
+        {/* ── Page header ──────────────────────────────────────────────── */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold text-foreground">
               Subscriptions
             </h2>
-            <p className="text-sm text-muted-foreground">
-              Manage customer plan assignments
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Manage customer plan assignments and renewal cycles.
             </p>
           </div>
-          <Button onClick={() => navigate("/admin/subscriptions/new")}>
-            <PlusCircle className="mr-2 h-4 w-4" />
+          <Button
+            onClick={() => navigate("/admin/subscriptions/new")}
+            className="shrink-0"
+          >
+            <Plus className="mr-2 h-4 w-4" />
             New Subscription
           </Button>
         </div>
 
-        <div className="flex items-center gap-3">
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setTableState((s) => ({ ...s, page: 1 }));
-            }}
-            className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <DataTable
-          columns={columns}
-          rows={data?.items ?? []}
-          total={data?.total ?? 0}
-          isLoading={isLoading}
-          state={tableState}
-          onStateChange={setTableState}
-        />
+        {/* ── Table card ───────────────────────────────────────────────── */}
+        <Card>
+          <CardHeader className="border-b border-border px-5 py-3.5">
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-sm text-muted-foreground">
+                <span className="font-semibold text-foreground">
+                  {data?.total ?? 0}
+                </span>{" "}
+                subscription{data?.total !== 1 ? "s" : ""}
+              </p>
+              <div className="ml-auto flex items-center gap-2">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value);
+                    setTableState((s) => ({ ...s, page: 1 }));
+                  }}
+                  className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                >
+                  {STATUS_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <DataTable
+              columns={columns}
+              rows={data?.items ?? []}
+              total={data?.total ?? 0}
+              isLoading={isLoading}
+              state={tableState}
+              onStateChange={setTableState}
+              emptyMessage="No subscriptions found. Assign a plan to a customer to get started."
+            />
+          </CardContent>
+        </Card>
       </div>
     </AppLayout>
   );
