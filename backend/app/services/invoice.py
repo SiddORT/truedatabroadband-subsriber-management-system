@@ -85,7 +85,19 @@ class InvoiceService:
 
     def _generate_and_store_pdf(self, invoice: Invoice) -> str:
         from app.services.pdf_invoice import generate_invoice_pdf
-        pdf_bytes = generate_invoice_pdf(invoice)
+        # Resolve logo absolute path from company settings
+        logo_abs_path: str | None = None
+        try:
+            cs = CompanySettingsRepository(self.db).get()
+            if cs and cs.logo_path:
+                storage = get_storage_service()
+                candidate = storage.url("company", cs.logo_path)
+                import os
+                if os.path.isfile(candidate):
+                    logo_abs_path = candidate
+        except Exception:
+            pass
+        pdf_bytes = generate_invoice_pdf(invoice, logo_path=logo_abs_path)
         key = f"{PDF_PREFIX}/{invoice.invoice_number}.pdf"
         storage = get_storage_service()
         storage.save(INVOICE_BUCKET, key, io.BytesIO(pdf_bytes))
