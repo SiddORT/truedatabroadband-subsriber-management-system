@@ -123,25 +123,11 @@ class InvoiceService:
         if pricing is None:
             raise InvoiceError("Plan pricing not found")
 
-        # Discount applied to base (before GST)
         base = pricing.base_price
         gst_pct = pricing.gst_percentage
+        discount_scope = payload.discount_scope or "base"
 
-        discount_type = payload.discount_type
-        discount_value = payload.discount_value or Decimal("0")
-        discount_amount = Decimal("0.00")
-        if discount_type and discount_value > 0:
-            if discount_type == "percentage":
-                discount_amount = (base * discount_value / 100).quantize(Decimal("0.01"))
-            else:  # fixed
-                discount_amount = min(discount_value, base).quantize(Decimal("0.01"))
-
-        effective_base = base - discount_amount
-
-        # GST on effective (discounted) base
-        gst_amt = (effective_base * gst_pct / 100).quantize(Decimal("0.01"))
-
-        # Custom line items
+        # Custom line items (computed first so "overall" scope can use the total)
         line_items_data: list[dict] = []
         line_items_total = Decimal("0.00")
         for item in (payload.line_items or []):
@@ -150,7 +136,36 @@ class InvoiceService:
                 line_items_data.append({"description": item.description, "amount": str(amt)})
                 line_items_total += amt
 
-        total = effective_base + gst_amt + line_items_total
+        discount_type = payload.discount_type
+        discount_value = payload.discount_value or Decimal("0")
+        discount_amount = Decimal("0.00")
+
+        if discount_type and discount_value > 0:
+            if discount_scope == "overall":
+                # Discount on the grand total (base + GST + all items)
+                # GST computed on the full base first
+                gst_on_full_base = (base * gst_pct / 100).quantize(Decimal("0.01"))
+                subtotal = base + gst_on_full_base + line_items_total
+                if discount_type == "percentage":
+                    discount_amount = (subtotal * discount_value / 100).quantize(Decimal("0.01"))
+                else:
+                    discount_amount = min(discount_value, subtotal).quantize(Decimal("0.01"))
+                # GST stays on full base; total is subtotal minus discount
+                gst_amt = gst_on_full_base
+                total = (subtotal - discount_amount).quantize(Decimal("0.01"))
+            else:
+                # "base" scope (default): discount reduces the plan base before GST
+                if discount_type == "percentage":
+                    discount_amount = (base * discount_value / 100).quantize(Decimal("0.01"))
+                else:
+                    discount_amount = min(discount_value, base).quantize(Decimal("0.01"))
+                effective_base = base - discount_amount
+                gst_amt = (effective_base * gst_pct / 100).quantize(Decimal("0.01"))
+                total = (effective_base + gst_amt + line_items_total).quantize(Decimal("0.01"))
+        else:
+            # No discount
+            gst_amt = (base * gst_pct / 100).quantize(Decimal("0.01"))
+            total = (base + gst_amt + line_items_total).quantize(Decimal("0.01"))
 
         # Company settings snapshot
         cs = CompanySettingsRepository(self.db).get_or_create()
@@ -212,6 +227,7 @@ class InvoiceService:
             discount_value=discount_value if discount_amount > 0 else None,
             discount_amount=discount_amount,
             discount_label=payload.discount_label,
+            discount_scope=discount_scope,
             # Dates
             billing_period_start=payload.billing_period_start,
             billing_period_end=payload.billing_period_end,

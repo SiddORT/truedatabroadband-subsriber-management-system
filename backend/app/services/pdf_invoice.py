@@ -289,11 +289,11 @@ def generate_invoice_pdf(invoice: "Invoice", logo_path: str | None = None) -> by
     story.append(Spacer(1, 3 * mm))
 
     discount_amount = getattr(invoice, "discount_amount", None) or Decimal("0")
+    discount_scope  = getattr(invoice, "discount_scope",  None) or "base"
     line_items      = getattr(invoice, "line_items", None) or []
 
     # Table header style
-    th   = _s("th",  fontName=_FONT_BD, fontSize=7.5, leading=10, textColor=WHITE)
-    tc   = _s("tc",  fontSize=8, leading=11)
+    th    = _s("th",   fontName=_FONT_BD, fontSize=7.5, leading=10, textColor=WHITE)
     tc_sm = _s("tcsm", fontSize=7, leading=10, textColor=MUTED)
     tc_r  = _s("tcr",  fontSize=8, leading=11, alignment=2)
 
@@ -316,22 +316,26 @@ def generate_invoice_pdf(invoice: "Invoice", logo_path: str | None = None) -> by
     ]
     rows = [header_row, plan_row]
 
-    disc_desc = ""
-    if discount_amount > 0:
+    # Helper to build a discount row
+    def _disc_row(label_suffix: str) -> list:
         disc_type  = getattr(invoice, "discount_type",  None) or ""
         disc_value = getattr(invoice, "discount_value", None)
         disc_label = getattr(invoice, "discount_label", None) or ""
         if disc_type == "percentage" and disc_value:
-            disc_desc = f"Discount ({float(disc_value):.2g}%)"
+            desc = f"Discount ({float(disc_value):.2g}%) \u2014 {label_suffix}"
         else:
-            disc_desc = "Discount"
+            desc = f"Discount \u2014 {label_suffix}"
         if disc_label:
-            disc_desc += f" \u2014 {disc_label}"
-        rows.append([
-            _p(disc_desc, acc_bd),
+            desc += f" \u00b7 {disc_label}"
+        return [
+            _p(desc, acc_bd),
             _p("", tc_sm),
             _p(f"\u2212{_cur(discount_amount)}", _s("dar", fontSize=7.5, textColor=ACCENT, alignment=2)),
-        ])
+        ]
+
+    # Base-scope discount: shown between plan row and GST row
+    if discount_amount > 0 and discount_scope != "overall":
+        rows.append(_disc_row("Base"))
 
     rows.append([
         _p(f"GST @ {float(invoice.gst_percentage):.0f}%", _s("gt", fontName=_FONT_BD, fontSize=8)),
@@ -345,6 +349,10 @@ def generate_invoice_pdf(invoice: "Invoice", logo_path: str | None = None) -> by
             _p("", tc_sm),
             _p(_cur(Decimal(str(item.get("amount", "0")))), tc_r),
         ])
+
+    # Overall-scope discount: shown after all items
+    if discount_amount > 0 and discount_scope == "overall":
+        rows.append(_disc_row("Overall"))
 
     n = len(rows)
     item_table = Table(rows, colWidths=[c1, c2, c3])

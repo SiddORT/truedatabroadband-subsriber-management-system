@@ -100,6 +100,7 @@ export function InvoiceCreatePage() {
   const [customItems, setCustomItems] = useState<CustomItem[]>([]);
   // Step 4 — discount
   const [discountType, setDiscountType] = useState<DiscountType>("");
+  const [discountScope, setDiscountScope] = useState<"base" | "overall">("base");
   const [discountValue, setDiscountValue] = useState("");
   const [discountLabel, setDiscountLabel] = useState("");
 
@@ -124,17 +125,6 @@ export function InvoiceCreatePage() {
   const gstPct = Number(selectedSub?.gst_percentage_snapshot ?? 0);
 
   // ── Amount calculations ─────────────────────────────────────────────────
-  const discountAmt = (() => {
-    if (!discountType || !discountValue || Number(discountValue) <= 0) return 0;
-    if (discountType === "percentage") {
-      return Math.round(baseAmt * Number(discountValue) * 100) / 10000;
-    }
-    return Math.min(Number(discountValue), baseAmt);
-  })();
-
-  const effectiveBase = Math.round((baseAmt - discountAmt) * 100) / 100;
-  const gstAmt = Math.round(effectiveBase * gstPct) / 100;
-
   const instAmt = Number(installationCharges) || 0;
   const svcAmt = Number(serviceCharges) || 0;
   const customTotal = customItems.reduce(
@@ -142,7 +132,35 @@ export function InvoiceCreatePage() {
     0
   );
   const lineItemsTotal = instAmt + svcAmt + customTotal;
-  const totalAmt = effectiveBase + gstAmt + lineItemsTotal;
+
+  const gstOnFullBase = Math.round(baseAmt * gstPct) / 100;
+
+  const discountAmt = (() => {
+    if (!discountType || !discountValue || Number(discountValue) <= 0) return 0;
+    if (discountScope === "overall") {
+      const subtotal = baseAmt + gstOnFullBase + lineItemsTotal;
+      if (discountType === "percentage") {
+        return Math.round(subtotal * Number(discountValue) * 100) / 10000;
+      }
+      return Math.min(Number(discountValue), subtotal);
+    }
+    // "base" scope
+    if (discountType === "percentage") {
+      return Math.round(baseAmt * Number(discountValue) * 100) / 10000;
+    }
+    return Math.min(Number(discountValue), baseAmt);
+  })();
+
+  // For "base" scope, GST is on (base - discount); for "overall", GST is on full base
+  const effectiveBase = discountScope === "base"
+    ? Math.round((baseAmt - discountAmt) * 100) / 100
+    : baseAmt;
+  const gstAmt = discountScope === "base"
+    ? Math.round(effectiveBase * gstPct) / 100
+    : gstOnFullBase;
+  const totalAmt = discountScope === "overall"
+    ? baseAmt + gstAmt + lineItemsTotal - discountAmt
+    : effectiveBase + gstAmt + lineItemsTotal;
 
   const step1Done = !!subscriptionId;
   const step2Done = !!billingStart && !!billingEnd;
@@ -190,6 +208,7 @@ export function InvoiceCreatePage() {
         discount_type: discountType || undefined,
         discount_value: discountType && discountValue ? discountValue : undefined,
         discount_label: discountLabel || undefined,
+        discount_scope: discountType ? discountScope : undefined,
       }),
     onSuccess: (inv) => {
       showToast(`Invoice ${inv.invoice_number} created`, "success");
@@ -508,14 +527,11 @@ export function InvoiceCreatePage() {
                 {/* ── Discount ────────────────────────────────────── */}
                 <div>
                   <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Discount{" "}
-                    <span className="normal-case font-normal text-muted-foreground/70">
-                      (applied to plan base price, before GST)
-                    </span>
+                    Discount
                   </p>
 
                   {/* Type toggle */}
-                  <div className="mb-4 flex gap-2">
+                  <div className="mb-3 flex gap-2">
                     {(
                       [
                         { value: "" as DiscountType, label: "None" },
@@ -529,6 +545,7 @@ export function InvoiceCreatePage() {
                         onClick={() => {
                           setDiscountType(value);
                           setDiscountValue("");
+                          if (!value) setDiscountScope("base");
                         }}
                         className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                           discountType === value
@@ -540,6 +557,40 @@ export function InvoiceCreatePage() {
                       </button>
                     ))}
                   </div>
+
+                  {/* Applies-to scope (only shown when a discount type is selected) */}
+                  {discountType && (
+                    <div className="mb-4">
+                      <p className="mb-2 text-xs text-muted-foreground font-medium">Applies to</p>
+                      <div className="flex gap-2">
+                        {(
+                          [
+                            { value: "base" as const, label: "Base Plan", desc: "Discount on plan price — reduces GST" },
+                            { value: "overall" as const, label: "Overall Total", desc: "Discount on full bill (base + GST + items)" },
+                          ]
+                        ).map(({ value, label, desc }) => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setDiscountScope(value)}
+                            title={desc}
+                            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                              discountScope === value
+                                ? "border-primary bg-primary text-white"
+                                : "border-border bg-background text-foreground hover:bg-muted"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-muted-foreground">
+                        {discountScope === "base"
+                          ? "Discount reduces the plan base charge; GST is calculated on the discounted base."
+                          : "Discount is applied after GST and all charges are summed (final bill reduction)."}
+                      </p>
+                    </div>
+                  )}
 
                   {discountType && (
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -686,14 +737,15 @@ export function InvoiceCreatePage() {
                       </span>
                     </div>
 
-                    {discountAmt > 0 && (
+                    {/* Base-scope discount: appears before GST */}
+                    {discountAmt > 0 && discountScope === "base" && (
                       <>
                         <div className="flex justify-between text-accent">
                           <span className="truncate pr-2">
                             {discountType === "percentage"
-                              ? `Discount (${discountValue}%)`
-                              : "Discount"}
-                            {discountLabel ? ` — ${discountLabel}` : ""}
+                              ? `Discount (${discountValue}%) — Base`
+                              : "Discount — Base"}
+                            {discountLabel ? ` · ${discountLabel}` : ""}
                           </span>
                           <span className="shrink-0 font-medium">
                             −₹{fmtMoney(discountAmt)}
@@ -745,6 +797,21 @@ export function InvoiceCreatePage() {
                           </span>
                         </div>
                       ))}
+
+                    {/* Overall-scope discount: appears after all charges, before total */}
+                    {discountAmt > 0 && discountScope === "overall" && (
+                      <div className="flex justify-between text-accent">
+                        <span className="truncate pr-2">
+                          {discountType === "percentage"
+                            ? `Discount (${discountValue}%) — Overall`
+                            : "Discount — Overall"}
+                          {discountLabel ? ` · ${discountLabel}` : ""}
+                        </span>
+                        <span className="shrink-0 font-medium">
+                          −₹{fmtMoney(discountAmt)}
+                        </span>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between border-t border-border pt-2">
                       <span className="font-semibold text-foreground">Total</span>

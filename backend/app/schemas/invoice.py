@@ -33,10 +33,13 @@ class InvoiceCreate(BaseModel):
     # Custom line items (installation charges, service charges, etc.)
     line_items: list[LineItemIn] = Field(default_factory=list)
 
-    # Discount applied to the base plan amount (before GST)
+    # Discount fields
     discount_type: Optional[str] = None   # "percentage" or "fixed"
     discount_value: Optional[Decimal] = Field(default=None, ge=0)
     discount_label: Optional[str] = Field(default=None, max_length=100)
+    # "base" = applied to plan base price before GST (default)
+    # "overall" = applied to entire total (base + GST + all line items)
+    discount_scope: Optional[str] = Field(default="base")
 
 
 class InvoiceUpdate(BaseModel):
@@ -133,6 +136,7 @@ class InvoiceOut(BaseModel):
     discount_value: Optional[Decimal] = None
     discount_amount: Decimal = Decimal("0.00")
     discount_label: Optional[str] = None
+    discount_scope: str = "base"
 
     # Payment tracking
     paid_amount: Decimal

@@ -73,6 +73,7 @@ export interface Invoice extends InvoiceListItem {
   discount_value: string | null;
   discount_amount: string;
   discount_label: string | null;
+  discount_scope: "base" | "overall";
   billing_period_start: string;
   billing_period_end: string;
   remarks: string | null;

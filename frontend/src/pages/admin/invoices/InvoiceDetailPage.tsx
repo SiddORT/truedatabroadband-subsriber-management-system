@@ -414,14 +414,15 @@ export function InvoiceDetailPage() {
                         {fmtMoney(inv.base_amount)}
                       </td>
                     </tr>
-                    {Number(inv.discount_amount) > 0 && (
+                    {/* Base-scope discount shows before GST */}
+                    {Number(inv.discount_amount) > 0 && inv.discount_scope !== "overall" && (
                       <>
                         <tr>
                           <td className="py-2 text-accent">
                             {inv.discount_type === "percentage"
-                              ? `Discount (${inv.discount_value}%)`
-                              : "Discount"}
-                            {inv.discount_label ? ` — ${inv.discount_label}` : ""}
+                              ? `Discount (${inv.discount_value}%) — Base`
+                              : "Discount — Base"}
+                            {inv.discount_label ? ` · ${inv.discount_label}` : ""}
                           </td>
                           <td className="py-2 text-right font-medium text-accent">
                             −{fmtMoney(inv.discount_amount)}
@@ -449,6 +450,20 @@ export function InvoiceDetailPage() {
                         <td className="py-2 text-right font-medium">{fmtMoney(item.amount)}</td>
                       </tr>
                     ))}
+                    {/* Overall-scope discount shows after all items, before total */}
+                    {Number(inv.discount_amount) > 0 && inv.discount_scope === "overall" && (
+                      <tr>
+                        <td className="py-2 text-accent">
+                          {inv.discount_type === "percentage"
+                            ? `Discount (${inv.discount_value}%) — Overall`
+                            : "Discount — Overall"}
+                          {inv.discount_label ? ` · ${inv.discount_label}` : ""}
+                        </td>
+                        <td className="py-2 text-right font-medium text-accent">
+                          −{fmtMoney(inv.discount_amount)}
+                        </td>
+                      </tr>
+                    )}
                     <tr className="font-semibold">
                       <td className="py-2 text-foreground">Total Amount</td>
                       <td className="py-2 text-right text-base font-bold text-primary">

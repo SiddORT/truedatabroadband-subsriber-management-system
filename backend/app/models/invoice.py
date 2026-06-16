@@ -128,6 +128,11 @@ class Invoice(Base, BaseModelMixin):
         Numeric(10, 2), nullable=False, default=Decimal("0.00")
     )
     discount_label: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # "base" = discount on plan base price (before GST)
+    # "overall" = discount on the final total (base + GST + line items)
+    discount_scope: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="base"
+    )
 
     # ── Billing period ─────────────────────────────────────────────────────
     billing_period_start: Mapped[date] = mapped_column(Date, nullable=False)
