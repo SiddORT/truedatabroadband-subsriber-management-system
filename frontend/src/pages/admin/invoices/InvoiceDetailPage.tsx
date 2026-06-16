@@ -178,17 +178,36 @@ export function InvoiceDetailPage() {
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
 
+  async function fetchPdfBlob(): Promise<string> {
+    const resp = await api.get(`/invoices/${id}/pdf`, { responseType: "blob" });
+    const blob = new Blob([resp.data], { type: "application/pdf" });
+    return URL.createObjectURL(blob);
+  }
+
   async function loadPdfPreview() {
     if (pdfBlobUrl) return;
     setPdfLoading(true);
     try {
-      const resp = await api.get(`/invoices/${id}/pdf`, { responseType: "blob" });
-      const blob = new Blob([resp.data], { type: "application/pdf" });
-      setPdfBlobUrl(URL.createObjectURL(blob));
+      setPdfBlobUrl(await fetchPdfBlob());
     } catch {
       showToast("Failed to load PDF preview", "error");
     } finally {
       setPdfLoading(false);
+    }
+  }
+
+  async function downloadPdf() {
+    try {
+      const url = await fetchPdfBlob();
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${inv?.invoice_number ?? "invoice"}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      showToast("Failed to download PDF", "error");
     }
   }
 
@@ -258,16 +277,10 @@ export function InvoiceDetailPage() {
                 Edit
               </Button>
             )}
-            <a
-              href={invoicesService.pdfUrl(inv.id)}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Button variant="outline" size="sm">
-                <Download className="mr-1.5 h-4 w-4" />
-                PDF
-              </Button>
-            </a>
+            <Button variant="outline" size="sm" onClick={downloadPdf}>
+              <Download className="mr-1.5 h-4 w-4" />
+              PDF
+            </Button>
             {canPay && (
               <Button size="sm" onClick={openPayDialog}>
                 <IndianRupee className="mr-1.5 h-4 w-4" />
