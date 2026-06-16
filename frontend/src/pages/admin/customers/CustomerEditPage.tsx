@@ -5,23 +5,21 @@ import { z } from "zod";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeft, Loader2, Upload, CheckCircle2, FolderUp,
-  User, Users, Building2, CreditCard, MapPin, Receipt,
-  UserCheck, Info,
+  Loader2, ArrowLeft, ArrowRight, Upload, CheckCircle2, Check,
+  Users, User, Building2, CreditCard, MapPin, Receipt,
+  UserCheck, Info, FolderUp,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card, CardContent, CardDescription, CardHeader, CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { AppLayout } from "@/layouts/AppLayout";
 import { useToast } from "@/contexts/ToastContext";
 import { customersService } from "@/services/customers";
 import type { DocType } from "@/services/customers";
 import { getApiErrorMessage } from "@/services/api";
-import type { Customer } from "@/types/customer";
+import type { Customer, CustomerUpdatePayload } from "@/types/customer";
 
 // ── Static data ───────────────────────────────────────────────────────────────
 
@@ -34,18 +32,34 @@ const INDIAN_STATES = [
   "Chandigarh","Dadra and Nagar Haveli and Daman and Diu","Delhi",
   "Jammu and Kashmir","Ladakh","Lakshadweep","Puducherry",
 ];
-
 const KYC_OPTIONS = [
   { value: "AADHAAR", label: "Aadhaar Card" },
-  { value: "PAN", label: "PAN Card" },
+  { value: "PAN",     label: "PAN Card" },
   { value: "PASSPORT", label: "Passport" },
   { value: "VOTER_ID", label: "Voter ID" },
   { value: "DRIVING_LICENSE", label: "Driving License" },
 ];
-
 const REFERENCE_OPTIONS = [
   "Online","Referral","Walk-In","Agent","Newspaper","Social Media","Other",
 ];
+
+// ── Steps ─────────────────────────────────────────────────────────────────────
+
+const STEPS = [
+  { icon: Users,    title: "Customer & Contact",  description: "Account type and primary contact details" },
+  { icon: MapPin,   title: "Identity & Address",  description: "KYC verification and service location" },
+  { icon: Info,     title: "Additional Details",  description: "Spokesperson, connection info and notes" },
+  { icon: FolderUp, title: "Documents",            description: "Upload or replace supporting files" },
+];
+
+const STEP_FIELDS: Record<number, string[]> = {
+  0: ["customer_type","company_name","gst_number","full_name","mobile_number","alternate_mobile_number","email"],
+  1: ["kyc_type","kyc_number","installation_address","address_line_2","landmark","city","state","pincode",
+      "billing_same_as_installation","billing_address_line_1","billing_city","billing_state","billing_pincode"],
+  2: ["spokesperson_name","spokesperson_mobile","spokesperson_email","spokesperson_designation",
+      "connection_date","reference_source","sales_person","notes"],
+  3: [],
+};
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
@@ -56,7 +70,7 @@ const schema = z
     gst_number: z.string().optional(),
     full_name: z.string().min(2, "Full name is required"),
     mobile_number: z.string().regex(/^\d{10}$/, "Must be exactly 10 digits"),
-    alternate_mobile_number: z.string().regex(/^\d{10}$/, "Must be exactly 10 digits").or(z.literal("")).optional(),
+    alternate_mobile_number: z.string().regex(/^\d{10}$/, "Must be 10 digits").or(z.literal("")).optional(),
     email: z.string().email("Invalid email address"),
     kyc_type: z.string().optional(),
     kyc_number: z.string().optional(),
@@ -65,7 +79,7 @@ const schema = z
     landmark: z.string().optional(),
     city: z.string().min(2, "City is required"),
     state: z.string().min(2, "State is required"),
-    pincode: z.string().regex(/^\d{6}$/, "Must be exactly 6 digits"),
+    pincode: z.string().regex(/^\d{6}$/, "Must be 6 digits"),
     billing_same_as_installation: z.boolean(),
     billing_address_line_1: z.string().optional(),
     billing_address_line_2: z.string().optional(),
@@ -74,7 +88,7 @@ const schema = z
     billing_state: z.string().optional(),
     billing_pincode: z.string().optional(),
     spokesperson_name: z.string().optional(),
-    spokesperson_mobile: z.string().regex(/^\d{10}$/, "Must be exactly 10 digits").or(z.literal("")).optional(),
+    spokesperson_mobile: z.string().regex(/^\d{10}$/, "Must be 10 digits").or(z.literal("")).optional(),
     spokesperson_email: z.string().email("Invalid email").or(z.literal("")).optional(),
     spokesperson_designation: z.string().optional(),
     connection_date: z.string().optional(),
@@ -84,7 +98,7 @@ const schema = z
   })
   .superRefine((d, ctx) => {
     if (d.customer_type === "BUSINESS" && !d.company_name?.trim())
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Company name is required for business customers", path: ["company_name"] });
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Company name is required for business accounts", path: ["company_name"] });
     if (!d.billing_same_as_installation) {
       if (!d.billing_address_line_1?.trim())
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Required", path: ["billing_address_line_1"] });
@@ -92,14 +106,50 @@ const schema = z
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Required", path: ["billing_city"] });
       if (!d.billing_state?.trim())
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Required", path: ["billing_state"] });
-      if (!d.billing_pincode?.trim())
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Required", path: ["billing_pincode"] });
-      else if (!/^\d{6}$/.test(d.billing_pincode))
+      if (d.billing_pincode && !/^\d{6}$/.test(d.billing_pincode))
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Must be 6 digits", path: ["billing_pincode"] });
     }
   });
 
 type FormValues = z.infer<typeof schema>;
+
+// ── Build clean update payload (empty strings → undefined) ────────────────────
+
+function buildPayload(v: FormValues): CustomerUpdatePayload {
+  const billingDiff = !v.billing_same_as_installation;
+  return {
+    customer_type: v.customer_type,
+    company_name:  v.company_name  || undefined,
+    gst_number:    v.gst_number    || undefined,
+    full_name:     v.full_name,
+    mobile_number: v.mobile_number,
+    alternate_mobile_number:  v.alternate_mobile_number  || undefined,
+    email: v.email,
+    kyc_type:   (v.kyc_type   as any) || undefined,
+    kyc_number:  v.kyc_number  || undefined,
+    installation_address: v.installation_address,
+    address_line_2: v.address_line_2 || undefined,
+    landmark:       v.landmark       || undefined,
+    city:  v.city,
+    state: v.state,
+    pincode: v.pincode,
+    billing_same_as_installation: v.billing_same_as_installation,
+    billing_address_line_1: billingDiff ? (v.billing_address_line_1 || undefined) : undefined,
+    billing_address_line_2: billingDiff ? (v.billing_address_line_2 || undefined) : undefined,
+    billing_landmark:       billingDiff ? (v.billing_landmark       || undefined) : undefined,
+    billing_city:           billingDiff ? (v.billing_city           || undefined) : undefined,
+    billing_state:          billingDiff ? (v.billing_state          || undefined) : undefined,
+    billing_pincode:        billingDiff ? (v.billing_pincode        || undefined) : undefined,
+    spokesperson_name:        v.spokesperson_name        || undefined,
+    spokesperson_mobile:      v.spokesperson_mobile      || undefined,
+    spokesperson_email:       v.spokesperson_email       || undefined,
+    spokesperson_designation: v.spokesperson_designation || undefined,
+    connection_date:  v.connection_date  || undefined,
+    reference_source: v.reference_source || undefined,
+    sales_person:     v.sales_person     || undefined,
+    notes:            v.notes            || undefined,
+  };
+}
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
 
@@ -115,133 +165,403 @@ function Field({
   return (
     <div className={`space-y-1.5 ${className ?? ""}`}>
       <Label className="text-sm font-medium">
-        {label}
-        {required && <span className="ml-0.5 text-destructive">*</span>}
+        {label}{required && <span className="ml-0.5 text-destructive">*</span>}
       </Label>
-      {hint && <p className="text-[11px] text-muted-foreground -mt-0.5">{hint}</p>}
+      {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
       {children}
       {error && (
         <p className="flex items-center gap-1 text-xs text-destructive">
-          <span className="h-1 w-1 rounded-full bg-destructive shrink-0" />
-          {error}
+          <span className="h-1 w-1 rounded-full bg-destructive shrink-0" />{error}
         </p>
       )}
     </div>
   );
 }
 
-function SectionHeader({
-  icon: Icon, title, description, step, total,
-}: {
-  icon: React.ElementType; title: string; description: string; step: number; total: number;
-}) {
+function SectionTitle({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
   return (
-    <CardHeader className="border-b border-border/40 pb-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-            <Icon className="text-primary" style={{ height: "1.125rem", width: "1.125rem" }} />
-          </div>
-          <div>
-            <CardTitle className="text-[15px] leading-tight">{title}</CardTitle>
-            <CardDescription className="mt-0.5 text-[12px]">{description}</CardDescription>
-          </div>
-        </div>
-        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-          {step} / {total}
-        </span>
+    <div className="mb-4 flex items-center gap-2.5">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+        <Icon className="h-3.5 w-3.5 text-primary" />
       </div>
-    </CardHeader>
+      <span className="text-sm font-semibold text-foreground">{title}</span>
+    </div>
   );
 }
 
-// ── Document upload row ───────────────────────────────────────────────────────
+// ── Wizard progress ───────────────────────────────────────────────────────────
 
-function DocUploadRow({
-  label, docType, customerId, hasExisting, accept, acceptHint, onUploaded,
+function WizardProgress({ step, steps }: { step: number; steps: typeof STEPS }) {
+  return (
+    <div className="flex items-start gap-0">
+      {steps.map(({ title }, i) => (
+        <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
+          <div className="flex w-full items-center">
+            <div className={`h-0.5 flex-1 ${i === 0 ? "invisible" : i <= step ? "bg-primary" : "bg-border"}`} />
+            <div className={`
+              flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all
+              ${i < step ? "bg-primary text-white shadow-sm"
+                : i === step ? "bg-primary/10 text-primary ring-2 ring-primary ring-offset-1"
+                : "bg-muted text-muted-foreground"}
+            `}>
+              {i < step ? <Check className="h-3.5 w-3.5" /> : i + 1}
+            </div>
+            <div className={`h-0.5 flex-1 ${i === steps.length - 1 ? "invisible" : i < step ? "bg-primary" : "bg-border"}`} />
+          </div>
+          <span className={`hidden text-[11px] font-medium sm:block text-center leading-tight ${i === step ? "text-primary" : "text-muted-foreground"}`}>
+            {title}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── File upload zone (with existing-doc awareness) ────────────────────────────
+
+function FileUploadZone({
+  label, acceptHint, accept, inputRef, onChange, fileName, hasExisting,
 }: {
-  label: string; docType: DocType; customerId: string; hasExisting: boolean;
-  accept: string; acceptHint: string; onUploaded: () => void;
+  label: string; acceptHint: string; accept: string;
+  inputRef: React.RefObject<HTMLInputElement>;
+  onChange: (name: string) => void;
+  fileName: string;
+  hasExisting: boolean;
 }) {
-  const { showToast } = useToast();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
-  const handleUpload = async () => {
-    if (!selectedFile) return;
-    setUploading(true);
-    try {
-      await customersService.uploadDocument(customerId, docType, selectedFile);
-      showToast(`${label} uploaded successfully`, "success");
-      setSelectedFile(null);
-      if (fileRef.current) fileRef.current.value = "";
-      onUploaded();
-    } catch (err) {
-      showToast(getApiErrorMessage(err, `Failed to upload ${label}`), "error");
-    } finally {
-      setUploading(false);
-    }
-  };
+  const showReplace = hasExisting && !fileName;
+  const showNew     = hasExisting &&  fileName;
 
   return (
-    <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{label}</span>
-          {hasExisting && !selectedFile && (
-            <span className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
-              <CheckCircle2 className="h-2.5 w-2.5" />
-              Uploaded
-            </span>
+    <div className="space-y-2">
+      <p className="text-sm font-medium">{label}</p>
+      <input ref={inputRef} type="file" accept={accept} className="hidden"
+        onChange={(e) => onChange(e.target.files?.[0]?.name ?? "")} />
+      <button type="button" onClick={() => inputRef.current?.click()}
+        className={`
+          group flex w-full cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed px-4 py-6
+          text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+          ${showNew     ? "border-blue-400/60 bg-blue-50/50"
+            : showReplace ? "border-green-300/60 bg-green-50/40 hover:border-primary/50 hover:bg-primary/5"
+            : fileName    ? "border-green-400/60 bg-green-50/50"
+            : "border-border/60 bg-muted/20 hover:border-primary/50 hover:bg-primary/5"}
+        `}
+      >
+        {showNew ? (
+          <>
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
+              <Upload className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-blue-700 truncate max-w-[160px]">{fileName}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Will replace existing file on save</p>
+            </div>
+          </>
+        ) : showReplace ? (
+          <>
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-green-700">Already uploaded</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Click to replace</p>
+            </div>
+          </>
+        ) : fileName ? (
+          <>
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-green-700 truncate max-w-[160px]">{fileName}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Click to change</p>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/60 transition-colors group-hover:bg-primary/10">
+              <Upload className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">Upload {label}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{acceptHint} · Max 10 MB</p>
+            </div>
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
+
+// ── Step components ───────────────────────────────────────────────────────────
+
+function Step1({ register, watch, errors }: { register: any; watch: any; errors: any }) {
+  const customerType = watch("customer_type");
+  return (
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+      <div>
+        <SectionTitle icon={Users} title="Customer Type" />
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              { value: "INDIVIDUAL", label: "Individual",      desc: "Personal broadband connection",      Icon: User },
+              { value: "BUSINESS",   label: "Business",        desc: "Corporate or company account",       Icon: Building2 },
+            ] as const).map(({ value, label, desc, Icon }) => {
+              const selected = customerType === value;
+              return (
+                <label key={value} className={`
+                  relative flex cursor-pointer flex-col gap-2 rounded-xl border-2 p-4 transition-all select-none
+                  ${selected ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/40 hover:bg-muted/30"}
+                `}>
+                  <input type="radio" value={value} {...register("customer_type")} className="sr-only" />
+                  <div className="flex items-center gap-2.5">
+                    <div className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors ${selected ? "bg-primary text-white" : "bg-muted text-muted-foreground"}`}>
+                      <Icon className="h-3.5 w-3.5" />
+                    </div>
+                    <span className={`text-sm font-semibold ${selected ? "text-primary" : ""}`}>{label}</span>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground pl-9">{desc}</span>
+                  {selected && <CheckCircle2 className="absolute right-2.5 top-2.5 h-4 w-4 text-primary" />}
+                </label>
+              );
+            })}
+          </div>
+          {customerType === "BUSINESS" && (
+            <div className="rounded-xl border border-border/50 bg-muted/20 p-4 space-y-3">
+              <Field label="Company Name" error={errors.company_name?.message} required>
+                <Input placeholder="Acme Pvt. Ltd." {...register("company_name")} />
+              </Field>
+              <Field label="GST Number" hint="15-character alphanumeric">
+                <Input placeholder="22AAAAA0000A1Z5" maxLength={15} className="uppercase" {...register("gst_number")} />
+              </Field>
+            </div>
           )}
         </div>
-        <p className="text-[10px] text-muted-foreground">{acceptHint} · Max 10 MB</p>
       </div>
-      <input
-        ref={fileRef}
-        type="file"
-        accept={accept}
-        className="hidden"
-        onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
-      />
-      {selectedFile ? (
-        <div className="flex items-center gap-2">
-          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
-            <FolderUp className="h-3.5 w-3.5 shrink-0 text-primary" />
-            <span className="truncate text-xs font-medium text-primary">{selectedFile.name}</span>
+      <div>
+        <SectionTitle icon={User} title="Basic Information" />
+        <div className="grid grid-cols-1 gap-4">
+          <Field label="Full Name" error={errors.full_name?.message} required>
+            <Input placeholder="Customer's full legal name" {...register("full_name")} />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Mobile Number" error={errors.mobile_number?.message} required>
+              <Input placeholder="9876543210" maxLength={10} {...register("mobile_number")} />
+            </Field>
+            <Field label="Alternate Mobile" error={errors.alternate_mobile_number?.message}>
+              <Input placeholder="9876543210" maxLength={10} {...register("alternate_mobile_number")} />
+            </Field>
           </div>
-          <Button type="button" size="sm" onClick={handleUpload} disabled={uploading}>
-            {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-            Upload
-          </Button>
-          <Button type="button" size="sm" variant="outline" onClick={() => { setSelectedFile(null); if (fileRef.current) fileRef.current.value = ""; }}>
-            Cancel
-          </Button>
+          <Field label="Email Address" error={errors.email?.message} required hint="Used for customer login">
+            <Input type="email" placeholder="customer@example.com" {...register("email")} />
+          </Field>
         </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
-        >
-          <Upload className="h-4 w-4" />
-          {hasExisting ? "Replace file" : "Choose file"}
-        </button>
-      )}
+      </div>
+    </div>
+  );
+}
+
+function Step2({ register, watch, errors }: { register: any; watch: any; errors: any }) {
+  const billingSame = watch("billing_same_as_installation");
+  return (
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+      <div className="space-y-6">
+        <div>
+          <SectionTitle icon={CreditCard} title="Identity / KYC" />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Document Type" error={errors.kyc_type?.message}>
+              <select {...register("kyc_type")} className={SELECT_CLS}>
+                <option value="">— Select —</option>
+                {KYC_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </Field>
+            <Field label="Document Number" error={errors.kyc_number?.message}>
+              <Input placeholder="e.g. 1234 5678 9012" {...register("kyc_number")} />
+            </Field>
+          </div>
+        </div>
+        <div>
+          <SectionTitle icon={MapPin} title="Installation Address" />
+          <div className="grid grid-cols-1 gap-3">
+            <Field label="Address Line 1" error={errors.installation_address?.message} required>
+              <Input placeholder="House / Flat No., Building, Street" {...register("installation_address")} />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Address Line 2">
+                <Input placeholder="Area, Colony (optional)" {...register("address_line_2")} />
+              </Field>
+              <Field label="Landmark">
+                <Input placeholder="Near…" {...register("landmark")} />
+              </Field>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="City" error={errors.city?.message} required>
+                <Input placeholder="Mumbai" {...register("city")} />
+              </Field>
+              <Field label="State" error={errors.state?.message} required>
+                <input list="edit-install-state" placeholder="Maharashtra" {...register("state")}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <datalist id="edit-install-state">
+                  {INDIAN_STATES.map((s) => <option key={s} value={s} />)}
+                </datalist>
+              </Field>
+              <Field label="Pincode" error={errors.pincode?.message} required>
+                <Input placeholder="400001" maxLength={6} {...register("pincode")} />
+              </Field>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <SectionTitle icon={Receipt} title="Billing Address" />
+        <div className="space-y-3">
+          <label className="flex cursor-pointer items-center gap-4 rounded-xl border border-border bg-muted/20 p-4 hover:bg-muted/40 select-none transition-colors">
+            <div className="relative h-5 w-9 shrink-0">
+              <input {...register("billing_same_as_installation")} type="checkbox" className="peer sr-only" />
+              <div className="absolute inset-0 rounded-full bg-border transition-colors peer-checked:bg-primary" />
+              <div className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-4" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">Same as installation address</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Invoices sent to the installation location</p>
+            </div>
+          </label>
+          {!billingSame && (
+            <div className="rounded-xl border border-border/50 bg-muted/20 p-4 space-y-3">
+              <Field label="Address Line 1" error={errors.billing_address_line_1?.message} required>
+                <Input placeholder="House / Flat No., Building, Street" {...register("billing_address_line_1")} />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Address Line 2">
+                  <Input placeholder="Area, Colony (optional)" {...register("billing_address_line_2")} />
+                </Field>
+                <Field label="Landmark">
+                  <Input placeholder="Near…" {...register("billing_landmark")} />
+                </Field>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <Field label="City" error={errors.billing_city?.message} required>
+                  <Input placeholder="Mumbai" {...register("billing_city")} />
+                </Field>
+                <Field label="State" error={errors.billing_state?.message} required>
+                  <input list="edit-billing-state" placeholder="Maharashtra" {...register("billing_state")}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                  <datalist id="edit-billing-state">
+                    {INDIAN_STATES.map((s) => <option key={s} value={s} />)}
+                  </datalist>
+                </Field>
+                <Field label="Pincode" error={errors.billing_pincode?.message} required>
+                  <Input placeholder="400001" maxLength={6} {...register("billing_pincode")} />
+                </Field>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Step3({ register, errors }: { register: any; errors: any }) {
+  return (
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+      <div>
+        <SectionTitle icon={UserCheck} title="Spokesperson / Alternate Contact" />
+        <div className="grid grid-cols-1 gap-3">
+          <Field label="Full Name">
+            <Input placeholder="Contact person's name" {...register("spokesperson_name")} />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Mobile" error={errors.spokesperson_mobile?.message}>
+              <Input placeholder="9876543210" maxLength={10} {...register("spokesperson_mobile")} />
+            </Field>
+            <Field label="Email" error={errors.spokesperson_email?.message}>
+              <Input type="email" placeholder="contact@example.com" {...register("spokesperson_email")} />
+            </Field>
+          </div>
+          <Field label="Designation">
+            <Input placeholder="Manager, Director, Owner…" {...register("spokesperson_designation")} />
+          </Field>
+        </div>
+      </div>
+      <div>
+        <SectionTitle icon={Info} title="Additional Information" />
+        <div className="grid grid-cols-1 gap-3">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Connection Date">
+              <Input type="date" {...register("connection_date")} />
+            </Field>
+            <Field label="Reference Source">
+              <select {...register("reference_source")} className={SELECT_CLS}>
+                <option value="">— How did they find us? —</option>
+                {REFERENCE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </Field>
+          </div>
+          <Field label="Salesperson">
+            <Input placeholder="Assigned salesperson" {...register("sales_person")} />
+          </Field>
+          <Field label="Internal Notes">
+            <textarea rows={4} placeholder="Any notes or special instructions…" {...register("notes")}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+          </Field>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Step4Docs({
+  customer, profileRef, kycRef, agreementRef, fileNames, setFileNames,
+}: {
+  customer: Customer;
+  profileRef: React.RefObject<HTMLInputElement>;
+  kycRef: React.RefObject<HTMLInputElement>;
+  agreementRef: React.RefObject<HTMLInputElement>;
+  fileNames: Record<string, string>;
+  setFileNames: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+}) {
+  return (
+    <div className="space-y-4">
+      <p className="rounded-xl bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+        New files selected below will be uploaded when you click <strong>Save Changes</strong>. Files already uploaded are shown in green.
+      </p>
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+        <FileUploadZone
+          label="Profile Photo" acceptHint="JPG, PNG, WebP"
+          accept="image/jpeg,image/png,image/webp"
+          inputRef={profileRef} fileName={fileNames.profile_photo}
+          hasExisting={!!customer.profile_photo_path}
+          onChange={(n) => setFileNames((p) => ({ ...p, profile_photo: n }))} />
+        <FileUploadZone
+          label="KYC Document" acceptHint="JPG, PNG, PDF"
+          accept="image/jpeg,image/png,image/webp,application/pdf"
+          inputRef={kycRef} fileName={fileNames.kyc_document}
+          hasExisting={!!customer.kyc_document_path}
+          onChange={(n) => setFileNames((p) => ({ ...p, kyc_document: n }))} />
+        <FileUploadZone
+          label="Agreement Document" acceptHint="JPG, PNG, PDF"
+          accept="image/jpeg,image/png,image/webp,application/pdf"
+          inputRef={agreementRef} fileName={fileNames.agreement_document}
+          hasExisting={!!customer.agreement_document_path}
+          onChange={(n) => setFileNames((p) => ({ ...p, agreement_document: n }))} />
+      </div>
     </div>
   );
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-const TOTAL_SECTIONS = 8;
-
 export function CustomerEditPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { showToast } = useToast();
+
+  const [step, setStep] = useState(0);
+  const profileRef   = useRef<HTMLInputElement>(null);
+  const kycRef       = useRef<HTMLInputElement>(null);
+  const agreementRef = useRef<HTMLInputElement>(null);
+  const [fileNames, setFileNames] = useState({ profile_photo: "", kyc_document: "", agreement_document: "" });
 
   const { data: customer, isLoading } = useQuery<Customer>({
     queryKey: ["customers", id],
@@ -250,66 +570,66 @@ export function CustomerEditPage() {
   });
 
   const {
-    register, handleSubmit, reset, watch,
+    register, handleSubmit, reset, watch, trigger,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({ resolver: zodResolver(schema) });
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    mode: "onTouched",
+  });
 
+  // Pre-populate form when customer data loads
   useEffect(() => {
     if (!customer) return;
     reset({
-      customer_type: customer.customer_type,
-      company_name: customer.company_name ?? "",
-      gst_number: customer.gst_number ?? "",
-      full_name: customer.full_name,
-      mobile_number: customer.mobile_number,
-      alternate_mobile_number: customer.alternate_mobile_number ?? "",
-      email: customer.email,
-      kyc_type: customer.kyc_type ?? "",
-      kyc_number: customer.kyc_number ?? "",
-      installation_address: customer.installation_address,
-      address_line_2: customer.address_line_2 ?? "",
-      landmark: customer.landmark ?? "",
-      city: customer.city,
-      state: customer.state,
-      pincode: customer.pincode,
+      customer_type:            customer.customer_type,
+      company_name:             customer.company_name             ?? "",
+      gst_number:               customer.gst_number               ?? "",
+      full_name:                customer.full_name,
+      mobile_number:            customer.mobile_number,
+      alternate_mobile_number:  customer.alternate_mobile_number  ?? "",
+      email:                    customer.email,
+      kyc_type:                 customer.kyc_type                 ?? "",
+      kyc_number:               customer.kyc_number               ?? "",
+      installation_address:     customer.installation_address,
+      address_line_2:           customer.address_line_2           ?? "",
+      landmark:                 customer.landmark                 ?? "",
+      city:                     customer.city,
+      state:                    customer.state,
+      pincode:                  customer.pincode,
       billing_same_as_installation: customer.billing_same_as_installation,
-      billing_address_line_1: customer.billing_address_line_1 ?? "",
-      billing_address_line_2: customer.billing_address_line_2 ?? "",
-      billing_landmark: customer.billing_landmark ?? "",
-      billing_city: customer.billing_city ?? "",
-      billing_state: customer.billing_state ?? "",
-      billing_pincode: customer.billing_pincode ?? "",
-      spokesperson_name: customer.spokesperson_name ?? "",
-      spokesperson_mobile: customer.spokesperson_mobile ?? "",
-      spokesperson_email: customer.spokesperson_email ?? "",
+      billing_address_line_1:   customer.billing_address_line_1   ?? "",
+      billing_address_line_2:   customer.billing_address_line_2   ?? "",
+      billing_landmark:         customer.billing_landmark         ?? "",
+      billing_city:             customer.billing_city             ?? "",
+      billing_state:            customer.billing_state            ?? "",
+      billing_pincode:          customer.billing_pincode          ?? "",
+      spokesperson_name:        customer.spokesperson_name        ?? "",
+      spokesperson_mobile:      customer.spokesperson_mobile      ?? "",
+      spokesperson_email:       customer.spokesperson_email       ?? "",
       spokesperson_designation: customer.spokesperson_designation ?? "",
-      connection_date: customer.connection_date ?? "",
-      reference_source: customer.reference_source ?? "",
-      sales_person: customer.sales_person ?? "",
-      notes: customer.notes ?? "",
+      connection_date:          customer.connection_date          ?? "",
+      reference_source:         customer.reference_source         ?? "",
+      sales_person:             customer.sales_person             ?? "",
+      notes:                    customer.notes                    ?? "",
     });
   }, [customer, reset]);
 
   const updateMutation = useMutation({
     mutationFn: (values: FormValues) =>
-      customersService.update(id!, {
-        ...values,
-        kyc_type: (values.kyc_type as any) || undefined,
-        alternate_mobile_number: values.alternate_mobile_number || undefined,
-        gst_number: values.gst_number || undefined,
-        company_name: values.company_name || undefined,
-        spokesperson_mobile: values.spokesperson_mobile || undefined,
-        spokesperson_email: values.spokesperson_email || undefined,
-        connection_date: values.connection_date || undefined,
-        reference_source: values.reference_source || undefined,
-        sales_person: values.sales_person || undefined,
-        notes: values.notes || undefined,
-        billing_address_line_1: values.billing_same_as_installation ? undefined : values.billing_address_line_1,
-        billing_city: values.billing_same_as_installation ? undefined : values.billing_city,
-        billing_state: values.billing_same_as_installation ? undefined : values.billing_state,
-        billing_pincode: values.billing_same_as_installation ? undefined : values.billing_pincode,
-      }),
-    onSuccess: () => {
+      customersService.update(id!, buildPayload(values)),
+    onSuccess: async () => {
+      // Upload any newly-selected documents
+      const uploads: Array<[DocType, React.RefObject<HTMLInputElement>]> = [
+        ["profile_photo",     profileRef],
+        ["kyc_document",      kycRef],
+        ["agreement_document",agreementRef],
+      ];
+      await Promise.all(uploads.map(async ([docType, ref]) => {
+        const file = ref.current?.files?.[0];
+        if (!file) return;
+        try { await customersService.uploadDocument(id!, docType, file); }
+        catch (err) { showToast(getApiErrorMessage(err, `${docType} upload failed`), "error"); }
+      }));
       qc.invalidateQueries({ queryKey: ["customers", id] });
       qc.invalidateQueries({ queryKey: ["customers"] });
       showToast("Customer updated successfully", "success");
@@ -318,11 +638,18 @@ export function CustomerEditPage() {
     onError: (err) => showToast(getApiErrorMessage(err, "Failed to update customer"), "error"),
   });
 
-  const customerType = watch("customer_type");
-  const billingSame = watch("billing_same_as_installation");
-  const invalidateCustomer = () => qc.invalidateQueries({ queryKey: ["customers", id] });
+  const isLastStep = step === STEPS.length - 1;
 
-  if (isLoading) {
+  const handleNext = async () => {
+    const fields = STEP_FIELDS[step] as (keyof FormValues)[];
+    if (fields.length > 0) {
+      const valid = await trigger(fields);
+      if (!valid) return;
+    }
+    setStep((s) => s + 1);
+  };
+
+  if (isLoading || !customer) {
     return (
       <AppLayout title="Edit Customer" portalLabel="Administration">
         <div className="flex h-64 items-center justify-center">
@@ -332,284 +659,91 @@ export function CustomerEditPage() {
     );
   }
 
+  const StepIcon = STEPS[step].icon;
+
   return (
     <AppLayout title="Edit Customer" portalLabel="Administration">
-      <div className="mx-auto max-w-3xl space-y-5">
+      <div className="flex h-full flex-col space-y-4">
 
-        {/* Page header */}
-        <div className="flex items-start gap-3">
-          <Button variant="outline" size="sm" onClick={() => navigate(`/admin/customers/${id}`)} className="mt-0.5 shrink-0">
-            <ArrowLeft className="h-4 w-4" />
-            Back
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" onClick={() => navigate(`/admin/customers/${id}`)} className="shrink-0">
+            <ArrowLeft className="h-4 w-4" />Back
           </Button>
           <div>
             <h2 className="text-xl font-semibold text-foreground">Edit Customer</h2>
-            <p className="font-mono text-sm text-muted-foreground mt-0.5">{customer?.customer_code}</p>
+            <p className="font-mono text-sm text-muted-foreground">{customer.customer_code} · {customer.full_name}</p>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit((v) => updateMutation.mutate(v))} className="space-y-5">
+        {/* Wizard card — full width */}
+        <Card className="flex flex-1 flex-col overflow-hidden">
 
-          {/* 1. Customer Type */}
-          <Card>
-            <SectionHeader icon={Users} title="Customer Type" description="Is this a personal or business account?" step={1} total={TOTAL_SECTIONS} />
-            <CardContent className="pt-5 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                {([
-                  { value: "INDIVIDUAL", label: "Individual", desc: "Personal broadband connection", Icon: User },
-                  { value: "BUSINESS", label: "Business / Company", desc: "Corporate or commercial account", Icon: Building2 },
-                ] as const).map(({ value, label, desc, Icon }) => {
-                  const selected = customerType === value;
-                  return (
-                    <label key={value} className={`
-                      relative flex cursor-pointer flex-col gap-2 rounded-xl border-2 p-4 transition-all select-none
-                      ${selected ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/40 hover:bg-muted/40"}
-                    `}>
-                      <input type="radio" value={value} {...register("customer_type")} className="sr-only" />
-                      <div className="flex items-center gap-2.5">
-                        <div className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors ${selected ? "bg-primary text-white" : "bg-muted text-muted-foreground"}`}>
-                          <Icon className="h-3.5 w-3.5" />
-                        </div>
-                        <span className={`text-sm font-semibold ${selected ? "text-primary" : "text-foreground"}`}>{label}</span>
-                      </div>
-                      <span className="text-[11px] text-muted-foreground leading-snug pl-9">{desc}</span>
-                      {selected && <CheckCircle2 className="absolute right-3 top-3 h-4 w-4 text-primary" />}
-                    </label>
-                  );
-                })}
+          {/* Progress */}
+          <div className="border-b border-border/40 px-6 pt-5 pb-6">
+            <WizardProgress step={step} steps={STEPS} />
+          </div>
+
+          {/* Step header */}
+          <div className="flex items-center justify-between px-6 pt-5 pb-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                <StepIcon className="text-primary" style={{ height: "1.125rem", width: "1.125rem" }} />
               </div>
-              {customerType === "BUSINESS" && (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 rounded-xl border border-border/50 bg-muted/20 p-4">
-                  <Field label="Company Name" error={errors.company_name?.message} required>
-                    <Input placeholder="Acme Pvt. Ltd." {...register("company_name")} />
-                  </Field>
-                  <Field label="GST Number" error={errors.gst_number?.message} hint="15-character alphanumeric">
-                    <Input placeholder="22AAAAA0000A1Z5" maxLength={15} className="uppercase" {...register("gst_number")} />
-                  </Field>
-                </div>
+              <div>
+                <h3 className="text-base font-semibold">{STEPS[step].title}</h3>
+                <p className="text-[12px] text-muted-foreground">{STEPS[step].description}</p>
+              </div>
+            </div>
+            <span className="text-xs font-semibold text-muted-foreground bg-muted rounded-full px-2.5 py-1">
+              Step {step + 1} of {STEPS.length}
+            </span>
+          </div>
+
+          {/* Step content */}
+          <CardContent className="flex-1 pt-2 pb-6">
+            <form id="edit-wizard-form"
+              onSubmit={isLastStep
+                ? handleSubmit((v) => updateMutation.mutate(v))
+                : (e) => { e.preventDefault(); handleNext(); }}>
+              {step === 0 && <Step1 register={register} watch={watch} errors={errors} />}
+              {step === 1 && <Step2 register={register} watch={watch} errors={errors} />}
+              {step === 2 && <Step3 register={register} errors={errors} />}
+              {step === 3 && (
+                <Step4Docs
+                  customer={customer}
+                  profileRef={profileRef} kycRef={kycRef} agreementRef={agreementRef}
+                  fileNames={fileNames} setFileNames={setFileNames} />
               )}
-            </CardContent>
-          </Card>
+            </form>
+          </CardContent>
 
-          {/* 2. Basic Information */}
-          <Card>
-            <SectionHeader icon={User} title="Basic Information" description="Primary contact details for this customer" step={2} total={TOTAL_SECTIONS} />
-            <CardContent className="pt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Full Name" error={errors.full_name?.message} required className="sm:col-span-2">
-                <Input placeholder="Customer's full legal name" {...register("full_name")} />
-              </Field>
-              <Field label="Mobile Number" error={errors.mobile_number?.message} required>
-                <Input placeholder="9876543210" maxLength={10} {...register("mobile_number")} />
-              </Field>
-              <Field label="Alternate Mobile" error={errors.alternate_mobile_number?.message}>
-                <Input placeholder="9876543210" maxLength={10} {...register("alternate_mobile_number")} />
-              </Field>
-              <Field label="Email Address" error={errors.email?.message} required className="sm:col-span-2" hint="Used for login and billing communications">
-                <Input type="email" placeholder="customer@example.com" {...register("email")} />
-              </Field>
-            </CardContent>
-          </Card>
-
-          {/* 3. Identity */}
-          <Card>
-            <SectionHeader icon={CreditCard} title="Identity Information" description="KYC details for compliance verification" step={3} total={TOTAL_SECTIONS} />
-            <CardContent className="pt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="KYC Document Type" error={errors.kyc_type?.message}>
-                <select {...register("kyc_type")} className={SELECT_CLS}>
-                  <option value="">— Select document type —</option>
-                  {KYC_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-              </Field>
-              <Field label="Document Number" error={errors.kyc_number?.message} hint="As printed on the document">
-                <Input placeholder="e.g. 1234 5678 9012" {...register("kyc_number")} />
-              </Field>
-            </CardContent>
-          </Card>
-
-          {/* 4. Installation Address */}
-          <Card>
-            <SectionHeader icon={MapPin} title="Installation Address" description="Physical location where the broadband connection is installed" step={4} total={TOTAL_SECTIONS} />
-            <CardContent className="pt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Address Line 1" error={errors.installation_address?.message} required className="sm:col-span-2">
-                <Input placeholder="House / Flat No., Building name, Street" {...register("installation_address")} />
-              </Field>
-              <Field label="Address Line 2" className="sm:col-span-2">
-                <Input placeholder="Area, Colony, Sector (optional)" {...register("address_line_2")} />
-              </Field>
-              <Field label="Landmark" className="sm:col-span-2">
-                <Input placeholder="Near post office, opposite school…" {...register("landmark")} />
-              </Field>
-              <Field label="City" error={errors.city?.message} required>
-                <Input placeholder="Mumbai" {...register("city")} />
-              </Field>
-              <Field label="State" error={errors.state?.message} required>
-                <input
-                  list="install-state-edit"
-                  placeholder="Maharashtra"
-                  {...register("state")}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-                <datalist id="install-state-edit">
-                  {INDIAN_STATES.map((s) => <option key={s} value={s} />)}
-                </datalist>
-              </Field>
-              <Field label="Pincode" error={errors.pincode?.message} required>
-                <Input placeholder="400001" maxLength={6} {...register("pincode")} />
-              </Field>
-            </CardContent>
-          </Card>
-
-          {/* 5. Billing Address */}
-          <Card>
-            <SectionHeader icon={Receipt} title="Billing Address" description="Where invoices and billing correspondence will be sent" step={5} total={TOTAL_SECTIONS} />
-            <CardContent className="pt-5 space-y-4">
-              <label className="flex cursor-pointer items-center gap-4 rounded-xl border border-border bg-muted/20 p-4 transition-colors hover:bg-muted/40 select-none">
-                <div className="relative h-5 w-9 shrink-0">
-                  <input {...register("billing_same_as_installation")} type="checkbox" className="peer sr-only" />
-                  <div className="absolute inset-0 rounded-full bg-border transition-colors peer-checked:bg-primary" />
-                  <div className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-4" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">Same as installation address</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Billing invoices will be sent to the installation location</p>
-                </div>
-              </label>
-
-              {!billingSame && (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 rounded-xl border border-border/50 bg-muted/20 p-4">
-                  <Field label="Address Line 1" error={errors.billing_address_line_1?.message} required className="sm:col-span-2">
-                    <Input placeholder="House / Flat No., Building name, Street" {...register("billing_address_line_1")} />
-                  </Field>
-                  <Field label="Address Line 2" className="sm:col-span-2">
-                    <Input placeholder="Area, Colony, Sector (optional)" {...register("billing_address_line_2")} />
-                  </Field>
-                  <Field label="Landmark" className="sm:col-span-2">
-                    <Input placeholder="Landmark (optional)" {...register("billing_landmark")} />
-                  </Field>
-                  <Field label="City" error={errors.billing_city?.message} required>
-                    <Input placeholder="Mumbai" {...register("billing_city")} />
-                  </Field>
-                  <Field label="State" error={errors.billing_state?.message} required>
-                    <input
-                      list="billing-state-edit"
-                      placeholder="Maharashtra"
-                      {...register("billing_state")}
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    />
-                    <datalist id="billing-state-edit">
-                      {INDIAN_STATES.map((s) => <option key={s} value={s} />)}
-                    </datalist>
-                  </Field>
-                  <Field label="Pincode" error={errors.billing_pincode?.message} required>
-                    <Input placeholder="400001" maxLength={6} {...register("billing_pincode")} />
-                  </Field>
-                </div>
+          {/* Footer */}
+          <div className="flex items-center justify-between border-t border-border/40 px-6 py-4">
+            <div>
+              {step > 0 && (
+                <Button type="button" variant="outline" onClick={() => setStep((s) => s - 1)}>
+                  <ArrowLeft className="h-4 w-4" />Back
+                </Button>
               )}
-            </CardContent>
-          </Card>
-
-          {/* 6. Spokesperson */}
-          <Card>
-            <SectionHeader icon={UserCheck} title="Spokesperson / Alternate Contact" description="Authorised contact person — particularly useful for business accounts" step={6} total={TOTAL_SECTIONS} />
-            <CardContent className="pt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Full Name" error={errors.spokesperson_name?.message} className="sm:col-span-2">
-                <Input placeholder="Contact person's name" {...register("spokesperson_name")} />
-              </Field>
-              <Field label="Mobile Number" error={errors.spokesperson_mobile?.message}>
-                <Input placeholder="9876543210" maxLength={10} {...register("spokesperson_mobile")} />
-              </Field>
-              <Field label="Email Address" error={errors.spokesperson_email?.message}>
-                <Input type="email" placeholder="contact@example.com" {...register("spokesperson_email")} />
-              </Field>
-              <Field label="Designation" error={errors.spokesperson_designation?.message} className="sm:col-span-2">
-                <Input placeholder="Manager, Director, Owner…" {...register("spokesperson_designation")} />
-              </Field>
-            </CardContent>
-          </Card>
-
-          {/* 7. Additional Information */}
-          <Card>
-            <SectionHeader icon={Info} title="Additional Information" description="Connection details, referral tracking and internal notes" step={7} total={TOTAL_SECTIONS} />
-            <CardContent className="pt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Connection Date" error={errors.connection_date?.message}>
-                <Input type="date" {...register("connection_date")} />
-              </Field>
-              <Field label="Reference Source" error={errors.reference_source?.message}>
-                <select {...register("reference_source")} className={SELECT_CLS}>
-                  <option value="">— How did they find us? —</option>
-                  {REFERENCE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
-                </select>
-              </Field>
-              <Field label="Salesperson" error={errors.sales_person?.message} className="sm:col-span-2">
-                <Input placeholder="Name of the assigned salesperson" {...register("sales_person")} />
-              </Field>
-              <Field label="Internal Notes" error={errors.notes?.message} className="sm:col-span-2">
-                <textarea
-                  rows={3}
-                  placeholder="Any internal notes or special instructions…"
-                  {...register("notes")}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
-                />
-              </Field>
-            </CardContent>
-          </Card>
-
-          {/* Actions */}
-          <div className="flex items-center justify-between rounded-xl border border-border bg-surface px-5 py-4 shadow-card">
-            <p className="text-[12px] text-muted-foreground">
-              Fields marked <span className="text-destructive font-semibold">*</span> are required
-            </p>
-            <div className="flex gap-3">
-              <Button type="button" variant="outline" onClick={() => navigate(`/admin/customers/${id}`)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting || updateMutation.isPending}>
-                {(isSubmitting || updateMutation.isPending) && (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                )}
-                Save Changes
-              </Button>
+            </div>
+            <div className="flex items-center gap-3">
+              <p className="hidden text-[11px] text-muted-foreground sm:block">
+                {step >= 2 ? "All fields on this step are optional" : "Fields marked * are required"}
+              </p>
+              {isLastStep ? (
+                <Button form="edit-wizard-form" type="submit" disabled={isSubmitting || updateMutation.isPending}>
+                  {(isSubmitting || updateMutation.isPending) && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              ) : (
+                <Button form="edit-wizard-form" type="submit">
+                  Next<ArrowRight className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
-        </form>
-
-        {/* 8. Documents — independent section below the main form */}
-        {customer && (
-          <Card>
-            <SectionHeader icon={FolderUp} title="Documents" description="Upload or replace supporting documents for this customer" step={8} total={TOTAL_SECTIONS} />
-            <CardContent className="pt-5">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <DocUploadRow
-                  label="Profile Photo"
-                  docType="profile_photo"
-                  customerId={customer.id}
-                  hasExisting={!!customer.profile_photo_path}
-                  accept="image/jpeg,image/png,image/webp"
-                  acceptHint="JPG, PNG, WebP"
-                  onUploaded={invalidateCustomer}
-                />
-                <DocUploadRow
-                  label="KYC Document"
-                  docType="kyc_document"
-                  customerId={customer.id}
-                  hasExisting={!!customer.kyc_document_path}
-                  accept="image/jpeg,image/png,image/webp,application/pdf"
-                  acceptHint="JPG, PNG, PDF"
-                  onUploaded={invalidateCustomer}
-                />
-                <DocUploadRow
-                  label="Agreement"
-                  docType="agreement_document"
-                  customerId={customer.id}
-                  hasExisting={!!customer.agreement_document_path}
-                  accept="image/jpeg,image/png,image/webp,application/pdf"
-                  acceptHint="JPG, PNG, PDF"
-                  onUploaded={invalidateCustomer}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        </Card>
       </div>
     </AppLayout>
   );
