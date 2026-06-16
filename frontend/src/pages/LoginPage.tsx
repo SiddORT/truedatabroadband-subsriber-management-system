@@ -90,15 +90,11 @@ export function LoginPage({ role, title, subtitle, redirectTo }: LoginPageProps)
         </div>
 
         {/* Bottom: powered by */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <span className="text-xs text-white/40">Powered by</span>
-          <div className="rounded bg-white px-2 py-1">
-            <img
-              src="/ort-logo.png"
-              alt="ORT"
-              className="h-4 w-auto object-contain"
-            />
-          </div>
+          <span className="text-sm font-bold tracking-tight text-white/80">
+            ort<span className="text-cyan-400">_</span>
+          </span>
         </div>
       </div>
 

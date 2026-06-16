@@ -112,8 +112,11 @@ export function AppLayout({ title, portalLabel, children }: AppLayoutProps) {
           })}
         </nav>
 
-        <div className="border-t border-white/10 p-4">
-          <img src="/ort-logo.png" alt="Powered by ORT" className="h-5 w-auto opacity-40" />
+        <div className="border-t border-white/10 px-4 py-3">
+          <span className="text-xs text-white/30">Powered by </span>
+          <span className="text-xs font-bold tracking-tight text-white/50">
+            ort<span className="text-cyan-500/60">_</span>
+          </span>
         </div>
       </aside>
 
