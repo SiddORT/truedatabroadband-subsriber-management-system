@@ -1,0 +1,370 @@
+You are a senior full-stack architect.
+
+Create the foundation for a production-ready broadband management system called:
+
+"True Data Broadband Services Pvt. Ltd."
+
+This is Phase 1 only.
+
+IMPORTANT:
+Build ONLY the project foundation and authentication scaffolding.
+
+DO NOT implement any business modules yet.
+
+DO NOT create:
+
+- Customers
+- Plans
+- Subscriptions
+- Invoices
+- Payments
+- Reports
+- Support tickets
+
+Focus exclusively on architecture, authentication, layouts, and shared infrastructure.
+
+==================================================
+TECH STACK
+==================================================
+
+Backend:
+- Python 3.12
+- FastAPI
+- PostgreSQL
+- SQLAlchemy 2.0
+- Alembic
+- Pydantic v2
+- JWT Authentication
+- Passlib/Bcrypt
+- Structured logging
+
+Frontend:
+- React
+- TypeScript
+- Vite
+- Tailwind CSS
+- shadcn/ui
+- React Router
+- TanStack Query
+- Axios
+
+Infrastructure:
+- Docker
+- Docker Compose
+
+==================================================
+MONOREPO STRUCTURE
+==================================================
+
+Create:
+
+/
+├── backend/
+├── frontend/
+├── docker-compose.yml
+├── .gitignore
+├── README.md
+└── .env.example
+
+Backend structure:
+
+backend/
+├── app/
+│   ├── api/
+│   ├── core/
+│   ├── dependencies/
+│   ├── models/
+│   ├── repositories/
+│   ├── schemas/
+│   ├── services/
+│   ├── storage/
+│   ├── utils/
+│   └── tests/
+├── alembic/
+├── Dockerfile
+├── requirements.txt
+└── .env.example
+
+Frontend structure:
+
+frontend/
+├── src/
+│   ├── components/
+│   ├── layouts/
+│   ├── routes/
+│   ├── hooks/
+│   ├── services/
+│   ├── contexts/
+│   ├── types/
+│   ├── pages/
+│   └── lib/
+├── public/
+├── Dockerfile
+└── .env.example
+
+==================================================
+DATABASE
+==================================================
+
+Use PostgreSQL.
+
+Configure:
+
+- SQLAlchemy 2.0 style
+- Alembic migrations
+- UUID primary keys
+- created_at timestamps
+- updated_at timestamps
+- deleted_at timestamps
+
+Create a reusable BaseModel mixin.
+
+Use soft deletes only.
+
+==================================================
+AUTHENTICATION
+==================================================
+
+Create authentication scaffolding only.
+
+Roles:
+
+- SUPERADMIN
+- CLIENT
+
+Create:
+
+users table
+
+Fields:
+
+- id (UUID)
+- email (unique)
+- password_hash
+- role
+- is_active
+- must_change_password
+- last_login_at
+- created_at
+- updated_at
+- deleted_at
+
+Implement:
+
+- JWT access tokens
+- JWT refresh tokens
+- Password hashing with bcrypt
+- Login endpoint
+- Refresh endpoint
+- Logout endpoint placeholder
+- Current user endpoint
+
+Create role-based dependencies.
+
+Do NOT implement forgot password emails.
+
+Seed one default user:
+
+email: admin@truedata.local
+password: ChangeMe@123
+role: SUPERADMIN
+
+Force password change on first login.
+
+==================================================
+API ROUTES
+==================================================
+
+Prefix all APIs with:
+
+/api/v1
+
+Create:
+
+/api/v1/health
+/api/v1/auth/login
+/api/v1/auth/refresh
+/api/v1/auth/me
+
+Enable Swagger and ReDoc.
+
+==================================================
+FILE STORAGE
+==================================================
+
+Do NOT use database blobs.
+
+Create local filesystem storage scaffolding only.
+
+Create folders automatically:
+
+storage/
+├── customers/
+├── invoices/
+├── company/
+├── exports/
+└── temp/
+
+Create a reusable StorageService interface for future support of:
+
+- Local filesystem
+- AWS S3
+- Cloudflare R2
+
+Do not implement uploads yet.
+
+==================================================
+FRONTEND
+==================================================
+
+Create:
+
+- React + TypeScript + Vite
+- Tailwind setup
+- shadcn/ui setup
+- Axios API client
+- React Query provider
+- Authentication context
+- Protected routes
+- Route guards by role
+
+Create these routes only:
+
+/admin/login
+/client/login
+/admin/dashboard
+/client/dashboard
+
+Dashboard pages can contain placeholder cards.
+
+==================================================
+LAYOUT
+==================================================
+
+Create a shared application layout with:
+
+- Sidebar
+- Header
+- Content area
+- Footer
+
+Company Name:
+
+True Data Broadband Services Pvt. Ltd.
+
+Footer text:
+
+Powered by ORT
+
+Use a text logo only.
+
+==================================================
+THEME
+==================================================
+
+Create a custom Tailwind theme using:
+
+Primary: #1F4959
+Primary Dark: #011425
+Secondary: #5C7C89
+Background: #F5F7F8
+Surface: #FFFFFF
+Text: #242424
+Border: #D9E1E5
+
+Sidebar:
+
+Background: #011425
+Text: #FFFFFF
+Active item: #1F4959
+
+Design language:
+
+- Premium
+- Minimal
+- Spacious
+- Rounded corners (12px)
+- Soft shadows
+
+==================================================
+DATA TABLE STANDARD
+==================================================
+
+Create a reusable DataTable component scaffold only.
+
+Requirements:
+
+- Server-side pagination support
+- Search support
+- Sorting support
+
+Do not connect it to any business module.
+
+Default page size:
+
+10
+
+Available sizes:
+
+10, 25, 50, 100
+
+==================================================
+DOCKER
+==================================================
+
+Create:
+
+- backend Dockerfile
+- frontend Dockerfile
+- docker-compose.yml
+
+Application must run with:
+
+docker compose up --build
+
+Services:
+
+- frontend
+- backend
+- postgres
+
+==================================================
+DOCUMENTATION
+==================================================
+
+Generate:
+
+- README.md
+- backend/.env.example
+- frontend/.env.example
+
+README must include:
+
+- Setup instructions
+- Environment variables
+- Migration commands
+- Seed commands
+- Local development commands
+
+==================================================
+ACCEPTANCE CRITERIA
+==================================================
+
+Success means:
+
+1. docker compose up --build works successfully
+2. PostgreSQL starts correctly
+3. Alembic migrations run successfully
+4. Seed data creates the SUPERADMIN user
+5. Backend health endpoint returns 200
+6. Swagger loads successfully
+7. Frontend loads successfully
+8. Admin login page works
+9. JWT authentication works
+10. Protected routes work
+11. Theme colors are applied consistently
+12. Storage folders are created automatically
+
+Generate code incrementally and verify each layer before moving to the next.
+
+Do not implement any business modules.
