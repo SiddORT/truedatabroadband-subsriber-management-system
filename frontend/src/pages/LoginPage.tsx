@@ -62,11 +62,8 @@ export function LoginPage({ role, title, subtitle, redirectTo }: LoginPageProps)
     <div className="flex min-h-screen flex-col bg-background lg:flex-row">
       {/* Brand panel */}
       <div className="relative hidden flex-col justify-between bg-primary-dark p-12 text-white lg:flex lg:w-[42%]">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-base font-bold">
-            TD
-          </div>
-          <span className="text-lg font-semibold">True Data</span>
+        <div className="flex items-center">
+          <img src="/logo.png" alt="True Data Broadband" className="h-10 w-auto" />
         </div>
         <div className="space-y-4">
           <h2 className="text-3xl font-semibold leading-tight">
