@@ -62,8 +62,11 @@ export function LoginPage({ role, title, subtitle, redirectTo }: LoginPageProps)
     <div className="flex min-h-screen flex-col bg-background lg:flex-row">
       {/* Brand panel */}
       <div className="relative hidden flex-col justify-between bg-primary-dark p-12 text-white lg:flex lg:w-[42%]">
-        <div className="flex items-center">
+        <div className="flex flex-col gap-2">
           <img src="/logo.png" alt="True Data Broadband" className="h-10 w-auto" />
+          <p className="text-sm font-medium text-white/70 tracking-wide">
+            True Data Broadband Pvt. Ltd.
+          </p>
         </div>
         <div className="space-y-4">
           <h2 className="text-3xl font-semibold leading-tight">
@@ -76,7 +79,7 @@ export function LoginPage({ role, title, subtitle, redirectTo }: LoginPageProps)
             managing your network operations.
           </p>
         </div>
-        <p className="text-xs text-white/40">Powered by ORT</p>
+        <img src="/ort-logo.png" alt="Powered by ORT" className="h-6 w-auto opacity-50" />
       </div>
 
       {/* Form panel */}

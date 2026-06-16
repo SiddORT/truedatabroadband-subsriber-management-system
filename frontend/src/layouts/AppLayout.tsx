@@ -112,8 +112,8 @@ export function AppLayout({ title, portalLabel, children }: AppLayoutProps) {
           })}
         </nav>
 
-        <div className="border-t border-white/10 p-4 text-[11px] text-sidebar-muted">
-          Phase 4 · Settings
+        <div className="border-t border-white/10 p-4">
+          <img src="/ort-logo.png" alt="Powered by ORT" className="h-5 w-auto opacity-40" />
         </div>
       </aside>
 
@@ -172,7 +172,10 @@ export function AppLayout({ title, portalLabel, children }: AppLayoutProps) {
             © {new Date().getFullYear()} {COMPANY_NAME}
           </span>
           <span className="mx-2">·</span>
-          <span className="font-medium text-secondary">Powered by ORT</span>
+          <span className="inline-flex items-center gap-1 text-muted-foreground">
+            Powered by
+            <img src="/ort-logo.png" alt="ORT" className="h-3.5 w-auto opacity-60" />
+          </span>
         </footer>
       </div>
     </div>
