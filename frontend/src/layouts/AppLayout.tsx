@@ -1,11 +1,38 @@
-import { LayoutDashboard, LogOut, Menu } from "lucide-react";
+import { LayoutDashboard, LogOut, Menu, Users } from "lucide-react";
 import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 const COMPANY_NAME = "True Data Broadband Services Pvt. Ltd.";
+
+interface NavItem {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  href: string;
+  /** Prefix used to detect "active" — matches any sub-path */
+  matchPrefix: string;
+  roles?: string[];
+}
+
+const NAV_ITEMS: NavItem[] = [
+  {
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    href: "/admin/dashboard",
+    matchPrefix: "/admin/dashboard",
+    roles: ["SUPERADMIN"],
+  },
+  {
+    label: "Customers",
+    icon: Users,
+    href: "/admin/customers",
+    matchPrefix: "/admin/customers",
+    roles: ["SUPERADMIN"],
+  },
+];
 
 interface AppLayoutProps {
   title: string;
@@ -15,11 +42,12 @@ interface AppLayoutProps {
 
 export function AppLayout({ title, portalLabel, children }: AppLayoutProps) {
   const { user, logout } = useAuth();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const navItems = [
-    { label: "Dashboard", icon: LayoutDashboard, active: true },
-  ];
+  const visibleItems = NAV_ITEMS.filter(
+    (item) => !item.roles || item.roles.includes(user?.role ?? ""),
+  );
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -46,25 +74,29 @@ export function AppLayout({ title, portalLabel, children }: AppLayoutProps) {
           <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-sidebar-muted">
             {portalLabel}
           </p>
-          {navItems.map((item) => (
-            <a
-              key={item.label}
-              href="#"
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                item.active
-                  ? "bg-sidebar-active text-white"
-                  : "text-sidebar-muted hover:bg-white/5 hover:text-white",
-              )}
-            >
-              <item.icon className="h-4.5 w-4.5" />
-              {item.label}
-            </a>
-          ))}
+          {visibleItems.map((item) => {
+            const isActive = location.pathname.startsWith(item.matchPrefix);
+            return (
+              <Link
+                key={item.label}
+                to={item.href}
+                onClick={() => setSidebarOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-sidebar-active text-white"
+                    : "text-sidebar-muted hover:bg-white/5 hover:text-white",
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="border-t border-white/10 p-4 text-[11px] text-sidebar-muted">
-          Phase 1 · Foundation
+          Phase 1 · Customer Management
         </div>
       </aside>
 

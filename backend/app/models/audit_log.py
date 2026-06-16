@@ -12,6 +12,12 @@ ACTION_LOGIN = "login"
 ACTION_LOGOUT = "logout"
 ACTION_PASSWORD_CHANGE = "password_change"
 
+# Customer domain
+ACTION_CUSTOMER_CREATED = "customer_created"
+ACTION_CUSTOMER_UPDATED = "customer_updated"
+ACTION_CUSTOMER_STATUS_CHANGED = "customer_status_changed"
+ACTION_CUSTOMER_PASSWORD_RESET = "customer_password_reset"
+
 
 class AuditLog(Base):
     """

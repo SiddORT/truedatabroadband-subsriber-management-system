@@ -7,6 +7,10 @@ import { ClientDashboard } from "@/pages/client/Dashboard";
 import { ChangePasswordPage } from "@/pages/ChangePasswordPage";
 import { UnauthorizedPage } from "@/pages/UnauthorizedPage";
 import { ProtectedRoute } from "@/routes/ProtectedRoute";
+import { CustomerListPage } from "@/pages/admin/customers/CustomerListPage";
+import { CustomerCreatePage } from "@/pages/admin/customers/CustomerCreatePage";
+import { CustomerDetailPage } from "@/pages/admin/customers/CustomerDetailPage";
+import { CustomerEditPage } from "@/pages/admin/customers/CustomerEditPage";
 
 /** Redirect to /change-password if logged in and forced, else to login. */
 function RootRedirect() {
@@ -59,6 +63,41 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+
+      {/* Customer management */}
+      <Route
+        path="/admin/customers"
+        element={
+          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+            <CustomerListPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/customers/new"
+        element={
+          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+            <CustomerCreatePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/customers/:id"
+        element={
+          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+            <CustomerDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/customers/:id/edit"
+        element={
+          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+            <CustomerEditPage />
+          </ProtectedRoute>
+        }
+      />
+
       <Route
         path="/client/dashboard"
         element={

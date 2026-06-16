@@ -1,0 +1,415 @@
+You are continuing development of the existing project.
+
+IMPORTANT:
+
+Follow the existing architecture, coding standards, theme, and folder structure.
+
+Do not refactor working authentication code unless necessary.
+
+Implement ONLY the Customer Management module.
+
+Do NOT implement:
+
+- Plans
+- Plan pricing
+- Subscriptions
+- Invoices
+- Payments
+- Reports
+
+==================================================
+OBJECTIVE
+==================================================
+
+Build customer onboarding and customer management.
+
+Each customer must have exactly one linked CLIENT user account.
+
+Customer authentication should continue using the existing users table.
+
+==================================================
+DATABASE DESIGN
+==================================================
+
+Create a new table:
+
+customers
+
+Fields:
+
+- id (UUID)
+- user_id (UUID, unique, FK → users.id)
+
+- customer_code (unique)
+
+- full_name
+- mobile_number
+- alternate_mobile_number
+
+- email
+
+- installation_address
+- city
+- state
+- pincode
+
+- status
+
+- notes
+
+- created_at
+- updated_at
+- deleted_at
+
+Customer statuses:
+
+- ACTIVE
+- SUSPENDED
+- DISCONNECTED
+
+Constraints:
+
+- One customer per user
+- customer_code must be unique
+- mobile_number must be unique
+
+==================================================
+CUSTOMER CODE GENERATION
+==================================================
+
+Generate automatically.
+
+Format:
+
+TDB-CUST-00001
+
+Store the generated value permanently.
+
+Never reuse deleted codes.
+
+==================================================
+USER RELATIONSHIP
+==================================================
+
+When creating a customer:
+
+1. Create a new user record
+2. Assign role = CLIENT
+3. Create customer record
+4. Link customer.user_id
+
+Credentials:
+
+- Username = email
+- Generate temporary password
+
+Set:
+
+must_change_password = true
+
+Return temporary password once in API response.
+
+==================================================
+BACKEND MODULES
+==================================================
+
+Create:
+
+- Customer model
+- Customer schemas
+- Customer repository
+- Customer service
+- Customer API routes
+
+==================================================
+API ROUTES
+==================================================
+
+Prefix:
+
+/api/v1/customers
+
+Create:
+
+GET    /api/v1/customers
+POST   /api/v1/customers
+GET    /api/v1/customers/{id}
+PUT    /api/v1/customers/{id}
+PATCH  /api/v1/customers/{id}/status
+POST   /api/v1/customers/{id}/reset-password
+
+SuperAdmin only.
+
+==================================================
+PAGINATION STANDARD
+==================================================
+
+All list endpoints must support:
+
+- page
+- page_size
+- search
+- sort_by
+- sort_order
+
+Default:
+
+page_size = 10
+
+Allowed:
+
+10, 25, 50, 100
+
+Response format:
+
+{
+  "items": [],
+  "total": 0,
+  "page": 1,
+  "page_size": 10,
+  "total_pages": 0
+}
+
+==================================================
+SEARCH REQUIREMENTS
+==================================================
+
+Search across:
+
+- customer_code
+- full_name
+- mobile_number
+- email
+
+Must be implemented server-side.
+
+==================================================
+SORTING
+==================================================
+
+Allow sorting by:
+
+- customer_code
+- full_name
+- created_at
+- status
+
+==================================================
+VALIDATION RULES
+==================================================
+
+Required:
+
+- full_name
+- mobile_number
+- email
+- installation_address
+- city
+- state
+- pincode
+
+Validate:
+
+- email format
+- pincode length
+- mobile number format
+
+Prevent duplicate:
+
+- email
+- mobile_number
+
+==================================================
+STATUS MANAGEMENT
+==================================================
+
+PATCH endpoint:
+
+ACTIVE
+SUSPENDED
+DISCONNECTED
+
+Business rules:
+
+DISCONNECTED:
+
+- user.is_active = false
+
+ACTIVE:
+
+- user.is_active = true
+
+==================================================
+PASSWORD RESET
+==================================================
+
+Endpoint:
+
+POST /api/v1/customers/{id}/reset-password
+
+Generate temporary password.
+
+Set:
+
+must_change_password = true
+
+Return password only once.
+
+Audit the action.
+
+==================================================
+AUDIT LOGGING
+==================================================
+
+Track:
+
+- customer_created
+- customer_updated
+- customer_status_changed
+- customer_password_reset
+
+==================================================
+FRONTEND
+==================================================
+
+Create routes:
+
+/admin/customers
+/admin/customers/new
+/admin/customers/:id
+
+==================================================
+CUSTOMER LIST PAGE
+==================================================
+
+Use reusable DataTable component.
+
+Columns:
+
+- Customer Code
+- Full Name
+- Mobile Number
+- Email
+- Status
+- Created Date
+- Actions
+
+Features:
+
+- Server-side pagination
+- Search
+- Sorting
+- Status filter
+
+Actions:
+
+- View
+- Edit
+- Change status
+- Reset password
+
+==================================================
+CUSTOMER CREATE PAGE
+==================================================
+
+Create onboarding form.
+
+Fields:
+
+- Full Name
+- Mobile Number
+- Alternate Mobile Number
+- Email
+- Installation Address
+- City
+- State
+- Pincode
+- Notes
+
+Use:
+
+- React Hook Form
+- Zod validation
+
+On success:
+
+Display modal with:
+
+- Customer code
+- Login email
+- Temporary password
+
+Include warning:
+
+"Copy this password now. It will not be shown again."
+
+==================================================
+CUSTOMER DETAILS PAGE
+==================================================
+
+Display:
+
+- Customer information
+- Account status
+- Login email
+- Created date
+
+Placeholder sections:
+
+- Subscription information
+- Recent invoices
+
+Do not implement these sections yet.
+
+==================================================
+UI REQUIREMENTS
+==================================================
+
+Maintain existing theme:
+
+Primary: #1F4959
+Primary Dark: #011425
+Secondary: #5C7C89
+
+Use:
+
+- shadcn/ui
+- Dialogs
+- Toast notifications
+- Skeleton loading states
+
+==================================================
+TESTING
+==================================================
+
+Create tests for:
+
+- Customer creation
+- Customer code generation
+- Duplicate email rejection
+- Duplicate mobile rejection
+- Search
+- Pagination
+- Status change
+- Password reset
+
+==================================================
+ACCEPTANCE CRITERIA
+==================================================
+
+Success means:
+
+1. SuperAdmin can create a customer
+2. CLIENT user is created automatically
+3. Temporary password is generated
+4. Customer code is generated automatically
+5. Customer list supports pagination
+6. Customer list supports search
+7. Customer list supports sorting
+8. Status updates work
+9. Password reset works
+10. Audit logs are created
+11. Client can log in using generated credentials
+12. Forced password change works
+
+Do not implement plans, subscriptions, invoices, or payments.
