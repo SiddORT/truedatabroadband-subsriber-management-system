@@ -13,6 +13,7 @@ import {
   DEFAULT_PAGE_SIZE,
 } from "@/components/DataTable";
 import { invoicesService } from "@/services/invoices";
+import { api } from "@/services/api";
 import {
   type InvoiceListItem,
   INVOICE_STATUS_COLORS,
@@ -54,6 +55,23 @@ export function InvoiceListPage() {
     sortDir: "desc",
   });
   const [statusFilter, setStatusFilter] = useState("");
+
+  async function downloadPdf(row: InvoiceListItem) {
+    try {
+      const resp = await api.get(`/invoices/${row.id}/pdf`, { responseType: "blob" });
+      const blob = new Blob([resp.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${row.invoice_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      /* silently fail — user can still open the detail page */
+    }
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ["invoices", tableState, statusFilter],
@@ -184,16 +202,14 @@ export function InvoiceListPage() {
             View
           </Button>
           {row.pdf_path && (
-            <a
-              href={invoicesService.pdfUrl(row.id)}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              onClick={(e) => { e.stopPropagation(); downloadPdf(row); }}
             >
-              <Button variant="outline" size="sm" className="gap-1">
-                <Download className="h-3.5 w-3.5" />
-              </Button>
-            </a>
+              <Download className="h-3.5 w-3.5" />
+            </Button>
           )}
         </div>
       ),
