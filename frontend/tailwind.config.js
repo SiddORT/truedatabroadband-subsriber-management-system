@@ -34,6 +34,10 @@ export default {
           muted: "#5C7C89",
           active: "#1F4959",
         },
+        accent: {
+          DEFAULT: "#D72B20",
+          foreground: "#FFFFFF",
+        },
       },
       borderRadius: {
         sm: "8px",

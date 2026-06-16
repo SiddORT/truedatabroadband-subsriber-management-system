@@ -70,10 +70,11 @@ export function LoginPage({ role, title, subtitle, redirectTo }: LoginPageProps)
             className="h-12 w-auto max-w-[220px] object-contain object-left"
           />
           <div>
-            <p className="text-base font-semibold tracking-wide text-white">
-              True Data Broadband
+            <p className="text-lg font-bold tracking-wide text-white">
+              True Data{" "}
+              <span className="text-accent">Broadband</span>
             </p>
-            <p className="text-sm text-white/50">Pvt. Ltd.</p>
+            <p className="text-sm font-medium text-white/50">Pvt. Ltd.</p>
           </div>
         </div>
 

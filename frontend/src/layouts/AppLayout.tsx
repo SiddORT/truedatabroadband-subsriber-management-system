@@ -88,7 +88,8 @@ export function AppLayout({ title, portalLabel, children }: AppLayoutProps) {
         </div>
 
         <nav className="flex-1 space-y-1 px-3 py-5">
-          <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-sidebar-muted">
+          <p className="flex items-center gap-1.5 px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-sidebar-muted">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
             {portalLabel}
           </p>
           {visibleItems.map((item) => {
@@ -101,8 +102,8 @@ export function AppLayout({ title, portalLabel, children }: AppLayoutProps) {
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-sidebar-active text-white"
-                    : "text-sidebar-muted hover:bg-white/5 hover:text-white",
+                    ? "border-l-2 border-accent bg-sidebar-active pl-[10px] text-white"
+                    : "border-l-2 border-transparent text-sidebar-muted hover:bg-white/5 hover:text-white",
                 )}
               >
                 <item.icon className="h-4 w-4" />
