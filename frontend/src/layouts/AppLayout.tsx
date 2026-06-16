@@ -106,7 +106,14 @@ export function AppLayout({ title, portalLabel, children }: AppLayoutProps) {
                     : "border-l-2 border-transparent text-sidebar-muted hover:bg-white/5 hover:text-white",
                 )}
               >
-                <item.icon className="h-4 w-4" />
+                <span className={cn(
+                  "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
+                  isActive
+                    ? "border border-accent/70 bg-accent/10 text-accent"
+                    : "text-sidebar-muted",
+                )}>
+                  <item.icon className="h-4 w-4" />
+                </span>
                 {item.label}
               </Link>
             );
