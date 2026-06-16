@@ -1,4 +1,4 @@
-import { LayoutDashboard, LogOut, Menu, RefreshCw, Users, Wifi } from "lucide-react";
+import { LayoutDashboard, LogOut, Menu, RefreshCw, Settings, Users, Wifi } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -44,6 +44,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: RefreshCw,
     href: "/admin/subscriptions",
     matchPrefix: "/admin/subscriptions",
+    roles: ["SUPERADMIN"],
+  },
+  {
+    label: "Settings",
+    icon: Settings,
+    href: "/admin/settings",
+    matchPrefix: "/admin/settings",
     roles: ["SUPERADMIN"],
   },
 ];
@@ -110,7 +117,7 @@ export function AppLayout({ title, portalLabel, children }: AppLayoutProps) {
         </nav>
 
         <div className="border-t border-white/10 p-4 text-[11px] text-sidebar-muted">
-          Phase 3 · Subscriptions
+          Phase 4 · Settings
         </div>
       </aside>
 

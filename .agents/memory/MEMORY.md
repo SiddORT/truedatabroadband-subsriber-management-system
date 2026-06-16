@@ -4,3 +4,4 @@
 - [Test admin fixture](test-admin-fixture.md) — seeded admin password can be changed by real users; tests must use a self-contained SUPERADMIN fixture in conftest.py, NOT the seeded account.
 - [Customer email storage](customer-email-storage.md) — customer.email is plain TEXT (for ILIKE search); user.email is encrypted via EncryptedString. Test mobile numbers must be numeric-only (validator: ^\d{10}$).
 - [Alembic PgEnum migration](alembic-pgenum-migration.md) — use postgresql.ENUM(create_type=False) + raw DO $$ SQL for enum creation; sa.Enum create_type=False fires _on_table_create regardless in this SQLAlchemy version.
+- [Phase completion tracker](phases.md) — tracks which phases are done and patterns established per phase.

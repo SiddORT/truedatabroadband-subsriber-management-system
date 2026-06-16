@@ -1,0 +1,286 @@
+You are continuing development of the existing project.
+
+IMPORTANT:
+
+Follow the existing architecture, coding standards, theme, folder structure, and reusable components.
+
+Implement ONLY the Company Settings and Invoice Settings modules.
+
+Do NOT implement:
+
+- Invoices
+- Payments
+- Reports
+- Notifications
+
+==================================================
+OBJECTIVE
+==================================================
+
+Create a centralized settings module.
+
+Settings will be used by future modules including:
+
+- Invoice generation
+- PDF templates
+- Tax calculations
+- Notifications
+
+There will be one active company profile.
+
+==================================================
+DATABASE DESIGN
+==================================================
+
+Create:
+
+company_settings
+
+Fields:
+
+- id (UUID)
+
+Company Information:
+
+- company_name
+- legal_name
+
+- gst_number
+- pan_number
+
+- support_email
+- support_phone
+
+Address:
+
+- address_line_1
+- address_line_2
+
+- landmark
+
+- city
+- state
+- pincode
+- country
+
+Branding:
+
+- logo_path
+
+Invoice Preferences:
+
+- invoice_prefix
+
+- invoice_due_days
+
+- default_gst_percentage
+
+- invoice_footer_text
+
+- terms_and_conditions
+
+Audit fields:
+
+- created_at
+- updated_at
+
+==================================================
+FILE STORAGE
+==================================================
+
+Store logo files locally.
+
+Folder:
+
+storage/company/logo/
+
+Do NOT use database blobs.
+
+Store only:
+
+- logo_path
+
+Example:
+
+storage/company/logo/logo.png
+
+==================================================
+BUSINESS RULES
+==================================================
+
+Rules:
+
+- Only one company_settings record can exist
+- SuperAdmin only
+- Settings updates must be audited
+
+Default values:
+
+invoice_prefix:
+
+TDB-INV
+
+invoice_due_days:
+
+7
+
+invoice_footer_text:
+
+Powered by ORT
+
+==================================================
+INVOICE FOOTER DEFAULT
+==================================================
+
+Use:
+
+Thank you for choosing True Data Broadband Services Pvt. Ltd.
+
+Powered by ORT
+
+==================================================
+TERMS AND CONDITIONS
+==================================================
+
+Store as rich text.
+
+Example:
+
+- Payments are due within the specified due date.
+- Services may be suspended for unpaid invoices.
+- Taxes are applied as per government regulations.
+
+==================================================
+API ROUTES
+==================================================
+
+Prefix:
+
+/api/v1/settings
+
+Create:
+
+GET    /api/v1/settings/company
+
+PUT    /api/v1/settings/company
+
+POST   /api/v1/settings/company/logo
+
+Access:
+
+SuperAdmin only.
+
+==================================================
+FRONTEND ROUTES
+==================================================
+
+Create:
+
+/admin/settings
+
+==================================================
+SETTINGS PAGE
+==================================================
+
+Create tabbed sections.
+
+Tab 1:
+
+Company Information
+
+Fields:
+
+- Company name
+- Legal name
+- GST number
+- PAN number
+- Support email
+- Support phone
+
+Tab 2:
+
+Address
+
+Fields:
+
+- Address line 1
+- Address line 2
+- Landmark
+- City
+- State
+- Pincode
+- Country
+
+Tab 3:
+
+Invoice Settings
+
+Fields:
+
+- Invoice prefix
+- Invoice due days
+- Default GST percentage
+- Invoice footer text
+- Terms and conditions
+
+Tab 4:
+
+Branding
+
+Fields:
+
+- Logo upload
+
+Show logo preview.
+
+==================================================
+VALIDATION
+==================================================
+
+Validate:
+
+- GST number format
+- PAN number format
+- Email format
+- Phone number format
+
+Prevent:
+
+- Multiple settings records
+
+==================================================
+AUDIT LOGGING
+==================================================
+
+Track:
+
+- settings_updated
+- logo_uploaded
+
+==================================================
+TESTING
+==================================================
+
+Create tests for:
+
+- Settings creation
+- Settings update
+- Logo upload
+- Single record enforcement
+
+==================================================
+ACCEPTANCE CRITERIA
+==================================================
+
+Success means:
+
+1. SuperAdmin can manage company settings
+2. Only one settings record exists
+3. Logo uploads are stored in folders
+4. GST settings are configurable
+5. Invoice settings are configurable
+6. Address information is stored
+7. Terms and conditions are stored
+8. Audit logs are created
+
+Do not implement invoices or payments.

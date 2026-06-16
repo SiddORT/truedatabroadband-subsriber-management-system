@@ -18,6 +18,7 @@ import { SubscriptionListPage } from "@/pages/admin/subscriptions/SubscriptionLi
 import { SubscriptionCreatePage } from "@/pages/admin/subscriptions/SubscriptionCreatePage";
 import { SubscriptionDetailPage } from "@/pages/admin/subscriptions/SubscriptionDetailPage";
 import { ClientSubscriptionPage } from "@/pages/client/ClientSubscriptionPage";
+import { SettingsPage } from "@/pages/admin/settings/SettingsPage";
 
 /** Redirect to /change-password if logged in and forced, else to login. */
 function RootRedirect() {
@@ -153,6 +154,16 @@ export default function App() {
         element={
           <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
             <SubscriptionDetailPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Settings */}
+      <Route
+        path="/admin/settings"
+        element={
+          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+            <SettingsPage />
           </ProtectedRoute>
         }
       />

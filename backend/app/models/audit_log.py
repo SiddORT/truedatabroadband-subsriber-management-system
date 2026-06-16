@@ -31,6 +31,10 @@ ACTION_SUBSCRIPTION_RENEWED = "subscription_renewed"
 ACTION_SUBSCRIPTION_STATUS_CHANGED = "subscription_status_changed"
 ACTION_SUBSCRIPTION_PLAN_CHANGED = "subscription_plan_changed"
 
+# Settings domain
+ACTION_SETTINGS_UPDATED = "settings_updated"
+ACTION_SETTINGS_LOGO_UPLOADED = "settings_logo_uploaded"
+
 
 class AuditLog(Base):
     """
