@@ -47,7 +47,7 @@ class Settings(BaseSettings):
 
     # Seed user
     SEED_ADMIN_EMAIL: str = os.getenv("SEED_ADMIN_EMAIL", "admin@truedata.local")
-    SEED_ADMIN_PASSWORD: str = os.getenv("SEED_ADMIN_PASSWORD", "ChangeMe@123")
+    SEED_ADMIN_PASSWORD: str = os.getenv("SEED_ADMIN_PASSWORD", "TrueData@123")
 
     @property
     def cors_origins(self) -> list[str]:

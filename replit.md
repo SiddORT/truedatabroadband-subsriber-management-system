@@ -17,7 +17,7 @@ Two workflows (the app runs natively — Replit cannot run Docker):
 
 The Vite dev server proxies `/api` → `localhost:8000`.
 
-Default SUPERADMIN (seeded): `admin@truedata.local` / `ChangeMe@123` (must change password on first login).
+Default SUPERADMIN (seeded): `admin@truedata.local` / `TrueData@123`.
 
 ## Environment / Architecture Notes
 - Node packages are installed at the repo ROOT (`node_modules/`), not in `frontend/`.

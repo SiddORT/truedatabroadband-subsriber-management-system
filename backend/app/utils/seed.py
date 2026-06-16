@@ -24,7 +24,7 @@ def seed_superadmin() -> None:
             password_hash=hash_password(settings.SEED_ADMIN_PASSWORD),
             role=UserRole.SUPERADMIN,
             is_active=True,
-            must_change_password=True,
+            must_change_password=False,
         )
         users.add(user)
         logger.info("seed.superadmin.created", email=email)
