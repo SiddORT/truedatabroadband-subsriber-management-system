@@ -1,7 +1,10 @@
+import io
 import math
 import uuid
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -19,35 +22,36 @@ from app.schemas.customer import (
     CustomerUpdate,
 )
 from app.services.customer import CustomerError, CustomerService
+from app.storage import get_storage_service
 
 router = APIRouter(prefix="/customers", tags=["customers"])
 
+# Document type → model field mapping
+_DOC_FIELD = {
+    "profile_photo": "profile_photo_path",
+    "kyc_document": "kyc_document_path",
+    "agreement_document": "agreement_document_path",
+}
+
+# Allowed MIME types per document slot
+_DOC_ALLOWED_MIME = {
+    "profile_photo": {"image/jpeg", "image/png", "image/webp", "image/gif"},
+    "kyc_document": {"image/jpeg", "image/png", "image/webp", "application/pdf"},
+    "agreement_document": {"image/jpeg", "image/png", "image/webp", "application/pdf"},
+}
+
+_MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+
 
 # ---------------------------------------------------------------------------
-# Helper: Customer ORM → CustomerOut (includes denormalised user fields)
+# Helper: Customer ORM → CustomerOut
 # ---------------------------------------------------------------------------
-
 
 def _to_out(customer: Customer) -> CustomerOut:
-    return CustomerOut(
-        id=customer.id,
-        customer_code=customer.customer_code,
-        user_id=customer.user_id,
-        full_name=customer.full_name,
-        mobile_number=customer.mobile_number,
-        alternate_mobile_number=customer.alternate_mobile_number,
-        email=customer.email,
-        installation_address=customer.installation_address,
-        city=customer.city,
-        state=customer.state,
-        pincode=customer.pincode,
-        status=customer.status,
-        notes=customer.notes,
-        is_active=customer.user.is_active,
-        must_change_password=customer.user.must_change_password,
-        created_at=customer.created_at,
-        updated_at=customer.updated_at,
-    )
+    out = CustomerOut.model_validate(customer)
+    out.is_active = customer.user.is_active
+    out.must_change_password = customer.user.must_change_password
+    return out
 
 
 def _get_customer_or_404(customer_id: uuid.UUID, db: Session) -> Customer:
@@ -183,3 +187,97 @@ def reset_customer_password(
         user_agent=request.headers.get("user-agent"),
     )
     return CustomerPasswordResetResponse(temp_password=temp_password)
+
+
+# ---------------------------------------------------------------------------
+# Document upload / download
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/{customer_id}/documents/{doc_type}",
+    response_model=CustomerOut,
+    summary="Upload a customer document (profile_photo | kyc_document | agreement_document)",
+)
+async def upload_document(
+    customer_id: uuid.UUID,
+    doc_type: str,
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+) -> CustomerOut:
+    if doc_type not in _DOC_FIELD:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Unknown document type '{doc_type}'. Valid: {list(_DOC_FIELD)}",
+        )
+
+    content_type = file.content_type or ""
+    allowed = _DOC_ALLOWED_MIME[doc_type]
+    if content_type not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"File type '{content_type}' not allowed for {doc_type}. Allowed: {sorted(allowed)}",
+        )
+
+    data = await file.read()
+    if len(data) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File exceeds maximum allowed size of 10 MB",
+        )
+
+    customer = _get_customer_or_404(customer_id, db)
+
+    ext = Path(file.filename or "file").suffix.lower() or _ext_for_mime(content_type)
+    key = f"{customer.customer_code}/{doc_type}{ext}"
+
+    storage = get_storage_service()
+    storage.save("customers", key, io.BytesIO(data))
+
+    setattr(customer, _DOC_FIELD[doc_type], key)
+    db.commit()
+    db.refresh(customer)
+    return _to_out(customer)
+
+
+@router.get(
+    "/{customer_id}/documents/{doc_type}",
+    summary="Download / view a customer document",
+)
+def download_document(
+    customer_id: uuid.UUID,
+    doc_type: str,
+    _: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+) -> FileResponse:
+    if doc_type not in _DOC_FIELD:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown document type")
+
+    customer = _get_customer_or_404(customer_id, db)
+    key: str | None = getattr(customer, _DOC_FIELD[doc_type])
+
+    if not key:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not uploaded yet")
+
+    storage = get_storage_service()
+    abs_path = storage.url("customers", key)
+
+    if not Path(abs_path).exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document file not found on disk",
+        )
+
+    return FileResponse(abs_path)
+
+
+def _ext_for_mime(content_type: str) -> str:
+    mapping = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+        "image/gif": ".gif",
+        "application/pdf": ".pdf",
+    }
+    return mapping.get(content_type, ".bin")

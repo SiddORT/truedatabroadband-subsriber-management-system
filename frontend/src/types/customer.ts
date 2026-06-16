@@ -1,21 +1,73 @@
 export type CustomerStatus = "ACTIVE" | "SUSPENDED" | "DISCONNECTED";
+export type CustomerType = "INDIVIDUAL" | "BUSINESS";
+export type KycType =
+  | "AADHAAR"
+  | "PAN"
+  | "PASSPORT"
+  | "VOTER_ID"
+  | "DRIVING_LICENSE";
 
 export interface Customer {
   id: string;
   customer_code: string;
   user_id: string;
+
+  // Customer type
+  customer_type: CustomerType;
+  company_name: string | null;
+  gst_number: string | null;
+
+  // Basic info
   full_name: string;
   mobile_number: string;
   alternate_mobile_number: string | null;
   email: string;
+
+  // Identity
+  kyc_type: KycType | null;
+  kyc_number: string | null;
+
+  // Installation address
   installation_address: string;
+  address_line_2: string | null;
+  landmark: string | null;
   city: string;
   state: string;
   pincode: string;
-  status: CustomerStatus;
+
+  // Billing address
+  billing_same_as_installation: boolean;
+  billing_address_line_1: string | null;
+  billing_address_line_2: string | null;
+  billing_landmark: string | null;
+  billing_city: string | null;
+  billing_state: string | null;
+  billing_pincode: string | null;
+
+  // Spokesperson
+  spokesperson_name: string | null;
+  spokesperson_mobile: string | null;
+  spokesperson_email: string | null;
+  spokesperson_designation: string | null;
+
+  // Additional info
+  connection_date: string | null;
+  reference_source: string | null;
+  sales_person: string | null;
   notes: string | null;
+
+  // Status
+  status: CustomerStatus;
+
+  // Documents (null = not uploaded)
+  profile_photo_path: string | null;
+  kyc_document_path: string | null;
+  agreement_document_path: string | null;
+
+  // Denormalised from user
   is_active: boolean;
   must_change_password: boolean;
+
   created_at: string;
   updated_at: string;
 }
@@ -33,18 +85,52 @@ export interface CustomerListResponse {
 }
 
 export interface CustomerCreatePayload {
+  // Type
+  customer_type?: CustomerType;
+  company_name?: string;
+  gst_number?: string;
+
+  // Basic
   full_name: string;
   mobile_number: string;
   alternate_mobile_number?: string;
   email: string;
+
+  // Identity
+  kyc_type?: KycType | "";
+  kyc_number?: string;
+
+  // Installation address
   installation_address: string;
+  address_line_2?: string;
+  landmark?: string;
   city: string;
   state: string;
   pincode: string;
+
+  // Billing address
+  billing_same_as_installation?: boolean;
+  billing_address_line_1?: string;
+  billing_address_line_2?: string;
+  billing_landmark?: string;
+  billing_city?: string;
+  billing_state?: string;
+  billing_pincode?: string;
+
+  // Spokesperson
+  spokesperson_name?: string;
+  spokesperson_mobile?: string;
+  spokesperson_email?: string;
+  spokesperson_designation?: string;
+
+  // Additional
+  connection_date?: string;
+  reference_source?: string;
+  sales_person?: string;
   notes?: string;
 }
 
-export interface CustomerUpdatePayload extends Partial<CustomerCreatePayload> {}
+export type CustomerUpdatePayload = Partial<CustomerCreatePayload>;
 
 export interface CustomerListParams {
   page?: number;
