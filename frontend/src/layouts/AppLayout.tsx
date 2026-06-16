@@ -79,16 +79,12 @@ export function AppLayout({ title, portalLabel, children }: AppLayoutProps) {
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex h-16 items-center gap-2.5 border-b border-white/10 px-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-            TD
-          </div>
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm font-semibold">True Data</span>
-            <span className="text-[11px] text-sidebar-muted">
-              Broadband Services
-            </span>
-          </div>
+        <div className="flex h-16 items-center border-b border-white/10 px-5">
+          <img
+            src="/logo-small.png"
+            alt="True Data Broadband"
+            className="h-9 w-auto"
+          />
         </div>
 
         <nav className="flex-1 space-y-1 px-3 py-5">
