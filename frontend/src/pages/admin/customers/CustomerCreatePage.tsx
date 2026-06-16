@@ -11,7 +11,6 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { AppLayout } from "@/layouts/AppLayout";
 import { CredentialsModal } from "@/components/customers/CredentialsModal";
@@ -20,6 +19,9 @@ import { customersService } from "@/services/customers";
 import type { DocType } from "@/services/customers";
 import { getApiErrorMessage } from "@/services/api";
 import type { CustomerCreateResponse } from "@/types/customer";
+import {
+  Field, PhoneField, PincodeAutoFillInput,
+} from "@/components/customers/CustomerFormParts";
 
 // ── Static data ───────────────────────────────────────────────────────────────
 
@@ -43,13 +45,13 @@ const REFERENCE_OPTIONS = [
   "Online","Referral","Walk-In","Agent","Newspaper","Social Media","Other",
 ];
 
-// ── Wizard step definitions (4 steps) ────────────────────────────────────────
+// ── Steps ─────────────────────────────────────────────────────────────────────
 
 const STEPS = [
-  { icon: Users,     title: "Customer & Contact",  description: "Account type and primary contact details" },
-  { icon: MapPin,    title: "Identity & Address",   description: "KYC verification and service location" },
-  { icon: Info,      title: "Additional Details",   description: "Spokesperson, connection info and notes" },
-  { icon: FolderUp,  title: "Documents",             description: "Upload supporting files (optional)" },
+  { icon: Users,    title: "Customer & Contact",  description: "Account type and primary contact details" },
+  { icon: MapPin,   title: "Identity & Address",  description: "KYC verification and service location" },
+  { icon: Info,     title: "Additional Details",  description: "Spokesperson, connection info and notes" },
+  { icon: FolderUp, title: "Documents",            description: "Upload supporting files (optional)" },
 ];
 
 const STEP_FIELDS: Record<number, string[]> = {
@@ -113,32 +115,10 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>;
 
-// ── Field primitive ───────────────────────────────────────────────────────────
+// ── SELECT style ──────────────────────────────────────────────────────────────
 
 const SELECT_CLS =
   "w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
-
-function Field({
-  label, error, required, className, hint, children,
-}: {
-  label: string; error?: string; required?: boolean;
-  className?: string; hint?: string; children: React.ReactNode;
-}) {
-  return (
-    <div className={`space-y-1.5 ${className ?? ""}`}>
-      <Label className="text-sm font-medium">
-        {label}{required && <span className="ml-0.5 text-destructive">*</span>}
-      </Label>
-      {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
-      {children}
-      {error && (
-        <p className="flex items-center gap-1 text-xs text-destructive">
-          <span className="h-1 w-1 rounded-full bg-destructive shrink-0" />{error}
-        </p>
-      )}
-    </div>
-  );
-}
 
 // ── Section sub-header ────────────────────────────────────────────────────────
 
@@ -203,7 +183,7 @@ function FileUploadZone({
   );
 }
 
-// ── Wizard progress bar ───────────────────────────────────────────────────────
+// ── Wizard progress ───────────────────────────────────────────────────────────
 
 function WizardProgress({ step, steps }: { step: number; steps: typeof STEPS }) {
   return (
@@ -211,9 +191,7 @@ function WizardProgress({ step, steps }: { step: number; steps: typeof STEPS }) 
       {steps.map(({ title }, i) => (
         <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
           <div className="flex w-full items-center">
-            {/* Left connector */}
             <div className={`h-0.5 flex-1 ${i === 0 ? "invisible" : i <= step ? "bg-primary" : "bg-border"}`} />
-            {/* Circle */}
             <div className={`
               flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all
               ${i < step ? "bg-primary text-white shadow-sm"
@@ -222,7 +200,6 @@ function WizardProgress({ step, steps }: { step: number; steps: typeof STEPS }) 
             `}>
               {i < step ? <Check className="h-3.5 w-3.5" /> : i + 1}
             </div>
-            {/* Right connector */}
             <div className={`h-0.5 flex-1 ${i === steps.length - 1 ? "invisible" : i < step ? "bg-primary" : "bg-border"}`} />
           </div>
           <span className={`hidden text-[11px] font-medium sm:block text-center leading-tight ${i === step ? "text-primary" : "text-muted-foreground"}`}>
@@ -247,7 +224,7 @@ function Step1({ register, watch, errors }: { register: any; watch: any; errors:
           <div className="grid grid-cols-2 gap-3">
             {([
               { value: "INDIVIDUAL", label: "Individual", desc: "Personal broadband connection", Icon: User },
-              { value: "BUSINESS", label: "Business", desc: "Corporate or company account", Icon: Building2 },
+              { value: "BUSINESS",   label: "Business",   desc: "Corporate or company account",  Icon: Building2 },
             ] as const).map(({ value, label, desc, Icon }) => {
               const selected = customerType === value;
               return (
@@ -289,12 +266,10 @@ function Step1({ register, watch, errors }: { register: any; watch: any; errors:
             <Input placeholder="Customer's full legal name" {...register("full_name")} />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Mobile Number" error={errors.mobile_number?.message} required>
-              <Input placeholder="9876543210" maxLength={10} {...register("mobile_number")} />
-            </Field>
-            <Field label="Alternate Mobile" error={errors.alternate_mobile_number?.message}>
-              <Input placeholder="9876543210" maxLength={10} {...register("alternate_mobile_number")} />
-            </Field>
+            <PhoneField label="Mobile Number" error={errors.mobile_number?.message} required
+              registerProps={register("mobile_number")} />
+            <PhoneField label="Alternate Mobile" error={errors.alternate_mobile_number?.message}
+              registerProps={register("alternate_mobile_number")} />
           </div>
           <Field label="Email Address" error={errors.email?.message} required hint="Used for customer login">
             <Input type="email" placeholder="customer@example.com" {...register("email")} />
@@ -307,8 +282,11 @@ function Step1({ register, watch, errors }: { register: any; watch: any; errors:
 
 // ── Step 2: Identity & Address ────────────────────────────────────────────────
 
-function Step2({ register, watch, errors }: { register: any; watch: any; errors: any }) {
+function Step2({
+  register, watch, errors, setValue,
+}: { register: any; watch: any; errors: any; setValue: any }) {
   const billingSame = watch("billing_same_as_installation");
+
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
       {/* Left: KYC + Installation */}
@@ -341,20 +319,25 @@ function Step2({ register, watch, errors }: { register: any; watch: any; errors:
                 <Input placeholder="Near…" {...register("landmark")} />
               </Field>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2">
               <Field label="City" error={errors.city?.message} required>
                 <Input placeholder="Mumbai" {...register("city")} />
               </Field>
               <Field label="State" error={errors.state?.message} required>
-                <input list="install-state-list" placeholder="Maharashtra" {...register("state")}
+                <input list="create-install-state" placeholder="Maharashtra" {...register("state")}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-                <datalist id="install-state-list">
+                <datalist id="create-install-state">
                   {INDIAN_STATES.map((s) => <option key={s} value={s} />)}
                 </datalist>
               </Field>
-              <Field label="Pincode" error={errors.pincode?.message} required>
-                <Input placeholder="400001" maxLength={6} {...register("pincode")} />
-              </Field>
+              <PincodeAutoFillInput
+                label="Pincode" error={errors.pincode?.message} required
+                registerProps={register("pincode")}
+                onAutoFill={(city, state) => {
+                  setValue("city", city, { shouldValidate: true });
+                  setValue("state", state, { shouldValidate: true });
+                }}
+              />
             </div>
           </div>
         </div>
@@ -388,20 +371,25 @@ function Step2({ register, watch, errors }: { register: any; watch: any; errors:
                   <Input placeholder="Near…" {...register("billing_landmark")} />
                 </Field>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 <Field label="City" error={errors.billing_city?.message} required>
                   <Input placeholder="Mumbai" {...register("billing_city")} />
                 </Field>
                 <Field label="State" error={errors.billing_state?.message} required>
-                  <input list="billing-state-list" placeholder="Maharashtra" {...register("billing_state")}
+                  <input list="create-billing-state" placeholder="Maharashtra" {...register("billing_state")}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-                  <datalist id="billing-state-list">
+                  <datalist id="create-billing-state">
                     {INDIAN_STATES.map((s) => <option key={s} value={s} />)}
                   </datalist>
                 </Field>
-                <Field label="Pincode" error={errors.billing_pincode?.message} required>
-                  <Input placeholder="400001" maxLength={6} {...register("billing_pincode")} />
-                </Field>
+                <PincodeAutoFillInput
+                  label="Pincode" error={errors.billing_pincode?.message} required
+                  registerProps={register("billing_pincode")}
+                  onAutoFill={(city, state) => {
+                    setValue("billing_city", city, { shouldValidate: true });
+                    setValue("billing_state", state, { shouldValidate: true });
+                  }}
+                />
               </div>
             </div>
           )}
@@ -416,7 +404,6 @@ function Step2({ register, watch, errors }: { register: any; watch: any; errors:
 function Step3({ register, errors }: { register: any; errors: any }) {
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-      {/* Left: Spokesperson */}
       <div>
         <SectionTitle icon={UserCheck} title="Spokesperson / Alternate Contact" />
         <div className="grid grid-cols-1 gap-3">
@@ -424,9 +411,8 @@ function Step3({ register, errors }: { register: any; errors: any }) {
             <Input placeholder="Contact person's name" {...register("spokesperson_name")} />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Mobile" error={errors.spokesperson_mobile?.message}>
-              <Input placeholder="9876543210" maxLength={10} {...register("spokesperson_mobile")} />
-            </Field>
+            <PhoneField label="Mobile" error={errors.spokesperson_mobile?.message}
+              registerProps={register("spokesperson_mobile")} />
             <Field label="Email" error={errors.spokesperson_email?.message}>
               <Input type="email" placeholder="contact@example.com" {...register("spokesperson_email")} />
             </Field>
@@ -436,8 +422,6 @@ function Step3({ register, errors }: { register: any; errors: any }) {
           </Field>
         </div>
       </div>
-
-      {/* Right: Additional Info */}
       <div>
         <SectionTitle icon={Info} title="Additional Information" />
         <div className="grid grid-cols-1 gap-3">
@@ -513,7 +497,7 @@ export function CustomerCreatePage() {
   const [fileNames, setFileNames] = useState({ profile_photo: "", kyc_document: "", agreement_document: "" });
 
   const {
-    register, handleSubmit, watch, trigger,
+    register, handleSubmit, watch, trigger, setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -570,11 +554,12 @@ export function CustomerCreatePage() {
     }
   };
 
+  const StepIcon = STEPS[step].icon;
+
   return (
     <AppLayout title="New Customer" portalLabel="Administration">
       <div className="flex h-full flex-col space-y-4">
 
-        {/* Page header */}
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => navigate("/admin/customers")} className="shrink-0">
             <ArrowLeft className="h-4 w-4" />Back
@@ -585,19 +570,15 @@ export function CustomerCreatePage() {
           </div>
         </div>
 
-        {/* Wizard card — full width */}
         <Card className="flex flex-1 flex-col overflow-hidden">
-
-          {/* Progress header */}
           <div className="border-b border-border/40 px-6 pt-5 pb-6">
             <WizardProgress step={step} steps={STEPS} />
           </div>
 
-          {/* Step title */}
           <div className="flex items-center justify-between px-6 pt-5 pb-3">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                {(() => { const Icon = STEPS[step].icon; return <Icon className="text-primary" style={{ height: "1.125rem", width: "1.125rem" }} />; })()}
+                <StepIcon className="text-primary" style={{ height: "1.125rem", width: "1.125rem" }} />
               </div>
               <div>
                 <h3 className="text-base font-semibold">{STEPS[step].title}</h3>
@@ -609,12 +590,11 @@ export function CustomerCreatePage() {
             </span>
           </div>
 
-          {/* Step content */}
           <CardContent className="flex-1 pt-2 pb-6">
             <form id="wizard-form"
               onSubmit={isLastStep ? handleSubmit(onSubmit) : (e) => { e.preventDefault(); handleNext(); }}>
               {step === 0 && <Step1 register={register} watch={watch} errors={errors} />}
-              {step === 1 && <Step2 register={register} watch={watch} errors={errors} />}
+              {step === 1 && <Step2 register={register} watch={watch} errors={errors} setValue={setValue} />}
               {step === 2 && <Step3 register={register} errors={errors} />}
               {step === 3 && (
                 <Step4
@@ -624,7 +604,6 @@ export function CustomerCreatePage() {
             </form>
           </CardContent>
 
-          {/* Wizard footer */}
           <div className="flex items-center justify-between border-t border-border/40 px-6 py-4">
             <div>
               {step > 0 && (
