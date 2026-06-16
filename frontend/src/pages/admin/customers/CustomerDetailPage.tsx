@@ -18,46 +18,38 @@ import { getApiErrorMessage } from "@/services/api";
 import { tokenService } from "@/services/tokenService";
 import type { Customer, CustomerStatus } from "@/types/customer";
 
-// ── Constants ────────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<CustomerStatus, string> = {
-  ACTIVE: "bg-green-100 text-green-800 border border-green-200",
-  SUSPENDED: "bg-amber-100 text-amber-800 border border-amber-200",
+  ACTIVE:       "bg-green-100 text-green-800 border border-green-200",
+  SUSPENDED:    "bg-amber-100 text-amber-800 border border-amber-200",
   DISCONNECTED: "bg-red-100 text-red-800 border border-red-200",
 };
 
 const KYC_LABELS: Record<string, string> = {
-  AADHAAR: "Aadhaar Card",
-  PAN: "PAN Card",
-  PASSPORT: "Passport",
-  VOTER_ID: "Voter ID",
-  DRIVING_LICENSE: "Driving License",
+  AADHAAR: "Aadhaar Card", PAN: "PAN Card", PASSPORT: "Passport",
+  VOTER_ID: "Voter ID", DRIVING_LICENSE: "Driving License",
 };
 
-// ── Tab component ─────────────────────────────────────────────────────────────
+// ── Tab bar ───────────────────────────────────────────────────────────────────
 
 type TabDef = { key: string; label: string; icon: React.ElementType };
 
-function TabBar({ tabs, active, onChange }: {
-  tabs: TabDef[]; active: string; onChange: (k: string) => void;
-}) {
+function TabBar({ tabs, active, onChange }: { tabs: TabDef[]; active: string; onChange: (k: string) => void }) {
   return (
     <div className="flex overflow-x-auto border-b border-border scrollbar-none">
       {tabs.map(({ key, label, icon: Icon }) => {
         const isActive = active === key;
         return (
-          <button
-            key={key}
-            onClick={() => onChange(key)}
+          <button key={key} onClick={() => onChange(key)}
             className={`
-              flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors -mb-px
+              flex shrink-0 items-center gap-2 border-b-2 px-5 py-3.5 text-sm font-medium transition-colors -mb-px
               ${isActive
                 ? "border-primary text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"}
             `}
           >
-            <Icon className="h-4 w-4" />
-            {label}
+            <Icon className="h-4 w-4" />{label}
           </button>
         );
       })}
@@ -65,13 +57,13 @@ function TabBar({ tabs, active, onChange }: {
   );
 }
 
-// ── InfoRow / BoolRow ─────────────────────────────────────────────────────────
+// ── Info display ──────────────────────────────────────────────────────────────
 
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="grid grid-cols-5 gap-3 py-2.5 border-b border-border/40 last:border-0">
       <dt className="col-span-2 text-sm text-muted-foreground">{label}</dt>
-      <dd className="col-span-3 text-sm font-medium text-foreground break-words">{value || "—"}</dd>
+      <dd className="col-span-3 text-sm font-medium break-words">{value || "—"}</dd>
     </div>
   );
 }
@@ -81,11 +73,31 @@ function BoolRow({ label, value }: { label: string; value: boolean }) {
     <div className="grid grid-cols-5 gap-3 py-2.5 border-b border-border/40 last:border-0">
       <dt className="col-span-2 text-sm text-muted-foreground">{label}</dt>
       <dd className="col-span-3 flex items-center gap-1.5 text-sm font-medium">
-        {value
-          ? <CheckCircle2 className="h-4 w-4 text-green-600" />
-          : <XCircle className="h-4 w-4 text-red-400" />}
+        {value ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <XCircle className="h-4 w-4 text-red-400" />}
         {value ? "Yes" : "No"}
       </dd>
+    </div>
+  );
+}
+
+// ── Section sub-header ────────────────────────────────────────────────────────
+
+function SectionTitle({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10">
+        <Icon className="h-3 w-3 text-primary" />
+      </div>
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</span>
+    </div>
+  );
+}
+
+function InfoPanel({ icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-muted/10 p-4">
+      <SectionTitle icon={icon} title={title} />
+      <dl>{children}</dl>
     </div>
   );
 }
@@ -112,26 +124,20 @@ function DocCard({ label, docType, customerId, hasDoc }: {
 }) {
   const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
-
   const handleDownload = async () => {
     setLoading(true);
     try { await downloadDocument(customerId, docType, label); }
     catch { showToast("Failed to download document", "error"); }
     finally { setLoading(false); }
   };
-
   return (
-    <div className={`
-      flex flex-col items-center gap-3 rounded-xl border-2 p-5 text-center transition-colors
-      ${hasDoc ? "border-green-200 bg-green-50/50" : "border-border/60 bg-muted/20"}
-    `}>
+    <div className={`flex flex-col items-center gap-3 rounded-xl border-2 p-5 text-center transition-colors
+      ${hasDoc ? "border-green-200 bg-green-50/50" : "border-border/60 bg-muted/20"}`}>
       <div className={`flex h-10 w-10 items-center justify-center rounded-full ${hasDoc ? "bg-green-100" : "bg-muted"}`}>
-        {hasDoc
-          ? <CheckCircle2 className="h-5 w-5 text-green-600" />
-          : <XCircle className="h-5 w-5 text-muted-foreground/50" />}
+        {hasDoc ? <CheckCircle2 className="h-5 w-5 text-green-600" /> : <XCircle className="h-5 w-5 text-muted-foreground/40" />}
       </div>
       <div>
-        <p className="text-sm font-semibold text-foreground">{label}</p>
+        <p className="text-sm font-semibold">{label}</p>
         <p className="text-xs text-muted-foreground mt-0.5">{hasDoc ? "Uploaded" : "Not uploaded"}</p>
       </div>
       {hasDoc && (
@@ -144,90 +150,83 @@ function DocCard({ label, docType, customerId, hasDoc }: {
   );
 }
 
-// ── Tab content panels ────────────────────────────────────────────────────────
+// ── Tab panels ────────────────────────────────────────────────────────────────
 
 function OverviewTab({ customer }: { customer: Customer }) {
   return (
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-      {/* Identity card */}
-      <div className="rounded-xl border border-border/60 bg-muted/10 p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <User className="h-4 w-4 text-primary" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Personal Details</span>
-        </div>
-        <dl>
-          <InfoRow label="Full Name" value={customer.full_name} />
-          <InfoRow label="Customer Code" value={customer.customer_code} />
-          <InfoRow label="Customer Type" value={customer.customer_type === "BUSINESS" ? "Business / Company" : "Individual"} />
-          {customer.customer_type === "BUSINESS" && (
-            <>
-              <InfoRow label="Company Name" value={customer.company_name} />
-              <InfoRow label="GST Number" value={customer.gst_number} />
-            </>
-          )}
-          <InfoRow label="Member Since" value={new Date(customer.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} />
-        </dl>
-      </div>
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <InfoPanel icon={User} title="Personal Details">
+        <InfoRow label="Full Name" value={customer.full_name} />
+        <InfoRow label="Customer Code" value={customer.customer_code} />
+        <InfoRow label="Customer Type" value={customer.customer_type === "BUSINESS" ? "Business / Company" : "Individual"} />
+        {customer.customer_type === "BUSINESS" && (
+          <>
+            <InfoRow label="Company Name" value={customer.company_name} />
+            <InfoRow label="GST Number" value={customer.gst_number} />
+          </>
+        )}
+        <InfoRow label="Member Since" value={new Date(customer.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} />
+      </InfoPanel>
 
-      {/* Contact card */}
-      <div className="rounded-xl border border-border/60 bg-muted/10 p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Info className="h-4 w-4 text-primary" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Contact & Status</span>
+      <InfoPanel icon={Info} title="Contact Details">
+        <InfoRow label="Mobile Number" value={customer.mobile_number} />
+        <InfoRow label="Alternate Mobile" value={customer.alternate_mobile_number} />
+        <InfoRow label="Email Address" value={customer.email} />
+        {(customer.spokesperson_name) && (
+          <InfoRow label="Spokesperson" value={customer.spokesperson_name} />
+        )}
+      </InfoPanel>
+
+      <InfoPanel icon={CheckCircle2} title="Account Status">
+        <div className="py-2.5 border-b border-border/40">
+          <dt className="text-sm text-muted-foreground mb-1.5">Status</dt>
+          <dd>
+            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLORS[customer.status]}`}>
+              {customer.status}
+            </span>
+          </dd>
         </div>
-        <dl>
-          <InfoRow label="Mobile Number" value={customer.mobile_number} />
-          <InfoRow label="Alternate Mobile" value={customer.alternate_mobile_number} />
-          <InfoRow label="Email Address" value={customer.email} />
-          <BoolRow label="Account Active" value={customer.is_active} />
-          <BoolRow label="Must Change Password" value={customer.must_change_password} />
-        </dl>
-      </div>
+        <BoolRow label="Account Active" value={customer.is_active} />
+        <BoolRow label="Must Change Password" value={customer.must_change_password} />
+        {customer.connection_date && (
+          <InfoRow label="Connection Date" value={new Date(customer.connection_date).toLocaleDateString("en-IN")} />
+        )}
+        {customer.reference_source && (
+          <InfoRow label="Reference" value={customer.reference_source} />
+        )}
+      </InfoPanel>
     </div>
   );
 }
 
 function AddressesTab({ customer }: { customer: Customer }) {
   return (
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-      {/* Installation */}
-      <div className="rounded-xl border border-border/60 bg-muted/10 p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <MapPin className="h-4 w-4 text-primary" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Installation Address</span>
-        </div>
-        <dl>
-          <InfoRow label="Address Line 1" value={customer.installation_address} />
-          <InfoRow label="Address Line 2" value={customer.address_line_2} />
-          <InfoRow label="Landmark" value={customer.landmark} />
-          <InfoRow label="City" value={customer.city} />
-          <InfoRow label="State" value={customer.state} />
-          <InfoRow label="Pincode" value={customer.pincode} />
-        </dl>
-      </div>
-
-      {/* Billing */}
-      <div className="rounded-xl border border-border/60 bg-muted/10 p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <MapPin className="h-4 w-4 text-primary" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Billing Address</span>
-        </div>
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <InfoPanel icon={MapPin} title="Installation Address">
+        <InfoRow label="Address Line 1" value={customer.installation_address} />
+        <InfoRow label="Address Line 2" value={customer.address_line_2} />
+        <InfoRow label="Landmark" value={customer.landmark} />
+        <InfoRow label="City" value={customer.city} />
+        <InfoRow label="State" value={customer.state} />
+        <InfoRow label="Pincode" value={customer.pincode} />
+      </InfoPanel>
+      <InfoPanel icon={MapPin} title="Billing Address">
         {customer.billing_same_as_installation ? (
           <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground">
             <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
             Same as installation address
           </div>
         ) : (
-          <dl>
+          <>
             <InfoRow label="Address Line 1" value={customer.billing_address_line_1} />
             <InfoRow label="Address Line 2" value={customer.billing_address_line_2} />
             <InfoRow label="Landmark" value={customer.billing_landmark} />
             <InfoRow label="City" value={customer.billing_city} />
             <InfoRow label="State" value={customer.billing_state} />
             <InfoRow label="Pincode" value={customer.billing_pincode} />
-          </dl>
+          </>
         )}
-      </div>
+      </InfoPanel>
     </div>
   );
 }
@@ -235,32 +234,30 @@ function AddressesTab({ customer }: { customer: Customer }) {
 function IdentityDocsTab({ customer }: { customer: Customer }) {
   return (
     <div className="space-y-5">
-      {/* KYC */}
-      <div className="rounded-xl border border-border/60 bg-muted/10 p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <CreditCard className="h-4 w-4 text-primary" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">KYC / Identity</span>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl border border-border/60 bg-muted/10 p-4 sm:col-span-2 lg:col-span-1">
+          <SectionTitle icon={CreditCard} title="KYC / Identity" />
+          {customer.kyc_type || customer.kyc_number ? (
+            <dl>
+              <InfoRow label="Document Type" value={customer.kyc_type ? (KYC_LABELS[customer.kyc_type] ?? customer.kyc_type) : null} />
+              <InfoRow label="Document Number" value={customer.kyc_number} />
+            </dl>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">No KYC details provided.</p>
+          )}
         </div>
-        {customer.kyc_type || customer.kyc_number ? (
-          <dl>
-            <InfoRow label="Document Type" value={customer.kyc_type ? (KYC_LABELS[customer.kyc_type] ?? customer.kyc_type) : null} />
-            <InfoRow label="Document Number" value={customer.kyc_number} />
-          </dl>
-        ) : (
-          <p className="text-sm text-muted-foreground italic">No KYC details provided.</p>
-        )}
-      </div>
-
-      {/* Documents */}
-      <div>
-        <div className="flex items-center gap-2 mb-3 px-0.5">
-          <FolderUp className="h-4 w-4 text-primary" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Uploaded Documents</span>
-        </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <DocCard label="Profile Photo" docType="profile_photo" customerId={customer.id} hasDoc={!!customer.profile_photo_path} />
-          <DocCard label="KYC Document" docType="kyc_document" customerId={customer.id} hasDoc={!!customer.kyc_document_path} />
-          <DocCard label="Agreement" docType="agreement_document" customerId={customer.id} hasDoc={!!customer.agreement_document_path} />
+        <div className="sm:col-span-2 lg:col-span-3">
+          <div className="mb-3 flex items-center gap-2">
+            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10">
+              <FolderUp className="h-3 w-3 text-primary" />
+            </div>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Uploaded Documents</span>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <DocCard label="Profile Photo" docType="profile_photo" customerId={customer.id} hasDoc={!!customer.profile_photo_path} />
+            <DocCard label="KYC Document" docType="kyc_document" customerId={customer.id} hasDoc={!!customer.kyc_document_path} />
+            <DocCard label="Agreement" docType="agreement_document" customerId={customer.id} hasDoc={!!customer.agreement_document_path} />
+          </div>
         </div>
       </div>
     </div>
@@ -268,75 +265,54 @@ function IdentityDocsTab({ customer }: { customer: Customer }) {
 }
 
 function MoreInfoTab({ customer }: { customer: Customer }) {
-  const hasSpokesPerson = customer.spokesperson_name || customer.spokesperson_mobile || customer.spokesperson_email;
-  const hasAdditional = customer.connection_date || customer.reference_source || customer.sales_person || customer.notes;
-
   return (
-    <div className="space-y-5">
-      {/* Spokesperson */}
-      <div className="rounded-xl border border-border/60 bg-muted/10 p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <UserCheck className="h-4 w-4 text-primary" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Spokesperson / Alternate Contact</span>
-        </div>
-        {hasSpokesPerson ? (
-          <dl>
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <InfoPanel icon={UserCheck} title="Spokesperson / Alternate Contact">
+        {customer.spokesperson_name || customer.spokesperson_mobile || customer.spokesperson_email ? (
+          <>
             <InfoRow label="Name" value={customer.spokesperson_name} />
             <InfoRow label="Mobile" value={customer.spokesperson_mobile} />
             <InfoRow label="Email" value={customer.spokesperson_email} />
             <InfoRow label="Designation" value={customer.spokesperson_designation} />
-          </dl>
+          </>
         ) : (
           <p className="text-sm text-muted-foreground italic">No spokesperson details provided.</p>
         )}
-      </div>
-
-      {/* Additional Info */}
-      <div className="rounded-xl border border-border/60 bg-muted/10 p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Info className="h-4 w-4 text-primary" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Additional Information</span>
-        </div>
-        {hasAdditional ? (
-          <dl>
-            <InfoRow
-              label="Connection Date"
-              value={customer.connection_date ? new Date(customer.connection_date).toLocaleDateString("en-IN") : null}
-            />
-            <InfoRow label="Reference Source" value={customer.reference_source} />
-            <InfoRow label="Salesperson" value={customer.sales_person} />
-            {customer.notes && (
-              <div className="py-2.5 border-t border-border/40 mt-2">
-                <dt className="text-sm text-muted-foreground mb-1.5">Notes</dt>
-                <dd className="rounded-lg bg-muted/40 px-3 py-2.5 text-sm font-medium whitespace-pre-wrap">{customer.notes}</dd>
-              </div>
-            )}
-          </dl>
+      </InfoPanel>
+      <InfoPanel icon={Info} title="Additional Information">
+        <InfoRow label="Connection Date" value={customer.connection_date ? new Date(customer.connection_date).toLocaleDateString("en-IN") : null} />
+        <InfoRow label="Reference Source" value={customer.reference_source} />
+        <InfoRow label="Salesperson" value={customer.sales_person} />
+        {customer.notes ? (
+          <div className="pt-2.5">
+            <dt className="text-sm text-muted-foreground mb-1.5">Notes</dt>
+            <dd className="rounded-lg bg-muted/40 px-3 py-2.5 text-sm font-medium whitespace-pre-wrap">{customer.notes}</dd>
+          </div>
         ) : (
-          <p className="text-sm text-muted-foreground italic">No additional information provided.</p>
+          <InfoRow label="Notes" value={null} />
         )}
-      </div>
+      </InfoPanel>
     </div>
   );
 }
 
 function AccountTab() {
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border-2 border-dashed border-border/60 p-8 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted/50 mx-auto mb-3">
-          <Building2 className="h-6 w-6 text-muted-foreground/50" />
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {[
+        { icon: Building2, title: "Subscription", text: "Subscription details will appear here in a future phase." },
+        { icon: Info,      title: "Invoice History", text: "Invoice history will appear here in a future phase." },
+      ].map(({ icon: Icon, title, text }) => (
+        <div key={title} className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-border/60 p-10 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted/50">
+            <Icon className="h-6 w-6 text-muted-foreground/40" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+            <p className="text-xs text-muted-foreground/70 mt-1">{text}</p>
+          </div>
         </div>
-        <p className="text-sm font-medium text-muted-foreground">Subscription Information</p>
-        <p className="text-xs text-muted-foreground/70 mt-1">Subscription details will appear here in a future phase.</p>
-      </div>
-      <div className="rounded-xl border-2 border-dashed border-border/60 p-8 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted/50 mx-auto mb-3">
-          <Info className="h-6 w-6 text-muted-foreground/50" />
-        </div>
-        <p className="text-sm font-medium text-muted-foreground">Invoice History</p>
-        <p className="text-xs text-muted-foreground/70 mt-1">Invoice history will appear here in a future phase.</p>
-      </div>
+      ))}
     </div>
   );
 }
@@ -344,11 +320,11 @@ function AccountTab() {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 const TABS: TabDef[] = [
-  { key: "overview",  label: "Overview",       icon: User },
-  { key: "addresses", label: "Addresses",      icon: MapPin },
-  { key: "identity",  label: "Identity & Docs", icon: CreditCard },
-  { key: "more",      label: "More Info",       icon: Info },
-  { key: "account",   label: "Account",         icon: Building2 },
+  { key: "overview",  label: "Overview",        icon: User },
+  { key: "addresses", label: "Addresses",        icon: MapPin },
+  { key: "identity",  label: "Identity & Docs",  icon: CreditCard },
+  { key: "more",      label: "More Info",         icon: Info },
+  { key: "account",   label: "Account",           icon: Building2 },
 ];
 
 export function CustomerDetailPage() {
@@ -412,7 +388,7 @@ export function CustomerDetailPage() {
 
   return (
     <AppLayout title={customer.full_name} portalLabel="Administration">
-      <div className="mx-auto max-w-3xl space-y-5">
+      <div className="space-y-4">
 
         {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -422,7 +398,7 @@ export function CustomerDetailPage() {
             </Button>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold text-foreground">{customer.full_name}</h2>
+                <h2 className="text-xl font-semibold">{customer.full_name}</h2>
                 <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLORS[customer.status]}`}>
                   {customer.status}
                 </span>
@@ -450,7 +426,7 @@ export function CustomerDetailPage() {
           </div>
         </div>
 
-        {/* Tabbed content card */}
+        {/* Full-width tabbed card */}
         <Card className="overflow-hidden">
           <TabBar tabs={TABS} active={activeTab} onChange={setActiveTab} />
           <CardContent className="pt-5 pb-6">
@@ -463,7 +439,7 @@ export function CustomerDetailPage() {
         </Card>
       </div>
 
-      {/* Status dialog */}
+      {/* Dialogs */}
       <Dialog open={statusDialog.open} onClose={() => setStatusDialog({ open: false, newStatus: null })} title="Change Status">
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
@@ -474,18 +450,13 @@ export function CustomerDetailPage() {
           </p>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setStatusDialog({ open: false, newStatus: null })}>Cancel</Button>
-            <Button
-              onClick={() => { if (statusDialog.newStatus) statusMutation.mutate(statusDialog.newStatus); }}
-              disabled={statusMutation.isPending}
-            >
-              {statusMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Confirm
+            <Button onClick={() => { if (statusDialog.newStatus) statusMutation.mutate(statusDialog.newStatus); }} disabled={statusMutation.isPending}>
+              {statusMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Confirm
             </Button>
           </div>
         </div>
       </Dialog>
 
-      {/* Password reset result */}
       <Dialog open={resetDialog.open} onClose={() => setResetDialog({ open: false, tempPassword: null })} title="New Temporary Password">
         <div className="space-y-4">
           <div className="rounded-lg bg-muted/50 p-4">
