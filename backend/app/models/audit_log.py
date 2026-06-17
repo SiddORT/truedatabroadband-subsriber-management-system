@@ -53,6 +53,9 @@ ACTION_INVOICE_DELETED = "invoice_deleted"
 ACTION_PAYMENT_RECORDED = "payment_recorded"
 ACTION_PAYMENT_DELETED = "payment_deleted"
 
+# Dashboard domain
+ACTION_DASHBOARD_VIEWED = "dashboard_viewed"
+
 
 class AuditLog(Base):
     """
