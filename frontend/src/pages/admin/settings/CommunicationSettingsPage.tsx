@@ -145,19 +145,23 @@ function SmsTab() {
   });
 
   const handleSave = () => {
+    const doReplaceApiKey = replaceApiKey || !settings?.api_key_configured;
+    const doReplaceClientId = replaceClientId || !settings?.client_id_configured;
+    const doReplaceSenderId = replaceSenderId || !settings?.sender_id_configured;
+    const doReplaceEntityId = replaceEntityId || !settings?.entity_id_configured;
     const payload: SmsSettingsUpdate = {
       is_enabled: isEnabled,
       provider: provider || null,
       api_base_url: apiBaseUrl || null,
       status_api_url: statusApiUrl || null,
-      api_key: replaceApiKey ? apiKey : null,
-      client_id: replaceClientId ? clientId : null,
-      sender_id: replaceSenderId ? senderId : null,
-      entity_id: replaceEntityId ? entityId : null,
-      replace_api_key: replaceApiKey,
-      replace_client_id: replaceClientId,
-      replace_sender_id: replaceSenderId,
-      replace_entity_id: replaceEntityId,
+      api_key: doReplaceApiKey ? apiKey : null,
+      client_id: doReplaceClientId ? clientId : null,
+      sender_id: doReplaceSenderId ? senderId : null,
+      entity_id: doReplaceEntityId ? entityId : null,
+      replace_api_key: doReplaceApiKey,
+      replace_client_id: doReplaceClientId,
+      replace_sender_id: doReplaceSenderId,
+      replace_entity_id: doReplaceEntityId,
     };
     saveMutation.mutate(payload);
   };
@@ -350,6 +354,8 @@ function EmailTab() {
   });
 
   const handleSave = () => {
+    const doReplaceUsername = replaceUsername || !settings?.username_configured;
+    const doReplacePassword = replacePassword || !settings?.password_configured;
     const payload: EmailSettingsUpdate = {
       is_enabled: isEnabled,
       host: host || null,
@@ -358,10 +364,10 @@ function EmailTab() {
       from_name: fromName || null,
       use_tls: useTls,
       use_ssl: useSsl,
-      username: replaceUsername ? username : null,
-      password: replacePassword ? password : null,
-      replace_username: replaceUsername,
-      replace_password: replacePassword,
+      username: doReplaceUsername ? username : null,
+      password: doReplacePassword ? password : null,
+      replace_username: doReplaceUsername,
+      replace_password: doReplacePassword,
     };
     saveMutation.mutate(payload);
   };
