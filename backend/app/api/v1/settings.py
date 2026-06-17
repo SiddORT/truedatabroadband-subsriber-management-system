@@ -264,21 +264,29 @@ def test_email(
     current_user: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ) -> dict:
-    from app.services.notifications.email_service import EmailService, Attachment
+    from app.core.config import settings as app_settings
+    from app.services.notifications.email_layout import wrap_from_settings
+    from app.services.notifications.email_service import EmailService
     from app.models.communication_log import CommStatus
 
     repo = CompanySettingsRepository(db)
     record = repo.get_or_create()
     smtp_settings = repo.get_smtp_settings(record)
 
+    inner = (
+        "<h2 style='margin:0 0 12px;font-size:20px;color:#1F4959;'>Test Email</h2>"
+        "<p style='margin:0 0 10px;'>Your SMTP configuration is working correctly.</p>"
+        "<p style='margin:0;'>This is a test message sent from "
+        "<strong>True Data Broadband Pvt. Ltd.</strong> to verify that "
+        "outbound email delivery is set up and operational.</p>"
+    )
+    html_body = wrap_from_settings(inner, record, base_url=app_settings.SITE_URL)
+
     svc = EmailService()
     result = svc.send(
         to_email=payload.email,
         subject="Test Email — True Data Broadband",
-        html_body=(
-            "<p>This is a test email from <strong>True Data Broadband Pvt. Ltd.</strong></p>"
-            "<p>If you received this, your SMTP configuration is working correctly.</p>"
-        ),
+        html_body=html_body,
         smtp_settings=smtp_settings,
     )
 

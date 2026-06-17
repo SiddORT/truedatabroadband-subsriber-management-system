@@ -45,6 +45,18 @@ class Settings(BaseSettings):
     STORAGE_BACKEND: str = os.getenv("STORAGE_BACKEND", "local")
     STORAGE_ROOT: str = os.getenv("STORAGE_ROOT", "storage")
 
+    # Public base URL — used to build absolute links in emails (logo, etc.)
+    # Set SITE_URL in the environment for deployed instances.
+    # On Replit dev this is auto-detected from REPLIT_DEV_DOMAIN.
+    SITE_URL: str = os.getenv(
+        "SITE_URL",
+        (
+            f"https://{os.getenv('REPLIT_DEV_DOMAIN')}"
+            if os.getenv("REPLIT_DEV_DOMAIN")
+            else ""
+        ),
+    )
+
     # Seed user
     SEED_ADMIN_EMAIL: str = os.getenv("SEED_ADMIN_EMAIL", "admin@truedatabroadband.com")
     SEED_ADMIN_PASSWORD: str = os.getenv("SEED_ADMIN_PASSWORD", "TrueData@123")

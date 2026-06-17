@@ -19,6 +19,7 @@ from app.repositories.company_settings import CompanySettingsRepository
 from app.repositories.notification_log import NotificationLogRepository
 from app.repositories.notification_preference import NotificationPreferenceRepository
 from app.repositories.notification_template import NotificationTemplateRepository
+from .email_layout import wrap_from_settings
 from .email_service import Attachment, EmailService
 from .sms_service import SmsService
 
@@ -202,10 +203,14 @@ class NotificationService:
                 error = "no email address in recipient"
                 status = NotificationStatus.FAILED
             else:
+                from app.core.config import settings as app_settings
+                wrapped_body = wrap_from_settings(
+                    rendered_body, settings, base_url=app_settings.SITE_URL
+                )
                 result = self.email_svc.send(
                     to_email=recipient.email,
                     subject=rendered_subject,
-                    html_body=rendered_body,
+                    html_body=wrapped_body,
                     attachments=attachments,
                     smtp_settings=smtp_settings,
                 )
