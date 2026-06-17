@@ -22,14 +22,6 @@ function ChannelBadge({ channel }: { channel: string }) {
   );
 }
 
-function StatusBadge({ active }: { active: boolean }) {
-  return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-      {active ? "Active" : "Inactive"}
-    </span>
-  );
-}
-
 // ── Edit Drawer ───────────────────────────────────────────────────────────
 
 interface EditDrawerProps {
@@ -171,6 +163,7 @@ export function NotificationTemplatesPage() {
   const { showToast } = useToast();
   const qc = useQueryClient();
   const [editTarget, setEditTarget] = useState<NotificationTemplate | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ["notification-templates"],
@@ -187,6 +180,19 @@ export function NotificationTemplatesPage() {
     },
     onError: (err) => {
       showToast(getApiErrorMessage(err), "error");
+    },
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) =>
+      updateTemplate(id, { is_active }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["notification-templates"] });
+      setTogglingId(null);
+    },
+    onError: (err) => {
+      showToast(getApiErrorMessage(err), "error");
+      setTogglingId(null);
     },
   });
 
@@ -230,37 +236,56 @@ export function NotificationTemplatesPage() {
 
                 {/* Channel rows */}
                 <div className="divide-y divide-border">
-                  {rows.map((tmpl) => (
-                    <div
-                      key={tmpl.id}
-                      className="flex items-center justify-between gap-4 px-4 py-3"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <ChannelBadge channel={tmpl.channel} />
-                        <StatusBadge active={tmpl.is_active} />
-                        {tmpl.subject && (
-                          <span className="hidden text-xs text-muted-foreground truncate sm:block">
-                            {tmpl.subject}
+                  {rows.map((tmpl) => {
+                    const isToggling = togglingId === tmpl.id;
+                    return (
+                      <div
+                        key={tmpl.id}
+                        className="flex items-center justify-between gap-4 px-4 py-3"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <ChannelBadge channel={tmpl.channel} />
+                          {tmpl.subject && (
+                            <span className="hidden text-xs text-muted-foreground truncate sm:block">
+                              {tmpl.subject}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          {tmpl.dlt_template_id && (
+                            <span className="hidden text-[10px] font-mono text-muted-foreground sm:block">
+                              DLT: {tmpl.dlt_template_id}
+                            </span>
+                          )}
+                          {/* Inline enable/disable toggle */}
+                          <button
+                            onClick={() => {
+                              setTogglingId(tmpl.id);
+                              toggleMutation.mutate({ id: tmpl.id, is_active: !tmpl.is_active });
+                            }}
+                            disabled={isToggling}
+                            title={tmpl.is_active ? "Click to disable" : "Click to enable"}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
+                              tmpl.is_active ? "bg-emerald-500" : "bg-gray-300"
+                            } ${isToggling ? "opacity-50 cursor-wait" : "cursor-pointer"}`}
+                          >
+                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${tmpl.is_active ? "translate-x-4" : "translate-x-1"}`} />
+                          </button>
+                          <span className={`text-xs font-medium w-14 ${tmpl.is_active ? "text-emerald-600" : "text-gray-400"}`}>
+                            {tmpl.is_active ? "Enabled" : "Disabled"}
                           </span>
-                        )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditTarget(tmpl)}
+                          >
+                            <Edit2 className="h-3.5 w-3.5 mr-1" />
+                            Edit
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {tmpl.dlt_template_id && (
-                          <span className="hidden text-[10px] font-mono text-muted-foreground sm:block">
-                            DLT: {tmpl.dlt_template_id}
-                          </span>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setEditTarget(tmpl)}
-                        >
-                          <Edit2 className="h-3.5 w-3.5 mr-1" />
-                          Edit
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}
