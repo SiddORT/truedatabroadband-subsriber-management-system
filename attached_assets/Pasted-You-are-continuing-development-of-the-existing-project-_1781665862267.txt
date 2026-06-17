@@ -1,0 +1,178 @@
+You are continuing development of the existing project.
+IMPORTANT:
+Do not refactor existing working modules.
+Implement the following enhancements and business rules across Customers, Plans, Subscriptions, and Invoices.
+Follow existing:
+* Architecture
+* Theme
+* Pagination standards
+* DataTable standards
+* Audit logging patterns
+================================================== INVOICE EDITING ENHANCEMENTS
+Current rule remains unchanged:
+Invoices can only be edited when:
+* paid_amount = 0
+* is_locked = false
+* status IN (DRAFT, UNPAID)
+Enhancement:
+When editing an eligible invoice, load the same form used for invoice creation.
+Allow editing all invoice creation fields.
+Editable fields:
+* Subscription
+* Billing period
+* Installation charges
+* Service charges
+* Additional charges
+* Line item discounts
+* Overall discount
+* Invoice date
+* Due date
+* Remarks
+System actions after save:
+* Recalculate totals
+* Regenerate snapshots if subscription changed
+* Regenerate PDF
+* Increment edited_count
+* Create invoice_change_log entry
+Require:
+change_reason
+for every edit.
+Locked invoices remain non-editable.
+================================================== CUSTOMER MASTER ENHANCEMENTS
+Add filters:
+* Customer Type
+Values:
+* INDIVIDUAL
+* BUSINESS
+* City
+* Reference Source
+Values:
+* Website
+* Referral
+* Walk-in
+* Social Media
+* Sales Team
+* Other
+Support custom values.
+* Sales Person
+Add fields to customer table if missing:
+* customer_type
+* reference_source
+* sales_person_name
+Filters must be server-side.
+================================================== PLAN LIST ENHANCEMENTS
+Add computed column:
+* Active Subscription Count
+Display:
+Number of active subscriptions using the plan.
+Add filters:
+* Data Policy
+Values:
+* UNLIMITED
+* FUP
+* Speed Range
+Examples:
+0-50 Mbps
+51-100 Mbps
+101-300 Mbps
+300+ Mbps
+Add sorting:
+* total_price
+* active_subscription_count
+Default:
+Sort by created_at DESC
+================================================== SUBSCRIPTION LIST ENHANCEMENTS
+Add filters:
+* Customer
+* Plan
+Date ranges:
+* Subscription Date Range
+* Expiry Date Range
+Quick filters:
+* Expiring in 7 days
+* Expiring in 15 days
+* Expiring in 30 days
+* Expired
+All filters must be server-side.
+Default sorting:
+expiry_date ASC
+================================================== INVOICE LIST ENHANCEMENTS
+Default sorting:
+created_at DESC
+Newest invoices first.
+Add filters:
+* Customer
+* Plan
+* Status
+Date ranges:
+* Invoice Date Range
+* Due Date Range
+Quick filters:
+* Due Today
+* Due in 7 Days
+* Due in 15 Days
+* Due in 30 Days
+* Overdue
+Definition:
+Overdue:
+due_date < today
+AND
+balance_amount > 0
+Filters must be server-side.
+================================================== INVOICE GENERATION RULES
+Prevent duplicate invoices.
+Rule:
+A new invoice cannot be generated if an existing invoice already exists for:
+* Same subscription
+* Same billing_period_start
+* Same billing_period_end
+AND
+status NOT IN (CANCELLED)
+Return:
+409 Conflict
+Message:
+"An invoice already exists for this billing period."
+================================================== INVOICE BILLING PERIOD VALIDATION
+Prevent overlapping billing periods.
+Example:
+Existing invoice:
+01 Jan 2025 - 31 Jan 2025
+Do not allow:
+15 Jan 2025 - 14 Feb 2025
+Validation:
+Billing periods for the same subscription must not overlap.
+ AUDIT LOGGING
+Track:
+* invoice_edited
+* invoice_pdf_regenerated
+* invoice_generation_rejected
+* duplicate_invoice_blocked
+================================================== TESTING
+Create tests for:
+* Duplicate invoice prevention
+* Billing period overlap prevention
+* Invoice editing
+* Invoice regeneration
+* Customer filters
+* Plan filters
+* Subscription filters
+* Invoice filters
+* Line item discount calculations
+* Overall discount calculations
+* GST calculations after discounts
+================================================== ACCEPTANCE CRITERIA
+Success means:
+1. Customer filters work
+2. Plan filters work
+3. Subscription filters work
+4. Invoice filters work
+5. Newest invoices appear first
+6. Duplicate invoices are blocked
+7. Overlapping billing periods are blocked
+8. Invoice editing uses the full create form
+9. Charges are managed using a unified grid
+10. Line item discounts work
+11. Overall discounts work
+12. GST calculations are correct
+13. PDFs regenerate after edits
+14. Audit logs are created
