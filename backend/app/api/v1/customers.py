@@ -7,10 +7,14 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Upl
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import get_db
+from app.core.logging import get_logger
 from app.dependencies.auth import require_superadmin
 from app.models.customer import Customer, CustomerStatus
+from app.models.notification import TemplateKey
 from app.models.user import User
+from app.repositories.company_settings import CompanySettingsRepository
 from app.repositories.customer import CustomerRepository
 from app.schemas.customer import (
     CustomerCreate,
@@ -22,7 +26,10 @@ from app.schemas.customer import (
     CustomerUpdate,
 )
 from app.services.customer import CustomerError, CustomerService
+from app.services.notifications.notification_service import NotificationService, Recipient
 from app.storage import get_storage_service
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/customers", tags=["customers"])
 
@@ -129,6 +136,29 @@ def create_customer(
         )
     except CustomerError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+
+    # Auto-send welcome email with portal link + initial password
+    try:
+        cs = CompanySettingsRepository(db).get_or_create()
+        portal_url = f"{settings.SITE_URL}/client/login" if settings.SITE_URL else ""
+        NotificationService(db).send(
+            template_key=TemplateKey.WELCOME_CUSTOMER.value,
+            recipient=Recipient(email=customer.email, mobile=customer.mobile_number),
+            variables={
+                "customer_name": customer.full_name,
+                "customer_email": customer.email or "",
+                "temp_password": temp_password,
+                "plan_name": "",
+                "portal_url": portal_url,
+                "support_email": cs.support_email or "",
+                "support_phone": cs.support_phone or "",
+            },
+            entity_type="CUSTOMER",
+            entity_id=str(customer.id),
+            customer_id=customer.id,
+        )
+    except Exception as exc:
+        logger.warning("customers.welcome_notification.failed", customer_id=str(customer.id), error=str(exc))
 
     return CustomerCreateResponse(
         **_to_out(customer).model_dump(),

@@ -32,16 +32,25 @@ _DEFAULT_TEMPLATES: list[dict] = [
         "body": (
             "<p>Dear <strong>{customer_name}</strong>,</p>"
             "<p>Welcome to <strong>True Data Broadband</strong>! "
-            "Your broadband connection is now active.</p>"
-            "<ul>"
-            "<li><strong>Plan:</strong> {plan_name}</li>"
-            "</ul>"
+            "Your account has been created successfully.</p>"
+            "<table style='border-collapse:collapse;margin:16px 0;'>"
+            "<tr><td style='padding:6px 16px 6px 0;color:#555;'>Login Email</td>"
+            "<td style='padding:6px 0;font-weight:600;'>{customer_email}</td></tr>"
+            "<tr><td style='padding:6px 16px 6px 0;color:#555;'>Initial Password</td>"
+            "<td style='padding:6px 0;font-weight:600;font-family:monospace;letter-spacing:1px;'>{temp_password}</td></tr>"
+            "</table>"
+            "<p style='margin:20px 0;'>"
+            "<a href='{portal_url}' style='background:#1F4959;color:#fff;padding:10px 24px;"
+            "border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;'>"
+            "Access Client Portal &rarr;</a></p>"
+            "<p style='color:#e55;font-size:13px;'>Please log in and change your password immediately.</p>"
             "<p>For support, contact us at <a href='mailto:{support_email}'>{support_email}</a> "
             "or call <strong>{support_phone}</strong>.</p>"
             "<p>Regards,<br>True Data Broadband Team</p>"
         ),
         "approved_variables": [
-            "customer_name", "plan_name", "portal_url", "support_email", "support_phone",
+            "customer_name", "customer_email", "temp_password",
+            "plan_name", "portal_url", "support_email", "support_phone",
         ],
     },
     # ── OTP_LOGIN ─────────────────────────────────────────────────────────
@@ -210,27 +219,26 @@ def seed_notification_templates() -> None:
     db = SessionLocal()
     try:
         repo = NotificationTemplateRepository(db)
-        created = 0
+        created = updated = 0
         for tmpl in _DEFAULT_TEMPLATES:
             tk = tmpl["template_key"]
             ch = tmpl["channel"]
             tk_val = tk.value if hasattr(tk, "value") else str(tk)
             ch_val = ch.value if hasattr(ch, "value") else str(ch)
             existing = repo.get_by_key_and_channel(tk_val, ch_val)
+            repo.upsert(
+                template_key=tk_val,
+                channel=ch_val,
+                subject=tmpl.get("subject"),
+                body=tmpl["body"],
+                dlt_template_id=tmpl.get("dlt_template_id"),
+                approved_variables=tmpl.get("approved_variables"),
+            )
             if existing is None:
-                repo.upsert(
-                    template_key=tk_val,
-                    channel=ch_val,
-                    subject=tmpl.get("subject"),
-                    body=tmpl["body"],
-                    dlt_template_id=tmpl.get("dlt_template_id"),
-                    approved_variables=tmpl.get("approved_variables"),
-                )
                 created += 1
-        if created:
-            logger.info("seed.notification_templates.created", count=created)
-        else:
-            logger.info("seed.notification_templates.exists")
+            else:
+                updated += 1
+        logger.info("seed.notification_templates.done", created=created, updated=updated)
     except Exception as exc:
         logger.error("seed.notification_templates.error", error=str(exc))
     finally:

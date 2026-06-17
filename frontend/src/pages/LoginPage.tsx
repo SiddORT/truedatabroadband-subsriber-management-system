@@ -145,7 +145,7 @@ export function LoginPage({ role, title, subtitle, redirectTo }: LoginPageProps)
   /* ---- render ---- */
   return (
     <div className="flex min-h-screen flex-col bg-background lg:flex-row">
-      {/* Brand panel */}
+      {/* Brand panel — desktop only */}
       <div className="relative hidden flex-col justify-between bg-primary-dark p-12 text-white lg:flex lg:w-[42%]">
         <div className="flex flex-col gap-3">
           <img
@@ -154,10 +154,10 @@ export function LoginPage({ role, title, subtitle, redirectTo }: LoginPageProps)
             className="h-12 w-auto max-w-[220px] object-contain object-left"
           />
           <div>
-            <p className="text-lg font-bold tracking-wide text-white">
+            <p className="text-2xl font-bold tracking-wide text-white">
               True Data <span className="text-accent">Broadband</span>
             </p>
-            <p className="text-sm font-medium text-white/50">Pvt. Ltd.</p>
+            <p className="text-base font-medium text-white/50">Pvt. Ltd.</p>
           </div>
         </div>
 
@@ -177,6 +177,21 @@ export function LoginPage({ role, title, subtitle, redirectTo }: LoginPageProps)
           <span className="text-sm font-bold tracking-tight text-white/80">
             ort<span className="text-cyan-400">_</span>
           </span>
+        </div>
+      </div>
+
+      {/* Mobile brand strip — visible only on small screens */}
+      <div className="flex items-center gap-3 bg-primary-dark px-5 py-4 lg:hidden">
+        <img
+          src="/logo-small.png"
+          alt="True Data Broadband"
+          className="h-9 w-auto object-contain"
+        />
+        <div>
+          <p className="text-lg font-bold leading-tight text-white">
+            True Data <span className="text-accent">Broadband</span>
+          </p>
+          <p className="text-xs font-medium text-white/50">Pvt. Ltd.</p>
         </div>
       </div>
 
