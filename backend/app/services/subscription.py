@@ -105,13 +105,6 @@ class SubscriptionService:
     ) -> Subscription:
         customer = self._get_customer_or_raise(payload.customer_id)
 
-        existing = self.subs.get_active_by_customer(payload.customer_id)
-        if existing:
-            raise SubscriptionError(
-                f"Customer already has an ACTIVE subscription "
-                f"({existing.subscription_code})"
-            )
-
         pricing = self._get_pricing_or_raise(payload.plan_pricing_id)
         plan = self._get_plan_or_raise(pricing.plan_id)
 
