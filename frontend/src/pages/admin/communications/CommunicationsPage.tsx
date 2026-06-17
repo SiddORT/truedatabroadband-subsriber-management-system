@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Filter, X, RefreshCw, Eye } from "lucide-react";
+import { RefreshCw, Eye, X } from "lucide-react";
 
 import { AppLayout } from "@/layouts/AppLayout";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   DataTable,
@@ -65,10 +64,7 @@ function PayloadModal({
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────
-
-const CHANNEL_OPTIONS = ["SMS", "EMAIL"];
-const STATUS_OPTIONS = ["PENDING", "SENT", "DELIVERED", "FAILED"];
+// ── Filter dropdowns (rendered inside DataTable's filtersNode) ────────────
 
 const TEMPLATE_KEY_LABELS: Record<string, string> = {
   WELCOME_CUSTOMER: "Welcome",
@@ -80,17 +76,27 @@ const TEMPLATE_KEY_LABELS: Record<string, string> = {
   TEST: "Test",
 };
 
+// ── Main Page ─────────────────────────────────────────────────────────────
+
+const CHANNEL_OPTIONS = ["SMS", "EMAIL"];
+const STATUS_OPTIONS = ["PENDING", "SENT", "DELIVERED", "FAILED"];
+
 export function CommunicationsPage() {
   const { showToast } = useToast();
   const qc = useQueryClient();
 
-  const [tableState, setTableState] = useState<DataTableState>({ page: 1, pageSize: 25 });
+  const [tableState, setTableState] = useState<DataTableState>({
+    page: 1,
+    pageSize: 25,
+    search: "",
+    sortBy: null,
+    sortDir: "desc",
+  });
   const [filterChannel, setFilterChannel] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterTemplate, setFilterTemplate] = useState("");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
   const [modal, setModal] = useState<{ title: string; payload: Record<string, unknown> | null } | null>(null);
 
   const filterCount = [filterChannel, filterStatus, filterTemplate, filterDateFrom, filterDateTo].filter(Boolean).length;
@@ -118,14 +124,12 @@ export function CommunicationsPage() {
     onError: (err: any) => showToast(err?.response?.data?.detail ?? "Failed to refresh", "error"),
   });
 
-  const clearFilters = () => {
-    setFilterChannel("");
-    setFilterStatus("");
-    setFilterTemplate("");
-    setFilterDateFrom("");
-    setFilterDateTo("");
-    setTableState((s) => ({ ...s, page: 1 }));
-  };
+  function changeFilter<T>(setter: (v: T) => void) {
+    return (v: T) => {
+      setter(v);
+      setTableState((s) => ({ ...s, page: 1 }));
+    };
+  }
 
   const columns: DataTableColumn<CommunicationLog>[] = [
     {
@@ -213,54 +217,44 @@ export function CommunicationsPage() {
     },
   ];
 
-  const filtersNode = showFilters ? (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 pt-3 border-t border-gray-100 mt-3">
-      <div>
-        <select
-          value={filterChannel}
-          onChange={(e) => { setFilterChannel(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }}
-          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
-        >
-          <option value="">All Channels</option>
-          {CHANNEL_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-      </div>
-      <div>
-        <select
-          value={filterStatus}
-          onChange={(e) => { setFilterStatus(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }}
-          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
-        >
-          <option value="">All Statuses</option>
-          {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-      </div>
-      <div>
-        <Input
-          value={filterTemplate}
-          onChange={(e) => { setFilterTemplate(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }}
-          placeholder="Template key…"
-          className="rounded-xl"
-        />
-      </div>
-      <div>
-        <Input
-          type="date"
-          value={filterDateFrom}
-          onChange={(e) => { setFilterDateFrom(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }}
-          className="rounded-xl"
-        />
-      </div>
-      <div>
-        <Input
-          type="date"
-          value={filterDateTo}
-          onChange={(e) => { setFilterDateTo(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }}
-          className="rounded-xl"
-        />
-      </div>
+  const filtersNode = (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <select
+        value={filterChannel}
+        onChange={(e) => changeFilter(setFilterChannel)(e.target.value)}
+        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
+      >
+        <option value="">All Channels</option>
+        {CHANNEL_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+      </select>
+      <select
+        value={filterStatus}
+        onChange={(e) => changeFilter(setFilterStatus)(e.target.value)}
+        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
+      >
+        <option value="">All Statuses</option>
+        {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+      </select>
+      <Input
+        value={filterTemplate}
+        onChange={(e) => changeFilter(setFilterTemplate)(e.target.value)}
+        placeholder="Template key…"
+        className="rounded-xl"
+      />
+      <Input
+        type="date"
+        value={filterDateFrom}
+        onChange={(e) => changeFilter(setFilterDateFrom)(e.target.value)}
+        className="rounded-xl"
+      />
+      <Input
+        type="date"
+        value={filterDateTo}
+        onChange={(e) => changeFilter(setFilterDateTo)(e.target.value)}
+        className="rounded-xl"
+      />
     </div>
-  ) : null;
+  );
 
   return (
     <AppLayout title="Communication Logs" portalLabel="Administration">
@@ -273,15 +267,14 @@ export function CommunicationsPage() {
 
         <DataTable
           columns={columns}
-          data={data?.items ?? []}
-          loading={isLoading}
+          rows={data?.items ?? []}
+          rowKey={(row) => row.id}
+          isLoading={isLoading}
           total={data?.total ?? 0}
           state={tableState}
           onStateChange={setTableState}
           filtersNode={filtersNode}
           filterCount={filterCount}
-          onToggleFilters={() => setShowFilters((v) => !v)}
-          onClearFilters={clearFilters}
         />
 
         {modal && (
