@@ -1,6 +1,7 @@
 import {
   BarChart3,
   Bell,
+  CalendarClock,
   IndianRupee,
   LayoutDashboard,
   LogOut,
@@ -99,6 +100,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: ShieldCheck,
     href: "/admin/activity",
     matchPrefix: "/admin/activity",
+    roles: ["SUPERADMIN"],
+  },
+  {
+    label: "Scheduled Jobs",
+    icon: CalendarClock,
+    href: "/admin/jobs",
+    matchPrefix: "/admin/jobs",
     roles: ["SUPERADMIN"],
   },
   {

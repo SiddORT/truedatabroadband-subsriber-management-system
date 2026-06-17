@@ -21,9 +21,9 @@ async def lifespan(app: FastAPI):
     from app.utils.seed import seed_notification_templates
     seed_notification_templates()
 
-    # Start renewal reminder scheduler
-    from app.services.notifications.scheduler import create_scheduler
-    scheduler = create_scheduler()
+    # Start centralized job scheduler (seeds defaults + registers all enabled jobs)
+    from app.services.scheduler_service import get_scheduler
+    scheduler = get_scheduler()
     scheduler.start()
     logger.info("app.startup", project=settings.PROJECT_NAME)
     yield

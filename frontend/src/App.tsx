@@ -42,6 +42,8 @@ import { PaymentReportPage } from "@/pages/admin/reports/PaymentReportPage";
 import { RevenueReportPage } from "@/pages/admin/reports/RevenueReportPage";
 import { OutstandingReportPage } from "@/pages/admin/reports/OutstandingReportPage";
 import { ActivityPage } from "@/pages/admin/activity/ActivityPage";
+import { JobListPage } from "@/pages/admin/jobs/JobListPage";
+import { JobDetailPage } from "@/pages/admin/jobs/JobDetailPage";
 import { NotificationTemplatesPage } from "@/pages/admin/notifications/TemplatesPage";
 import { NotificationLogsPage } from "@/pages/admin/notifications/LogsPage";
 import { CommunicationsPage } from "@/pages/admin/communications/CommunicationsPage";
@@ -160,6 +162,8 @@ export default function App() {
 
       {/* Activity */}
       <Route path="/admin/activity" element={<AdminRoute><ActivityPage /></AdminRoute>} />
+      <Route path="/admin/jobs" element={<AdminRoute><JobListPage /></AdminRoute>} />
+      <Route path="/admin/jobs/:id" element={<AdminRoute><JobDetailPage /></AdminRoute>} />
 
       {/* Settings */}
       <Route path="/admin/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />

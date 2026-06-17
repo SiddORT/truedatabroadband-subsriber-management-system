@@ -159,6 +159,9 @@ class NotificationLog(Base):
     sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
 
     def __repr__(self) -> str:
         return f"<NotificationLog {self.template_key}/{self.channel} {self.status}>"

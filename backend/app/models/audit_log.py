@@ -86,6 +86,13 @@ ACTION_CLIENT_SUBSCRIPTION_VIEWED = "client_subscription_viewed"
 ACTION_CLIENT_RENEWAL_REQUEST_CREATED = "renewal_request_created"
 ACTION_CLIENT_PLAN_CHANGE_REQUEST_CREATED = "plan_change_request_created"
 
+# Scheduled jobs domain
+ACTION_SCHEDULED_JOB_UPDATED = "scheduled_job_updated"
+ACTION_SCHEDULED_JOB_ENABLED = "scheduled_job_enabled"
+ACTION_SCHEDULED_JOB_DISABLED = "scheduled_job_disabled"
+ACTION_SCHEDULED_JOB_RUN = "scheduled_job_run"
+ACTION_SCHEDULED_JOB_FAILED = "scheduled_job_failed"
+
 # Communication / OTP domain
 ACTION_SMS_SETTINGS_UPDATED = "sms_settings_updated"
 ACTION_EMAIL_SETTINGS_UPDATED = "email_settings_updated"
@@ -126,6 +133,8 @@ def derive_module(action: str) -> str:
         return "DASHBOARD"
     if action.startswith("notification") or action in ("test_email_sent", "test_sms_sent"):
         return "NOTIFICATIONS"
+    if action.startswith("scheduled_job"):
+        return "JOBS"
     return "SYSTEM"
 
 
