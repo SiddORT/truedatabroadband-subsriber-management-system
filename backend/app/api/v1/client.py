@@ -18,21 +18,28 @@ from app.core.database import get_db
 from app.dependencies.auth import require_client
 from app.models.audit_log import (
     ACTION_CLIENT_BILLING_VIEWED,
+    ACTION_CLIENT_CONNECTIONS_VIEWED,
     ACTION_CLIENT_DASHBOARD_VIEWED,
     ACTION_CLIENT_INVOICE_DOWNLOADED,
     ACTION_CLIENT_INVOICE_EMAILED,
     ACTION_CLIENT_INVOICE_VIEWED,
     ACTION_CLIENT_LOGOUT_ALL,
     ACTION_CLIENT_PAYMENT_HISTORY_VIEWED,
+    ACTION_CLIENT_PLAN_CHANGE_REQUEST_CREATED,
     ACTION_CLIENT_PROFILE_UPDATED,
+    ACTION_CLIENT_RENEWAL_REQUEST_CREATED,
     ACTION_CLIENT_SESSION_REVOKED,
+    ACTION_CLIENT_SUBSCRIPTION_VIEWED,
     ACTION_CLIENT_UNAUTHORIZED_ACCESS,
 )
 from app.models.invoice import Invoice, InvoiceStatus
 from app.models.notification import NotificationLog, TemplateKey
 from app.models.payment import Payment
+from app.models.plan import Plan, PlanPricing
+from app.models.plan_change_request import PlanChangeRequest, PlanChangeRequestStatus
+from app.models.renewal_request import RenewalRequest, RenewalRequestStatus
 from app.models.subscription import Subscription, SubscriptionStatus
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.repositories.audit_log import AuditLogRepository
 from app.repositories.customer import CustomerRepository
 from app.repositories.refresh_token import RefreshTokenRepository
@@ -45,8 +52,14 @@ from app.schemas.client import (
     ClientInvoicesPage,
     ClientPaymentListItem,
     ClientPaymentsPage,
+    ClientPlanListItem,
+    ClientPlanPricingItem,
     ClientProfileOut,
     ClientProfileUpdate,
+    ClientRequestHistoryItem,
+    ClientSubscriptionDetail,
+    ClientSubscriptionListItem,
+    ClientSubscriptionsPage,
     DashboardConnection,
     DashboardInvoice,
     DashboardInvoicesResponse,
@@ -54,11 +67,13 @@ from app.schemas.client import (
     DashboardOutstandingInvoice,
     DashboardPayment,
     DashboardSummary,
+    PlanChangeRequestCreate,
+    RenewalRequestCreate,
     RevokeSessionRequest,
     SessionOut,
 )
 from app.services.invoice import InvoiceService
-from app.services.notifications.notification_service import NotificationService
+from app.services.notifications.notification_service import NotificationService, Recipient
 
 router = APIRouter(prefix="/client", tags=["client"])
 
@@ -1053,6 +1068,521 @@ def list_payments(
 
 # ---------------------------------------------------------------------------
 # Billing — Payment detail
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Connections — helpers
+# ---------------------------------------------------------------------------
+
+def _get_owned_subscription_or_404(
+    subscription_id: uuid.UUID, customer, db: Session
+) -> Subscription:
+    sub = (
+        db.query(Subscription)
+        .filter(
+            Subscription.id == subscription_id,
+            Subscription.customer_id == customer.id,
+            Subscription.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if sub is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subscription not found.")
+    return sub
+
+
+_SUB_SORT_COLUMNS: dict = {
+    "expiry_date": Subscription.expiry_date,
+    "renewal_date": Subscription.renewal_date,
+    "start_date": Subscription.start_date,
+    "status": Subscription.status,
+    "connection_name": Subscription.connection_name,
+    "plan_name": Subscription.plan_name_snapshot,
+}
+
+
+# ---------------------------------------------------------------------------
+# Connections — list
+# ---------------------------------------------------------------------------
+
+
+@router.get("/subscriptions", response_model=ClientSubscriptionsPage)
+def list_subscriptions(
+    request: Request,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    search: str | None = Query(None),
+    status_filter: str | None = Query(None, alias="status"),
+    plan_id: str | None = Query(None),
+    expiring_7: bool = Query(False),
+    expiring_15: bool = Query(False),
+    expiring_30: bool = Query(False),
+    expired: bool = Query(False),
+    sort_by: str = Query("expiry_date"),
+    sort_order: str = Query("asc"),
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> ClientSubscriptionsPage:
+    customer = _get_customer_or_403(current_user, db, request)
+
+    q = db.query(Subscription).filter(
+        Subscription.customer_id == customer.id,
+        Subscription.deleted_at.is_(None),
+    )
+
+    if search:
+        like = f"%{search}%"
+        q = q.filter(
+            or_(
+                Subscription.connection_name.ilike(like),
+                Subscription.subscription_code.ilike(like),
+                Subscription.plan_name_snapshot.ilike(like),
+            )
+        )
+
+    if status_filter:
+        try:
+            q = q.filter(Subscription.status == SubscriptionStatus(status_filter))
+        except ValueError:
+            pass
+
+    if plan_id:
+        try:
+            q = q.filter(Subscription.plan_id == uuid.UUID(plan_id))
+        except ValueError:
+            pass
+
+    today = date.today()
+    if expiring_7:
+        q = q.filter(Subscription.expiry_date >= today, Subscription.expiry_date <= today + timedelta(days=7))
+    elif expiring_15:
+        q = q.filter(Subscription.expiry_date >= today, Subscription.expiry_date <= today + timedelta(days=15))
+    elif expiring_30:
+        q = q.filter(Subscription.expiry_date >= today, Subscription.expiry_date <= today + timedelta(days=30))
+    elif expired:
+        q = q.filter(Subscription.expiry_date < today)
+
+    sort_col = _SUB_SORT_COLUMNS.get(sort_by, Subscription.expiry_date)
+    q = q.order_by(sort_col.asc() if sort_order == "asc" else sort_col.desc())
+
+    total = q.count()
+    pages = math.ceil(total / page_size) if total else 1
+    subs = q.offset((page - 1) * page_size).limit(page_size).all()
+
+    _audit(db, ACTION_CLIENT_CONNECTIONS_VIEWED, request, user_id=current_user.id)
+
+    items = []
+    for sub in subs:
+        days_remaining = max(0, (sub.expiry_date - today).days)
+        items.append(
+            ClientSubscriptionListItem(
+                id=sub.id,
+                subscription_code=sub.subscription_code,
+                connection_name=sub.connection_name,
+                plan_name=sub.plan_name_snapshot,
+                speed_mbps=sub.speed_mbps_snapshot,
+                billing_cycle=sub.billing_cycle_snapshot,
+                start_date=sub.start_date.isoformat(),
+                renewal_date=sub.renewal_date.isoformat(),
+                expiry_date=sub.expiry_date.isoformat(),
+                status=sub.status.value,
+                days_remaining=days_remaining,
+            )
+        )
+
+    return ClientSubscriptionsPage(items=items, total=total, page=page, page_size=page_size, pages=pages)
+
+
+# ---------------------------------------------------------------------------
+# Connections — detail
+# ---------------------------------------------------------------------------
+
+
+@router.get("/subscriptions/{subscription_id}", response_model=ClientSubscriptionDetail)
+def get_subscription_detail(
+    subscription_id: uuid.UUID,
+    request: Request,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> ClientSubscriptionDetail:
+    customer = _get_customer_or_403(current_user, db, request)
+    sub = _get_owned_subscription_or_404(subscription_id, customer, db)
+
+    today = date.today()
+    days_remaining = max(0, (sub.expiry_date - today).days)
+
+    plan = sub.plan
+    data_policy = plan.data_policy.value if plan else "UNLIMITED"
+    fup_limit_gb = plan.fup_limit_gb if plan else None
+
+    # Recent invoices (5)
+    raw_invoices = (
+        db.query(Invoice)
+        .filter(Invoice.subscription_id == sub.id, Invoice.deleted_at.is_(None))
+        .order_by(Invoice.invoice_date.desc(), Invoice.created_at.desc())
+        .limit(5)
+        .all()
+    )
+    recent_invoices = [
+        ClientInvoiceListItem(
+            id=inv.id,
+            invoice_number=inv.invoice_number,
+            connection_name=inv.connection_name_snapshot,
+            invoice_date=inv.invoice_date.isoformat(),
+            due_date=inv.due_date.isoformat(),
+            total_amount=inv.total_amount,
+            paid_amount=inv.paid_amount,
+            balance_amount=inv.balance_amount,
+            status=inv.status.value,
+        )
+        for inv in raw_invoices
+    ]
+
+    # Recent payments (5)
+    raw_payments = (
+        db.query(Payment)
+        .join(Invoice, Payment.invoice_id == Invoice.id)
+        .filter(
+            Invoice.subscription_id == sub.id,
+            Invoice.deleted_at.is_(None),
+            Payment.deleted_at.is_(None),
+        )
+        .order_by(Payment.payment_date.desc(), Payment.created_at.desc())
+        .limit(5)
+        .all()
+    )
+    recent_payments = [
+        ClientPaymentListItem(
+            id=pay.id,
+            payment_number=pay.payment_number,
+            payment_date=pay.payment_date.isoformat(),
+            invoice_number=pay.invoice.invoice_number,
+            connection_name=pay.invoice.connection_name_snapshot,
+            amount=pay.amount,
+            payment_method=pay.payment_method.value,
+            transaction_reference=pay.transaction_reference,
+        )
+        for pay in raw_payments
+    ]
+
+    # Recent notifications (5)
+    raw_notifs = (
+        db.query(NotificationLog)
+        .filter(
+            or_(
+                NotificationLog.subscription_id == sub.id,
+                NotificationLog.entity_id == str(sub.id),
+            )
+        )
+        .order_by(NotificationLog.created_at.desc())
+        .limit(5)
+        .all()
+    )
+    recent_notifications = [
+        DashboardNotification(
+            id=n.id,
+            created_at=n.created_at,
+            template_key=n.template_key.value if hasattr(n.template_key, "value") else str(n.template_key),
+            channel=n.channel.value if hasattr(n.channel, "value") else str(n.channel),
+            status=n.status.value if hasattr(n.status, "value") else str(n.status),
+        )
+        for n in raw_notifs
+    ]
+
+    pending_renewal = (
+        db.query(RenewalRequest)
+        .filter(
+            RenewalRequest.subscription_id == sub.id,
+            RenewalRequest.status == RenewalRequestStatus.PENDING,
+            RenewalRequest.deleted_at.is_(None),
+        )
+        .first()
+    ) is not None
+
+    pending_plan_change = (
+        db.query(PlanChangeRequest)
+        .filter(
+            PlanChangeRequest.subscription_id == sub.id,
+            PlanChangeRequest.status == PlanChangeRequestStatus.PENDING,
+            PlanChangeRequest.deleted_at.is_(None),
+        )
+        .first()
+    ) is not None
+
+    _audit(db, ACTION_CLIENT_SUBSCRIPTION_VIEWED, request, user_id=current_user.id)
+
+    return ClientSubscriptionDetail(
+        id=sub.id,
+        subscription_code=sub.subscription_code,
+        connection_name=sub.connection_name,
+        plan_id=sub.plan_id,
+        plan_name=sub.plan_name_snapshot,
+        plan_code=sub.plan_code_snapshot,
+        speed_mbps=sub.speed_mbps_snapshot,
+        billing_cycle=sub.billing_cycle_snapshot,
+        data_policy=data_policy,
+        fup_limit_gb=fup_limit_gb,
+        base_price=sub.base_price_snapshot,
+        total_price=sub.total_price_snapshot,
+        start_date=sub.start_date.isoformat(),
+        renewal_date=sub.renewal_date.isoformat(),
+        expiry_date=sub.expiry_date.isoformat(),
+        installation_address=sub.installation_address,
+        status=sub.status.value,
+        days_remaining=days_remaining,
+        pending_renewal_request=pending_renewal,
+        pending_plan_change_request=pending_plan_change,
+        recent_invoices=recent_invoices,
+        recent_payments=recent_payments,
+        recent_notifications=recent_notifications,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Connections — renewal request
+# ---------------------------------------------------------------------------
+
+
+@router.post("/subscriptions/{subscription_id}/renewal-request", response_model=MessageResponse)
+def create_renewal_request(
+    subscription_id: uuid.UUID,
+    payload: RenewalRequestCreate,
+    request: Request,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    customer = _get_customer_or_403(current_user, db, request)
+    sub = _get_owned_subscription_or_404(subscription_id, customer, db)
+
+    if sub.status != SubscriptionStatus.ACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Renewal requests can only be submitted for active subscriptions.",
+        )
+
+    existing = (
+        db.query(RenewalRequest)
+        .filter(
+            RenewalRequest.subscription_id == sub.id,
+            RenewalRequest.status == RenewalRequestStatus.PENDING,
+            RenewalRequest.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A renewal request is already pending.",
+        )
+
+    req = RenewalRequest(
+        subscription_id=sub.id,
+        customer_id=customer.id,
+        requested_billing_cycle=payload.requested_billing_cycle,
+        remarks=payload.remarks,
+        status=RenewalRequestStatus.PENDING,
+    )
+    db.add(req)
+    db.commit()
+    db.refresh(req)
+
+    _audit(db, ACTION_CLIENT_RENEWAL_REQUEST_CREATED, request, user_id=current_user.id)
+
+    return MessageResponse(message="Renewal request submitted successfully.")
+
+
+# ---------------------------------------------------------------------------
+# Connections — plan change request
+# ---------------------------------------------------------------------------
+
+
+@router.post("/subscriptions/{subscription_id}/plan-change-request", response_model=MessageResponse)
+def create_plan_change_request(
+    subscription_id: uuid.UUID,
+    payload: PlanChangeRequestCreate,
+    request: Request,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    customer = _get_customer_or_403(current_user, db, request)
+    sub = _get_owned_subscription_or_404(subscription_id, customer, db)
+
+    if sub.status != SubscriptionStatus.ACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Plan change requests can only be submitted for active subscriptions.",
+        )
+
+    existing = (
+        db.query(PlanChangeRequest)
+        .filter(
+            PlanChangeRequest.subscription_id == sub.id,
+            PlanChangeRequest.status == PlanChangeRequestStatus.PENDING,
+            PlanChangeRequest.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A plan change request is already pending.",
+        )
+
+    requested_plan = (
+        db.query(Plan)
+        .filter(Plan.id == payload.requested_plan_id, Plan.is_active.is_(True), Plan.deleted_at.is_(None))
+        .first()
+    )
+    if requested_plan is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Requested plan not found or not available.")
+
+    req = PlanChangeRequest(
+        subscription_id=sub.id,
+        customer_id=customer.id,
+        current_plan_id=sub.plan_id,
+        requested_plan_id=payload.requested_plan_id,
+        remarks=payload.remarks,
+        status=PlanChangeRequestStatus.PENDING,
+    )
+    db.add(req)
+    db.commit()
+    db.refresh(req)
+
+    _audit(db, ACTION_CLIENT_PLAN_CHANGE_REQUEST_CREATED, request, user_id=current_user.id)
+
+    # Notify SuperAdmin — best-effort
+    try:
+        admin = (
+            db.query(User)
+            .filter(User.role == UserRole.SUPERADMIN, User.deleted_at.is_(None))
+            .first()
+        )
+        if admin and admin.email:
+            svc = NotificationService(db)
+            svc.send(
+                template_key=TemplateKey.PLAN_CHANGED,
+                recipient=Recipient(email=admin.email),
+                variables={
+                    "customer_name": customer.full_name,
+                    "connection_name": sub.connection_name or sub.subscription_code,
+                    "current_plan": sub.plan_name_snapshot,
+                    "new_plan": requested_plan.name,
+                    "remarks": payload.remarks or "",
+                },
+                entity_type="PLAN_CHANGE_REQUEST",
+                entity_id=str(req.id),
+                subscription_id=sub.id,
+            )
+    except Exception:
+        pass
+
+    return MessageResponse(message="Plan change request submitted successfully.")
+
+
+# ---------------------------------------------------------------------------
+# Connections — request history
+# ---------------------------------------------------------------------------
+
+
+@router.get("/subscriptions/{subscription_id}/requests", response_model=list[ClientRequestHistoryItem])
+def get_request_history(
+    subscription_id: uuid.UUID,
+    request: Request,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> list[ClientRequestHistoryItem]:
+    customer = _get_customer_or_403(current_user, db, request)
+    sub = _get_owned_subscription_or_404(subscription_id, customer, db)
+
+    items: list[ClientRequestHistoryItem] = []
+
+    for r in (
+        db.query(RenewalRequest)
+        .filter(RenewalRequest.subscription_id == sub.id, RenewalRequest.deleted_at.is_(None))
+        .all()
+    ):
+        items.append(
+            ClientRequestHistoryItem(
+                id=r.id,
+                request_type="RENEWAL",
+                status=r.status.value,
+                created_at=r.created_at,
+                remarks=r.remarks,
+                review_notes=r.review_notes,
+                reviewed_at=r.reviewed_at,
+                requested_billing_cycle=r.requested_billing_cycle,
+            )
+        )
+
+    for r in (
+        db.query(PlanChangeRequest)
+        .filter(PlanChangeRequest.subscription_id == sub.id, PlanChangeRequest.deleted_at.is_(None))
+        .all()
+    ):
+        cur = db.query(Plan).filter(Plan.id == r.current_plan_id).first()
+        req_plan = db.query(Plan).filter(Plan.id == r.requested_plan_id).first()
+        items.append(
+            ClientRequestHistoryItem(
+                id=r.id,
+                request_type="PLAN_CHANGE",
+                status=r.status.value,
+                created_at=r.created_at,
+                remarks=r.remarks,
+                review_notes=r.review_notes,
+                reviewed_at=r.reviewed_at,
+                current_plan_name=cur.name if cur else None,
+                requested_plan_name=req_plan.name if req_plan else None,
+            )
+        )
+
+    items.sort(key=lambda x: x.created_at, reverse=True)
+    return items
+
+
+# ---------------------------------------------------------------------------
+# Plans — list (for plan-change request form)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/plans", response_model=list[ClientPlanListItem])
+def list_plans_for_client(
+    request: Request,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> list[ClientPlanListItem]:
+    _get_customer_or_403(current_user, db, request)
+
+    plans = (
+        db.query(Plan)
+        .filter(Plan.is_active.is_(True), Plan.deleted_at.is_(None))
+        .order_by(Plan.speed_mbps.asc(), Plan.name.asc())
+        .all()
+    )
+
+    result = []
+    for plan in plans:
+        pricing = [
+            ClientPlanPricingItem(id=p.id, billing_cycle=p.billing_cycle.value, total_price=p.total_price)
+            for p in plan.pricing
+            if p.is_active and p.deleted_at is None
+        ]
+        result.append(
+            ClientPlanListItem(
+                id=plan.id,
+                plan_code=plan.plan_code,
+                name=plan.name,
+                speed_mbps=plan.speed_mbps,
+                data_policy=plan.data_policy.value,
+                fup_limit_gb=plan.fup_limit_gb,
+                pricing=pricing,
+            )
+        )
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Billing — Payment detail  (kept at end to avoid route conflict with /payments)
 # ---------------------------------------------------------------------------
 
 

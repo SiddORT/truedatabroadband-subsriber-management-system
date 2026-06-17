@@ -18,6 +18,10 @@ import { SubscriptionListPage } from "@/pages/admin/subscriptions/SubscriptionLi
 import { SubscriptionCreatePage } from "@/pages/admin/subscriptions/SubscriptionCreatePage";
 import { SubscriptionDetailPage } from "@/pages/admin/subscriptions/SubscriptionDetailPage";
 import { ClientSubscriptionPage } from "@/pages/client/ClientSubscriptionPage";
+import { ConnectionsPage } from "@/pages/client/ConnectionsPage";
+import { ConnectionDetailPage } from "@/pages/client/ConnectionDetailPage";
+import { RenewalRequestPage } from "@/pages/client/RenewalRequestPage";
+import { PlanChangeRequestPage } from "@/pages/client/PlanChangeRequestPage";
 import { SettingsPage } from "@/pages/admin/settings/SettingsPage";
 import { InvoiceListPage } from "@/pages/admin/invoices/InvoiceListPage";
 import { InvoiceCreatePage } from "@/pages/admin/invoices/InvoiceCreatePage";
@@ -170,8 +174,11 @@ export default function App() {
 
       <Route path="/client/dashboard" element={<ClientRoute><ClientDashboard /></ClientRoute>} />
 
-      {/* My Connections (subscription detail) */}
-      <Route path="/client/connections" element={<ClientRoute><ClientSubscriptionPage /></ClientRoute>} />
+      {/* My Connections */}
+      <Route path="/client/connections" element={<ClientRoute><ConnectionsPage /></ClientRoute>} />
+      <Route path="/client/connections/:id" element={<ClientRoute><ConnectionDetailPage /></ClientRoute>} />
+      <Route path="/client/connections/:id/renew" element={<ClientRoute><RenewalRequestPage /></ClientRoute>} />
+      <Route path="/client/connections/:id/change-plan" element={<ClientRoute><PlanChangeRequestPage /></ClientRoute>} />
       {/* Legacy path kept for compatibility */}
       <Route path="/client/subscription" element={<Navigate to="/client/connections" replace />} />
 

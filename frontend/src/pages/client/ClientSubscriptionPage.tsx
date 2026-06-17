@@ -36,7 +36,7 @@ export function ClientSubscriptionPage() {
 
   return (
     <ClientLayout title="My Connections">
-      <div className="mx-auto max-w-2xl space-y-6">
+      <div className="space-y-6">
         <div>
           <h2 className="text-xl font-semibold text-foreground">My Connections</h2>
           <p className="text-sm text-muted-foreground">Your current broadband plan details</p>

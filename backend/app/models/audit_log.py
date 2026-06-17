@@ -81,6 +81,10 @@ ACTION_CLIENT_BILLING_VIEWED = "client_billing_viewed"
 ACTION_CLIENT_INVOICE_VIEWED = "client_invoice_viewed"
 ACTION_CLIENT_INVOICE_EMAILED = "client_invoice_emailed"
 ACTION_CLIENT_PAYMENT_HISTORY_VIEWED = "client_payment_history_viewed"
+ACTION_CLIENT_CONNECTIONS_VIEWED = "client_connections_viewed"
+ACTION_CLIENT_SUBSCRIPTION_VIEWED = "client_subscription_viewed"
+ACTION_CLIENT_RENEWAL_REQUEST_CREATED = "renewal_request_created"
+ACTION_CLIENT_PLAN_CHANGE_REQUEST_CREATED = "plan_change_request_created"
 
 # Communication / OTP domain
 ACTION_SMS_SETTINGS_UPDATED = "sms_settings_updated"

@@ -8,7 +8,9 @@ from app.models.notification import NotificationLog, NotificationPreference, Not
 from app.models.otp_verification import OtpVerification
 from app.models.payment import Payment
 from app.models.plan import Plan
+from app.models.plan_change_request import PlanChangeRequest, PlanChangeRequestStatus
 from app.models.refresh_token import RefreshToken
+from app.models.renewal_request import RenewalRequest, RenewalRequestStatus
 from app.models.subscription import Subscription
 from app.models.user import User, UserRole
 
@@ -26,7 +28,11 @@ __all__ = [
     "OtpVerification",
     "Payment",
     "Plan",
+    "PlanChangeRequest",
+    "PlanChangeRequestStatus",
     "RefreshToken",
+    "RenewalRequest",
+    "RenewalRequestStatus",
     "Subscription",
     "User",
     "UserRole",

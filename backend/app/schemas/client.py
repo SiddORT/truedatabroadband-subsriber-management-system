@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -221,3 +221,118 @@ class ClientPaymentsPage(BaseModel):
     page: int
     page_size: int
     pages: int
+
+
+# ---------------------------------------------------------------------------
+# Connections (Subscriptions — client view)
+# ---------------------------------------------------------------------------
+
+class ClientSubscriptionListItem(BaseModel):
+    id: uuid.UUID
+    subscription_code: str
+    connection_name: str | None
+    plan_name: str
+    speed_mbps: int
+    billing_cycle: str
+    start_date: str
+    renewal_date: str
+    expiry_date: str
+    status: str
+    days_remaining: int
+
+
+class ClientSubscriptionsPage(BaseModel):
+    items: list[ClientSubscriptionListItem]
+    total: int
+    page: int
+    page_size: int
+    pages: int
+
+
+class ClientSubscriptionDetail(BaseModel):
+    id: uuid.UUID
+    subscription_code: str
+    connection_name: str | None
+    plan_id: uuid.UUID
+    plan_name: str
+    plan_code: str
+    speed_mbps: int
+    billing_cycle: str
+    data_policy: str
+    fup_limit_gb: int | None
+    base_price: Decimal
+    total_price: Decimal
+    start_date: str
+    renewal_date: str
+    expiry_date: str
+    installation_address: str | None
+    status: str
+    days_remaining: int
+    pending_renewal_request: bool
+    pending_plan_change_request: bool
+    recent_invoices: list[ClientInvoiceListItem]
+    recent_payments: list[ClientPaymentListItem]
+    recent_notifications: list[DashboardNotification]
+
+
+# ---------------------------------------------------------------------------
+# Renewal Requests
+# ---------------------------------------------------------------------------
+
+class RenewalRequestCreate(BaseModel):
+    requested_billing_cycle: str = Field(..., description="MONTHLY | QUARTERLY | HALF_YEARLY | ANNUALLY")
+    remarks: str | None = Field(None, max_length=1000)
+
+    @field_validator("requested_billing_cycle")
+    @classmethod
+    def validate_billing_cycle(cls, v: str) -> str:
+        allowed = {"MONTHLY", "QUARTERLY", "HALF_YEARLY", "ANNUALLY"}
+        if v not in allowed:
+            raise ValueError(f"Must be one of: {', '.join(sorted(allowed))}")
+        return v
+
+
+# ---------------------------------------------------------------------------
+# Plan Change Requests
+# ---------------------------------------------------------------------------
+
+class PlanChangeRequestCreate(BaseModel):
+    requested_plan_id: uuid.UUID
+    remarks: str | None = Field(None, max_length=1000)
+
+
+# ---------------------------------------------------------------------------
+# Request History (combined renewal + plan change)
+# ---------------------------------------------------------------------------
+
+class ClientRequestHistoryItem(BaseModel):
+    id: uuid.UUID
+    request_type: str
+    status: str
+    created_at: datetime
+    remarks: str | None
+    review_notes: str | None
+    reviewed_at: datetime | None
+    requested_billing_cycle: str | None = None
+    current_plan_name: str | None = None
+    requested_plan_name: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Plan list (for plan-change request form)
+# ---------------------------------------------------------------------------
+
+class ClientPlanPricingItem(BaseModel):
+    id: uuid.UUID
+    billing_cycle: str
+    total_price: Decimal
+
+
+class ClientPlanListItem(BaseModel):
+    id: uuid.UUID
+    plan_code: str
+    name: str
+    speed_mbps: int
+    data_policy: str
+    fup_limit_gb: int | None
+    pricing: list[ClientPlanPricingItem]

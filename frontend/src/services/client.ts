@@ -5,14 +5,20 @@ import type {
   ClientInvoicesPage,
   ClientPaymentListItem,
   ClientPaymentsPage,
+  ClientPlanListItem,
   ClientProfile,
   ClientProfileUpdate,
+  ClientRequestHistoryItem,
   ClientSession,
+  ClientSubscriptionDetail,
+  ClientSubscriptionsPage,
   DashboardConnection,
   DashboardInvoicesResponse,
   DashboardNotification,
   DashboardPayment,
   DashboardSummary,
+  PlanChangeRequestCreate,
+  RenewalRequestCreate,
 } from "@/types/client";
 
 export const clientService = {
@@ -127,6 +133,49 @@ export const clientService = {
   // Payment detail
   async getPaymentDetail(id: string): Promise<ClientPaymentListItem> {
     const { data } = await api.get<ClientPaymentListItem>(`/client/payments/${id}`);
+    return data;
+  },
+
+  // Connections (subscriptions)
+  async listSubscriptions(params: {
+    page?: number;
+    page_size?: number;
+    search?: string;
+    status?: string;
+    plan_id?: string;
+    expiring_7?: boolean;
+    expiring_15?: boolean;
+    expiring_30?: boolean;
+    expired?: boolean;
+    sort_by?: string;
+    sort_order?: string;
+  }): Promise<ClientSubscriptionsPage> {
+    const { data } = await api.get<ClientSubscriptionsPage>("/client/subscriptions", { params });
+    return data;
+  },
+
+  async getSubscriptionDetail(id: string): Promise<ClientSubscriptionDetail> {
+    const { data } = await api.get<ClientSubscriptionDetail>(`/client/subscriptions/${id}`);
+    return data;
+  },
+
+  async getSubscriptionRequests(id: string): Promise<ClientRequestHistoryItem[]> {
+    const { data } = await api.get<ClientRequestHistoryItem[]>(`/client/subscriptions/${id}/requests`);
+    return data;
+  },
+
+  async createRenewalRequest(id: string, payload: RenewalRequestCreate): Promise<{ message: string }> {
+    const { data } = await api.post<{ message: string }>(`/client/subscriptions/${id}/renewal-request`, payload);
+    return data;
+  },
+
+  async createPlanChangeRequest(id: string, payload: PlanChangeRequestCreate): Promise<{ message: string }> {
+    const { data } = await api.post<{ message: string }>(`/client/subscriptions/${id}/plan-change-request`, payload);
+    return data;
+  },
+
+  async listPlans(): Promise<ClientPlanListItem[]> {
+    const { data } = await api.get<ClientPlanListItem[]>("/client/plans");
     return data;
   },
 };

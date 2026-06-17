@@ -1,0 +1,535 @@
+You are continuing development of the existing project.
+
+IMPORTANT:
+
+Follow existing architecture, coding standards, folder structure, reusable components, API conventions, authentication flow, ownership validation rules, notification services, and audit logging patterns.
+
+Implement ONLY the Client Connections & Renewals module.
+
+Do NOT implement:
+
+* Payment gateway integration
+* Automatic renewals
+* Automatic plan changes
+* Network device integration
+* Auto-approval workflows
+
+These will be implemented in later phases.
+
+Prerequisites already exist:
+
+* Client Portal Foundation
+* Client Dashboard
+* Subscriptions
+* Plans
+* Invoices
+* Notifications
+* OTP Login
+* Audit Logs
+
+==================================================
+OBJECTIVE
+=========
+
+Allow clients to view and manage their broadband connections.
+
+Clients must be able to:
+
+* View all subscriptions
+* View subscription details
+* View current plan information
+* View expiry dates
+* View invoice history per connection
+* Request renewals
+* Request plan changes
+
+All changes require SuperAdmin approval.
+
+No changes should be automatically applied.
+
+==================================================
+OWNERSHIP RULES
+===============
+
+All APIs must enforce:
+
+customer_id = logged_in_user.customer_id
+
+Never trust frontend filtering.
+
+Never expose another customer's subscriptions.
+
+Do not reuse admin APIs.
+
+Create dedicated client APIs.
+
+==================================================
+FRONTEND ROUTES
+===============
+
+Create:
+
+/client/connections
+
+/client/connections/{subscription_id}
+
+/client/connections/{subscription_id}/renew
+
+/client/connections/{subscription_id}/change-plan
+
+==================================================
+API ROUTES
+==========
+
+Connections:
+
+GET /api/v1/client/subscriptions
+
+GET /api/v1/client/subscriptions/{id}
+
+Renewals:
+
+POST /api/v1/client/subscriptions/{id}/renewal-request
+
+Plan Changes:
+
+POST /api/v1/client/subscriptions/{id}/plan-change-request
+
+Request History:
+
+GET /api/v1/client/subscriptions/{id}/requests
+
+==================================================
+SUBSCRIPTION LIST
+=================
+
+Default sorting:
+
+expiry_date ASC
+
+Columns:
+
+* Connection Name
+* Plan Name
+* Speed
+* Billing Cycle
+* Start Date
+* Renewal Date
+* Expiry Date
+* Status
+
+Status values:
+
+* ACTIVE
+* EXPIRED
+* SUSPENDED
+* CANCELLED
+
+Actions:
+
+* View Details
+* Request Renewal
+* Request Plan Change
+
+==================================================
+FILTERS
+=======
+
+Filters must be server-side.
+
+Search:
+
+* Connection Name
+* Subscription Code
+* Plan Name
+
+Filters:
+
+* Status
+* Plan
+
+Quick Filters:
+
+* Expiring in 7 Days
+* Expiring in 15 Days
+* Expiring in 30 Days
+* Expired
+
+==================================================
+SUBSCRIPTION DETAILS PAGE
+=========================
+
+Display:
+
+Connection Information:
+
+* Connection Name
+* Subscription Code
+* Status
+
+Plan Information:
+
+* Plan Name
+* Speed
+* Data Policy
+* Billing Cycle
+* Plan Price
+
+Dates:
+
+* Start Date
+* Renewal Date
+* Expiry Date
+
+Addresses:
+
+* Installation Address
+
+Metrics:
+
+* Days Remaining
+
+Display warning banners:
+
+* Expiring within 7 days
+* Expired
+
+==================================================
+RELATED INFORMATION
+===================
+
+Display:
+
+Recent Invoices
+
+Recent Payments
+
+Recent Notifications
+
+Limit:
+
+5 records each.
+
+==================================================
+REQUEST TABLES
+==============
+
+Create:
+
+renewal_requests
+
+Fields:
+
+* id (UUID)
+
+* subscription_id
+
+* customer_id
+
+* requested_billing_cycle
+
+* remarks
+
+Status:
+
+* PENDING
+
+* APPROVED
+
+* REJECTED
+
+* CANCELLED
+
+* reviewed_by_user_id
+
+* review_notes
+
+* reviewed_at
+
+* created_at
+
+==================================================
+PLAN CHANGE REQUESTS
+====================
+
+Create:
+
+plan_change_requests
+
+Fields:
+
+* id (UUID)
+
+* subscription_id
+
+* customer_id
+
+* current_plan_id
+
+* requested_plan_id
+
+* remarks
+
+Status:
+
+* PENDING
+
+* APPROVED
+
+* REJECTED
+
+* CANCELLED
+
+* reviewed_by_user_id
+
+* review_notes
+
+* reviewed_at
+
+* created_at
+
+==================================================
+REQUEST VALIDATIONS
+===================
+
+Do not allow requests when:
+
+* Subscription status != ACTIVE
+
+* Existing PENDING request exists
+
+Return:
+
+409 Conflict
+
+Messages:
+
+"A renewal request is already pending."
+
+"A plan change request is already pending."
+
+==================================================
+RENEWAL REQUEST FLOW
+====================
+
+Client:
+
+1. Open subscription
+
+2. Click:
+
+Request Renewal
+
+3. Select:
+
+* Billing Cycle
+
+Values:
+
+* Monthly
+* Quarterly
+* Semi-Annual
+* Annual
+
+4. Add remarks
+
+5. Submit request
+
+System:
+
+* Create request
+* Notify SuperAdmin
+* Create audit log
+
+==================================================
+PLAN CHANGE REQUEST FLOW
+========================
+
+Client:
+
+1. Open subscription
+
+2. Click:
+
+Request Plan Change
+
+3. Display available plans
+
+4. Select plan
+
+5. Add remarks
+
+6. Submit request
+
+System:
+
+* Create request
+* Notify SuperAdmin
+* Create audit log
+
+==================================================
+NOTIFICATIONS
+=============
+
+Send notifications to SuperAdmin.
+
+Templates:
+
+* PLAN_CHANGED
+
+Future templates:
+
+* RENEWAL_REQUEST_CREATED
+
+* PLAN_CHANGE_REQUEST_CREATED
+
+Use email notifications only.
+
+==================================================
+PAGINATION STANDARD
+===================
+
+Support:
+
+* page
+* page_size
+* search
+* sort_by
+* sort_order
+
+Default:
+
+page_size = 25
+
+Allowed:
+
+10, 25, 50, 100
+
+==================================================
+EMPTY STATES
+============
+
+Connections:
+
+"No connections found."
+
+Requests:
+
+"No requests found."
+
+==================================================
+UI REQUIREMENTS
+===============
+
+Reuse existing theme.
+
+Primary:
+
+#1F4959
+
+Secondary:
+
+#5C7C89
+
+Requirements:
+
+* Fully responsive
+* Mobile friendly
+* Loading skeletons
+* Empty states
+* Error states
+
+Use:
+
+* Existing DataTable component
+* Existing card components
+
+Desktop:
+
+Table view.
+
+Mobile:
+
+Card view.
+
+==================================================
+SECURITY REQUIREMENTS
+=====================
+
+Prevent:
+
+* ID enumeration
+
+* Access to other customer subscriptions
+
+* Access to other customer requests
+
+Use UUIDs only.
+
+Enforce ownership validation in backend services.
+
+Log unauthorized access attempts.
+
+==================================================
+AUDIT LOGGING
+=============
+
+Track:
+
+* client_connections_viewed
+
+* client_subscription_viewed
+
+* renewal_request_created
+
+* plan_change_request_created
+
+* unauthorized_client_access_attempt
+
+==================================================
+TESTING
+=======
+
+Create tests for:
+
+* Ownership validation
+
+* Subscription filters
+
+* Expiry calculations
+
+* Renewal requests
+
+* Plan change requests
+
+* Duplicate pending request prevention
+
+* Notification triggers
+
+* Unauthorized access
+
+==================================================
+ACCEPTANCE CRITERIA
+===================
+
+Success means:
+
+1. Customers can view only their subscriptions
+
+2. Subscription filters work correctly
+
+3. Expiry calculations are accurate
+
+4. Renewal requests are created successfully
+
+5. Plan change requests are created successfully
+
+6. Duplicate requests are blocked
+
+7. Notifications are sent to SuperAdmin
+
+8. Unauthorized access is blocked
+
+9. Dashboard data matches connection data
+
+10. Audit logs are created

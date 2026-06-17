@@ -178,3 +178,102 @@ export interface ClientPaymentsPage {
   page_size: number;
   pages: number;
 }
+
+// ---------------------------------------------------------------------------
+// Connections (Subscriptions — client view)
+// ---------------------------------------------------------------------------
+
+export interface ClientSubscriptionListItem {
+  id: string;
+  subscription_code: string;
+  connection_name: string | null;
+  plan_name: string;
+  speed_mbps: number;
+  billing_cycle: string;
+  start_date: string;
+  renewal_date: string;
+  expiry_date: string;
+  status: string;
+  days_remaining: number;
+}
+
+export interface ClientSubscriptionsPage {
+  items: ClientSubscriptionListItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
+}
+
+export interface ClientSubscriptionDetail {
+  id: string;
+  subscription_code: string;
+  connection_name: string | null;
+  plan_id: string;
+  plan_name: string;
+  plan_code: string;
+  speed_mbps: number;
+  billing_cycle: string;
+  data_policy: string;
+  fup_limit_gb: number | null;
+  base_price: string;
+  total_price: string;
+  start_date: string;
+  renewal_date: string;
+  expiry_date: string;
+  installation_address: string | null;
+  status: string;
+  days_remaining: number;
+  pending_renewal_request: boolean;
+  pending_plan_change_request: boolean;
+  recent_invoices: ClientInvoiceListItem[];
+  recent_payments: ClientPaymentListItem[];
+  recent_notifications: DashboardNotification[];
+}
+
+// ---------------------------------------------------------------------------
+// Requests
+// ---------------------------------------------------------------------------
+
+export interface RenewalRequestCreate {
+  requested_billing_cycle: string;
+  remarks?: string | null;
+}
+
+export interface PlanChangeRequestCreate {
+  requested_plan_id: string;
+  remarks?: string | null;
+}
+
+export interface ClientRequestHistoryItem {
+  id: string;
+  request_type: string;
+  status: string;
+  created_at: string;
+  remarks: string | null;
+  review_notes: string | null;
+  reviewed_at: string | null;
+  requested_billing_cycle: string | null;
+  current_plan_name: string | null;
+  requested_plan_name: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Plans (for plan-change form)
+// ---------------------------------------------------------------------------
+
+export interface ClientPlanPricingItem {
+  id: string;
+  billing_cycle: string;
+  total_price: string;
+}
+
+export interface ClientPlanListItem {
+  id: string;
+  plan_code: string;
+  name: string;
+  speed_mbps: number;
+  data_policy: string;
+  fup_limit_gb: number | null;
+  pricing: ClientPlanPricingItem[];
+}
