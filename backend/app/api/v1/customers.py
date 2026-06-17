@@ -70,7 +70,7 @@ def _get_customer_or_404(customer_id: uuid.UUID, db: Session) -> Customer:
 def list_customers(
     request: Request,
     page: int = Query(1, ge=1),
-    page_size: int = Query(10, ge=1, le=100),
+    page_size: int = Query(10, ge=1, le=500),
     search: str = Query(""),
     sort_by: str = Query("created_at"),
     sort_order: str = Query("desc"),
