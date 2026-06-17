@@ -41,18 +41,18 @@ export const dashboardService = {
     return data;
   },
 
-  async getRecentCustomers(): Promise<RecentCustomer[]> {
-    const { data } = await api.get<RecentCustomer[]>(`${BASE}/recent-customers`);
+  async getRecentCustomers(params: DashboardParams = {}): Promise<RecentCustomer[]> {
+    const { data } = await api.get<RecentCustomer[]>(`${BASE}/recent-customers`, { params });
     return data;
   },
 
-  async getRecentInvoices(): Promise<RecentInvoice[]> {
-    const { data } = await api.get<RecentInvoice[]>(`${BASE}/recent-invoices`);
+  async getRecentInvoices(params: DashboardParams = {}): Promise<RecentInvoice[]> {
+    const { data } = await api.get<RecentInvoice[]>(`${BASE}/recent-invoices`, { params });
     return data;
   },
 
-  async getRecentPayments(): Promise<RecentPayment[]> {
-    const { data } = await api.get<RecentPayment[]>(`${BASE}/recent-payments`);
+  async getRecentPayments(params: DashboardParams = {}): Promise<RecentPayment[]> {
+    const { data } = await api.get<RecentPayment[]>(`${BASE}/recent-payments`, { params });
     return data;
   },
 

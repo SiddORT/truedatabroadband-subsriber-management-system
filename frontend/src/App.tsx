@@ -69,6 +69,9 @@ export default function App() {
       {/* Unauthorized */}
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
+      {/* /admin → /admin/dashboard shortcut */}
+      <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+
       {/* Protected dashboards */}
       <Route
         path="/admin/dashboard"

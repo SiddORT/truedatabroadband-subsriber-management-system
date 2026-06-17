@@ -163,6 +163,15 @@ function ChartTip({ active, payload, label, currency = false }: {
 
 const DONUT_COLORS = ["#1F4959", "#5C7C89", "#2E7D9B", "#86B5C7", "#3D9BBC", "#7AADBE", "#A0C5D1", "#BFD9E3"];
 
+function ErrMsg({ height = 200 }: { height?: number }) {
+  return (
+    <div className="flex items-center justify-center text-sm text-red-500" style={{ minHeight: height }}>
+      <AlertTriangle className="mr-2 h-4 w-4 shrink-0" />
+      Failed to load data — please refresh.
+    </div>
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export function AdminDashboard() {
@@ -181,63 +190,63 @@ export function AdminDashboard() {
   const STALE60 = 60_000;
   const STALE30 = 30_000;
 
-  const { data: summary, isLoading: loadSum } = useQuery({
+  const { data: summary, isLoading: loadSum, isError: errSum } = useQuery({
     queryKey: ["dash", "summary", dateFrom, dateTo],
     queryFn: () => dashboardService.getSummary(apiParams),
     staleTime: STALE60,
   });
 
-  const { data: revTrend, isLoading: loadRev } = useQuery({
-    queryKey: ["dash", "revenue-trend"],
-    queryFn: () => dashboardService.getRevenueTrend(),
+  const { data: revTrend, isLoading: loadRev, isError: errRev } = useQuery({
+    queryKey: ["dash", "revenue-trend", dateFrom, dateTo],
+    queryFn: () => dashboardService.getRevenueTrend(apiParams),
     staleTime: STALE60,
   });
 
-  const { data: custGrowth, isLoading: loadCG } = useQuery({
-    queryKey: ["dash", "customer-growth"],
-    queryFn: () => dashboardService.getCustomerGrowth(),
+  const { data: custGrowth, isLoading: loadCG, isError: errCG } = useQuery({
+    queryKey: ["dash", "customer-growth", dateFrom, dateTo],
+    queryFn: () => dashboardService.getCustomerGrowth(apiParams),
     staleTime: STALE60,
   });
 
-  const { data: subGrowth, isLoading: loadSG } = useQuery({
-    queryKey: ["dash", "subscription-growth"],
-    queryFn: () => dashboardService.getSubscriptionGrowth(),
+  const { data: subGrowth, isLoading: loadSG, isError: errSG } = useQuery({
+    queryKey: ["dash", "subscription-growth", dateFrom, dateTo],
+    queryFn: () => dashboardService.getSubscriptionGrowth(apiParams),
     staleTime: STALE60,
   });
 
-  const { data: planDist, isLoading: loadPD } = useQuery({
-    queryKey: ["dash", "plan-distribution"],
-    queryFn: () => dashboardService.getPlanDistribution(),
+  const { data: planDist, isLoading: loadPD, isError: errPD } = useQuery({
+    queryKey: ["dash", "plan-distribution", dateFrom, dateTo],
+    queryFn: () => dashboardService.getPlanDistribution(apiParams),
     staleTime: STALE60,
   });
 
-  const { data: recentCust, isLoading: loadRC } = useQuery({
-    queryKey: ["dash", "recent-customers"],
-    queryFn: () => dashboardService.getRecentCustomers(),
+  const { data: recentCust, isLoading: loadRC, isError: errRC } = useQuery({
+    queryKey: ["dash", "recent-customers", dateFrom, dateTo],
+    queryFn: () => dashboardService.getRecentCustomers(apiParams),
     staleTime: 0,
   });
 
-  const { data: recentInv, isLoading: loadRI } = useQuery({
-    queryKey: ["dash", "recent-invoices"],
-    queryFn: () => dashboardService.getRecentInvoices(),
+  const { data: recentInv, isLoading: loadRI, isError: errRI } = useQuery({
+    queryKey: ["dash", "recent-invoices", dateFrom, dateTo],
+    queryFn: () => dashboardService.getRecentInvoices(apiParams),
     staleTime: 0,
   });
 
-  const { data: recentPay, isLoading: loadRP } = useQuery({
-    queryKey: ["dash", "recent-payments"],
-    queryFn: () => dashboardService.getRecentPayments(),
+  const { data: recentPay, isLoading: loadRP, isError: errRP } = useQuery({
+    queryKey: ["dash", "recent-payments", dateFrom, dateTo],
+    queryFn: () => dashboardService.getRecentPayments(apiParams),
     staleTime: 0,
   });
 
-  const { data: expiringSubs, isLoading: loadExp } = useQuery({
+  const { data: expiringSubs, isLoading: loadExp, isError: errExp } = useQuery({
     queryKey: ["dash", "expiring-subs", dateFrom, dateTo],
-    queryFn: () => dashboardService.getExpiringSubscriptions(),
+    queryFn: () => dashboardService.getExpiringSubscriptions(apiParams),
     staleTime: STALE30,
   });
 
-  const { data: overdueInvs, isLoading: loadOD } = useQuery({
+  const { data: overdueInvs, isLoading: loadOD, isError: errOD } = useQuery({
     queryKey: ["dash", "overdue-invoices", dateFrom, dateTo],
-    queryFn: () => dashboardService.getOverdueInvoices(),
+    queryFn: () => dashboardService.getOverdueInvoices(apiParams),
     staleTime: STALE30,
   });
 
@@ -333,6 +342,8 @@ export function AdminDashboard() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {loadSum
             ? Array.from({ length: 12 }).map((_, i) => <SkeletonCard key={i} />)
+            : errSum
+            ? <div className="col-span-full"><ErrMsg height={80} /></div>
             : kpis.map((k) => <KpiCard key={k.label} {...k} />)
           }
         </div>
@@ -346,7 +357,7 @@ export function AdminDashboard() {
               <p className="text-xs text-muted-foreground">Last 12 months — invoiced, excl. draft/cancelled</p>
             </CardHeader>
             <CardContent>
-              {loadRev ? <SkeletonChart /> : !revTrend?.length ? (
+              {loadRev ? <SkeletonChart /> : errRev ? <ErrMsg /> : !revTrend?.length ? (
                 <p className="py-10 text-center text-sm text-muted-foreground">No revenue data yet</p>
               ) : (
                 <ResponsiveContainer width="100%" height={220}>
@@ -372,7 +383,7 @@ export function AdminDashboard() {
               <p className="text-xs text-muted-foreground">New customers per month (last 12 months)</p>
             </CardHeader>
             <CardContent>
-              {loadCG ? <SkeletonChart /> : !custGrowth?.length ? (
+              {loadCG ? <SkeletonChart /> : errCG ? <ErrMsg /> : !custGrowth?.length ? (
                 <p className="py-10 text-center text-sm text-muted-foreground">No data yet</p>
               ) : (
                 <ResponsiveContainer width="100%" height={220}>
@@ -407,7 +418,7 @@ export function AdminDashboard() {
                 <p className="text-xs text-muted-foreground">New subscriptions per month (last 12 months)</p>
               </CardHeader>
               <CardContent>
-                {loadSG ? <SkeletonChart /> : !subGrowth?.length ? (
+                {loadSG ? <SkeletonChart /> : errSG ? <ErrMsg /> : !subGrowth?.length ? (
                   <p className="py-10 text-center text-sm text-muted-foreground">No data yet</p>
                 ) : (
                   <ResponsiveContainer width="100%" height={220}>
@@ -438,7 +449,7 @@ export function AdminDashboard() {
               <p className="text-xs text-muted-foreground">Active subscriptions by plan</p>
             </CardHeader>
             <CardContent>
-              {loadPD ? <SkeletonChart height={200} /> : !planDist?.length || planDist.every((p) => p.active_count === 0) ? (
+              {loadPD ? <SkeletonChart height={200} /> : errPD ? <ErrMsg height={200} /> : !planDist?.length || planDist.every((p) => p.active_count === 0) ? (
                 <p className="py-10 text-center text-sm text-muted-foreground">No active subscriptions</p>
               ) : (
                 <>
@@ -483,7 +494,7 @@ export function AdminDashboard() {
               </Button>
             </CardHeader>
             <CardContent>
-              {loadExp ? <SkeletonRows /> : !expiringSubs?.length ? (
+              {loadExp ? <SkeletonRows /> : errExp ? <ErrMsg height={100} /> : !expiringSubs?.length ? (
                 <p className="py-8 text-center text-sm text-green-600 font-medium">✓ No subscriptions expiring in the next 30 days</p>
               ) : (
                 <div className="overflow-x-auto -mx-1">
@@ -539,7 +550,7 @@ export function AdminDashboard() {
               </Button>
             </CardHeader>
             <CardContent>
-              {loadOD ? <SkeletonRows /> : !overdueInvs?.length ? (
+              {loadOD ? <SkeletonRows /> : errOD ? <ErrMsg height={100} /> : !overdueInvs?.length ? (
                 <p className="py-8 text-center text-sm text-green-600 font-medium">✓ No overdue invoices</p>
               ) : (
                 <div className="overflow-x-auto -mx-1">
@@ -595,7 +606,7 @@ export function AdminDashboard() {
               </Button>
             </CardHeader>
             <CardContent>
-              {loadRC ? <SkeletonRows /> : !recentCust?.length ? (
+              {loadRC ? <SkeletonRows /> : errRC ? <ErrMsg height={100} /> : !recentCust?.length ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">No customers yet</p>
               ) : (
                 <div className="space-y-1">
@@ -628,7 +639,7 @@ export function AdminDashboard() {
               </Button>
             </CardHeader>
             <CardContent>
-              {loadRI ? <SkeletonRows /> : !recentInv?.length ? (
+              {loadRI ? <SkeletonRows /> : errRI ? <ErrMsg height={100} /> : !recentInv?.length ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">No invoices yet</p>
               ) : (
                 <div className="space-y-1">
@@ -662,7 +673,7 @@ export function AdminDashboard() {
               </Button>
             </CardHeader>
             <CardContent>
-              {loadRP ? <SkeletonRows /> : !recentPay?.length ? (
+              {loadRP ? <SkeletonRows /> : errRP ? <ErrMsg height={100} /> : !recentPay?.length ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">No payments yet</p>
               ) : (
                 <div className="space-y-1">

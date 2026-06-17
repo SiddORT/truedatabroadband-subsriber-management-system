@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
-from decimal import Decimal
+from typing import Generator
 
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import and_, cast, func, or_, select
-from sqlalchemy.dialects.postgresql import NUMERIC
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -117,18 +116,21 @@ class OverdueInvoiceOut(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-_MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+_MONTH_NAMES = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+]
 
 
 def _month_label(year: int, month: int) -> str:
     return f"{_MONTH_NAMES[month - 1]} {year}"
 
 
-def _date_filter_or_current_month(date_from: str | None, date_to: str | None):
-    """Return (from_date, to_date) for period queries.
+def _parse_period(date_from: str | None, date_to: str | None) -> tuple[date, date]:
+    """Return (from_date, to_date).
 
-    If no explicit range is given, default to the current calendar month.
+    If both values parse successfully they are returned as-is.
+    Otherwise falls back to the current calendar month.
     """
     if date_from and date_to:
         try:
@@ -137,6 +139,35 @@ def _date_filter_or_current_month(date_from: str | None, date_to: str | None):
             pass
     today = date.today()
     return date(today.year, today.month, 1), today
+
+
+def _parse_period_or_12m(date_from: str | None, date_to: str | None) -> tuple[date, date]:
+    """Like _parse_period but defaults to last 12 months when no range given."""
+    if date_from and date_to:
+        try:
+            return date.fromisoformat(date_from), date.fromisoformat(date_to)
+        except ValueError:
+            pass
+    today = date.today()
+    start = date(today.year, today.month, 1) - timedelta(days=335)
+    return start, today
+
+
+def _monthly_buckets(start: date, end: date) -> Generator[tuple[int, int, str], None, None]:
+    """Yield (year, month, 'YYYY-MM') from start's month through end's month.
+
+    Capped at 24 buckets to avoid huge result sets.
+    """
+    y, m = start.year, start.month
+    end_y, end_m = end.year, end.month
+    count = 0
+    while (y, m) <= (end_y, end_m) and count < 24:
+        yield y, m, f"{y:04d}-{m:02d}"
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+        count += 1
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -149,7 +180,8 @@ def get_summary(
     current_user: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ) -> SummaryOut:
-    """KPI summary card data. Logs dashboard_viewed audit event."""
+    """KPI summary. Logs dashboard_viewed.  Snapshot counts are current state;
+    period collections/revenue respect date_from/date_to."""
 
     AuditLogRepository(db).log(
         ACTION_DASHBOARD_VIEWED,
@@ -160,9 +192,8 @@ def get_summary(
 
     today = date.today()
     expiry_threshold = today + timedelta(days=30)
-    period_from, period_to = _date_filter_or_current_month(date_from, date_to)
+    period_from, period_to = _parse_period(date_from, date_to)
 
-    # ── Customer counts ───────────────────────────────────────────────────
     total_customers = db.scalar(
         select(func.count()).select_from(Customer)
         .where(Customer.deleted_at.is_(None))
@@ -183,7 +214,6 @@ def get_summary(
         .where(Customer.deleted_at.is_(None), Customer.customer_type == CustomerType.INDIVIDUAL)
     ) or 0
 
-    # ── Subscription counts ───────────────────────────────────────────────
     active_subscriptions = db.scalar(
         select(func.count()).select_from(Subscription)
         .where(Subscription.deleted_at.is_(None), Subscription.status == SubscriptionStatus.ACTIVE)
@@ -204,7 +234,6 @@ def get_summary(
         .where(Subscription.deleted_at.is_(None), Subscription.status == SubscriptionStatus.EXPIRED)
     ) or 0
 
-    # ── Invoice counts / amounts ──────────────────────────────────────────
     unpaid_invoices = db.scalar(
         select(func.count()).select_from(Invoice)
         .where(
@@ -232,7 +261,6 @@ def get_summary(
         )
     ) or 0)
 
-    # ── Period metrics ────────────────────────────────────────────────────
     collections_this_period = float(db.scalar(
         select(func.coalesce(func.sum(Payment.amount), 0))
         .where(
@@ -270,12 +298,13 @@ def get_summary(
 
 @router.get("/revenue-trend", response_model=list[TrendPoint])
 def get_revenue_trend(
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
     _: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ) -> list[TrendPoint]:
-    """Monthly revenue for the last 12 months."""
-    today = date.today()
-    start = date(today.year, today.month, 1) - timedelta(days=335)  # ~11 months back
+    """Monthly revenue within the selected period (defaults: last 12 months)."""
+    start, end = _parse_period_or_12m(date_from, date_to)
 
     rows = db.execute(
         select(
@@ -285,6 +314,7 @@ def get_revenue_trend(
         .where(
             Invoice.deleted_at.is_(None),
             Invoice.invoice_date >= start,
+            Invoice.invoice_date <= end,
             Invoice.status.not_in([InvoiceStatus.CANCELLED, InvoiceStatus.DRAFT]),
         )
         .group_by(func.date_trunc("month", Invoice.invoice_date))
@@ -293,27 +323,21 @@ def get_revenue_trend(
 
     row_map = {r.month.date().strftime("%Y-%m"): float(r.revenue) for r in rows}
 
-    result: list[TrendPoint] = []
-    for i in range(12):
-        m = (today.month - 11 + i - 1) % 12 + 1
-        y = today.year + (today.month - 11 + i - 1) // 12
-        key = f"{y:04d}-{m:02d}"
-        result.append(TrendPoint(
-            month=key,
-            label=_month_label(y, m),
-            revenue=row_map.get(key, 0.0),
-        ))
-    return result
+    return [
+        TrendPoint(month=key, label=_month_label(y, m), revenue=row_map.get(key, 0.0))
+        for y, m, key in _monthly_buckets(start, end)
+    ]
 
 
 @router.get("/customer-growth", response_model=list[CustomerGrowthPoint])
 def get_customer_growth(
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
     _: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ) -> list[CustomerGrowthPoint]:
-    """New customers per month for the last 12 months."""
-    today = date.today()
-    start = date(today.year, today.month, 1) - timedelta(days=335)
+    """New customers per month within the selected period."""
+    start, end = _parse_period_or_12m(date_from, date_to)
 
     rows = db.execute(
         select(
@@ -323,6 +347,7 @@ def get_customer_growth(
         .where(
             Customer.deleted_at.is_(None),
             Customer.created_at >= start,
+            Customer.created_at <= end,
         )
         .group_by(func.date_trunc("month", Customer.created_at))
         .order_by(func.date_trunc("month", Customer.created_at))
@@ -330,27 +355,21 @@ def get_customer_growth(
 
     row_map = {r.month.date().strftime("%Y-%m"): r.cnt for r in rows}
 
-    result: list[CustomerGrowthPoint] = []
-    for i in range(12):
-        m = (today.month - 11 + i - 1) % 12 + 1
-        y = today.year + (today.month - 11 + i - 1) // 12
-        key = f"{y:04d}-{m:02d}"
-        result.append(CustomerGrowthPoint(
-            month=key,
-            label=_month_label(y, m),
-            new_customers=row_map.get(key, 0),
-        ))
-    return result
+    return [
+        CustomerGrowthPoint(month=key, label=_month_label(y, m), new_customers=row_map.get(key, 0))
+        for y, m, key in _monthly_buckets(start, end)
+    ]
 
 
 @router.get("/subscription-growth", response_model=list[SubscriptionGrowthPoint])
 def get_subscription_growth(
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
     _: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ) -> list[SubscriptionGrowthPoint]:
-    """New subscriptions per month for the last 12 months."""
-    today = date.today()
-    start = date(today.year, today.month, 1) - timedelta(days=335)
+    """New subscriptions per month within the selected period."""
+    start, end = _parse_period_or_12m(date_from, date_to)
 
     rows = db.execute(
         select(
@@ -360,6 +379,7 @@ def get_subscription_growth(
         .where(
             Subscription.deleted_at.is_(None),
             Subscription.created_at >= start,
+            Subscription.created_at <= end,
         )
         .group_by(func.date_trunc("month", Subscription.created_at))
         .order_by(func.date_trunc("month", Subscription.created_at))
@@ -367,25 +387,39 @@ def get_subscription_growth(
 
     row_map = {r.month.date().strftime("%Y-%m"): r.cnt for r in rows}
 
-    result: list[SubscriptionGrowthPoint] = []
-    for i in range(12):
-        m = (today.month - 11 + i - 1) % 12 + 1
-        y = today.year + (today.month - 11 + i - 1) // 12
-        key = f"{y:04d}-{m:02d}"
-        result.append(SubscriptionGrowthPoint(
-            month=key,
-            label=_month_label(y, m),
-            new_subscriptions=row_map.get(key, 0),
-        ))
-    return result
+    return [
+        SubscriptionGrowthPoint(month=key, label=_month_label(y, m), new_subscriptions=row_map.get(key, 0))
+        for y, m, key in _monthly_buckets(start, end)
+    ]
 
 
 @router.get("/plan-distribution", response_model=list[PlanDistributionItem])
 def get_plan_distribution(
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
     _: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ) -> list[PlanDistributionItem]:
-    """Active subscription count per plan, sorted descending."""
+    """Active subscription count per plan.
+
+    When date_from/date_to are supplied, counts subscriptions that were
+    created on or before date_to and whose expiry_date is on or after date_from
+    (i.e. were active at some point within the window).
+    """
+    _, period_to = _parse_period(date_from, date_to)
+    period_from, _ = _parse_period(date_from, date_to)
+    has_filter = bool(date_from and date_to)
+
+    sub_filters = [
+        Subscription.status == SubscriptionStatus.ACTIVE,
+        Subscription.deleted_at.is_(None),
+    ]
+    if has_filter:
+        sub_filters.extend([
+            Subscription.created_at <= period_to,
+            Subscription.expiry_date >= period_from,
+        ])
+
     rows = db.execute(
         select(
             Plan.id.label("plan_id"),
@@ -394,8 +428,7 @@ def get_plan_distribution(
         )
         .join(Subscription, and_(
             Subscription.plan_id == Plan.id,
-            Subscription.status == SubscriptionStatus.ACTIVE,
-            Subscription.deleted_at.is_(None),
+            *sub_filters,
         ), isouter=True)
         .where(Plan.deleted_at.is_(None), Plan.is_active.is_(True))
         .group_by(Plan.id, Plan.name)
@@ -414,16 +447,21 @@ def get_plan_distribution(
 
 @router.get("/recent-customers", response_model=list[RecentCustomerOut])
 def get_recent_customers(
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
     _: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ) -> list[RecentCustomerOut]:
-    """Latest 10 customers."""
-    rows = db.execute(
-        select(Customer)
-        .where(Customer.deleted_at.is_(None))
-        .order_by(Customer.created_at.desc())
-        .limit(10)
-    ).scalars().all()
+    """Latest 10 customers created within the period."""
+    period_from, period_to = _parse_period(date_from, date_to)
+    has_filter = bool(date_from and date_to)
+
+    q = select(Customer).where(Customer.deleted_at.is_(None))
+    if has_filter:
+        q = q.where(Customer.created_at >= period_from, Customer.created_at <= period_to)
+    q = q.order_by(Customer.created_at.desc()).limit(10)
+
+    rows = db.execute(q).scalars().all()
 
     return [
         RecentCustomerOut(
@@ -440,16 +478,21 @@ def get_recent_customers(
 
 @router.get("/recent-invoices", response_model=list[RecentInvoiceOut])
 def get_recent_invoices(
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
     _: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ) -> list[RecentInvoiceOut]:
-    """Latest 10 invoices sorted by created_at DESC."""
-    rows = db.execute(
-        select(Invoice)
-        .where(Invoice.deleted_at.is_(None))
-        .order_by(Invoice.created_at.desc())
-        .limit(10)
-    ).scalars().all()
+    """Latest 10 invoices created within the period."""
+    period_from, period_to = _parse_period(date_from, date_to)
+    has_filter = bool(date_from and date_to)
+
+    q = select(Invoice).where(Invoice.deleted_at.is_(None))
+    if has_filter:
+        q = q.where(Invoice.created_at >= period_from, Invoice.created_at <= period_to)
+    q = q.order_by(Invoice.created_at.desc()).limit(10)
+
+    rows = db.execute(q).scalars().all()
 
     return [
         RecentInvoiceOut(
@@ -467,17 +510,25 @@ def get_recent_invoices(
 
 @router.get("/recent-payments", response_model=list[RecentPaymentOut])
 def get_recent_payments(
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
     _: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ) -> list[RecentPaymentOut]:
-    """Latest 10 payments sorted by payment_date DESC."""
-    rows = db.execute(
+    """Latest 10 payments within the period."""
+    period_from, period_to = _parse_period(date_from, date_to)
+    has_filter = bool(date_from and date_to)
+
+    q = (
         select(Payment, Invoice.invoice_number, Invoice.customer_name_snapshot)
         .join(Invoice, Payment.invoice_id == Invoice.id)
         .where(Payment.deleted_at.is_(None))
-        .order_by(Payment.payment_date.desc(), Payment.created_at.desc())
-        .limit(10)
-    ).fetchall()
+    )
+    if has_filter:
+        q = q.where(Payment.payment_date >= period_from, Payment.payment_date <= period_to)
+    q = q.order_by(Payment.payment_date.desc(), Payment.created_at.desc()).limit(10)
+
+    rows = db.execute(q).fetchall()
 
     return [
         RecentPaymentOut(
@@ -495,13 +546,26 @@ def get_recent_payments(
 
 @router.get("/expiring-subscriptions", response_model=list[ExpiringSubscriptionOut])
 def get_expiring_subscriptions(
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
     days: int = Query(30, ge=1, le=365),
     _: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ) -> list[ExpiringSubscriptionOut]:
-    """Active subscriptions expiring within the next N days."""
+    """Active subscriptions expiring within the period window.
+
+    When date_from/date_to supplied, shows subscriptions expiring between those dates.
+    Otherwise defaults to the next ``days`` days from today.
+    """
     today = date.today()
-    threshold = today + timedelta(days=days)
+    has_filter = bool(date_from and date_to)
+
+    if has_filter:
+        win_from, win_to = _parse_period(date_from, date_to)
+        reference = win_from
+    else:
+        win_from, win_to = today, today + timedelta(days=days)
+        reference = today
 
     rows = db.execute(
         select(Subscription, Customer.full_name, Customer.id.label("cust_id"))
@@ -509,8 +573,8 @@ def get_expiring_subscriptions(
         .where(
             Subscription.deleted_at.is_(None),
             Subscription.status == SubscriptionStatus.ACTIVE,
-            Subscription.expiry_date >= today,
-            Subscription.expiry_date <= threshold,
+            Subscription.expiry_date >= win_from,
+            Subscription.expiry_date <= win_to,
         )
         .order_by(Subscription.expiry_date.asc())
     ).fetchall()
@@ -523,7 +587,7 @@ def get_expiring_subscriptions(
             connection_name=r.Subscription.connection_name,
             plan_name=r.Subscription.plan_name_snapshot,
             expiry_date=r.Subscription.expiry_date.isoformat(),
-            days_remaining=(r.Subscription.expiry_date - today).days,
+            days_remaining=(r.Subscription.expiry_date - reference).days,
             customer_id=str(r.cust_id),
         )
         for r in rows
@@ -532,23 +596,31 @@ def get_expiring_subscriptions(
 
 @router.get("/overdue-invoices", response_model=list[OverdueInvoiceOut])
 def get_overdue_invoices(
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
     _: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ) -> list[OverdueInvoiceOut]:
-    """Invoices with past due date and outstanding balance."""
-    today = date.today()
+    """Invoices past due with outstanding balance.
 
-    rows = db.execute(
-        select(Invoice)
-        .where(
-            Invoice.deleted_at.is_(None),
-            Invoice.due_date < today,
-            Invoice.balance_amount > 0,
-            Invoice.status.not_in([InvoiceStatus.PAID, InvoiceStatus.CANCELLED]),
-        )
-        .order_by(Invoice.due_date.asc())
-        .limit(50)
-    ).scalars().all()
+    When date_from/date_to supplied, filters by invoices whose due_date
+    falls within (or before) that window.
+    """
+    today = date.today()
+    has_filter = bool(date_from and date_to)
+    period_from, period_to = _parse_period(date_from, date_to)
+
+    q = select(Invoice).where(
+        Invoice.deleted_at.is_(None),
+        Invoice.balance_amount > 0,
+        Invoice.status.not_in([InvoiceStatus.PAID, InvoiceStatus.CANCELLED]),
+    )
+    if has_filter:
+        q = q.where(Invoice.due_date >= period_from, Invoice.due_date <= period_to)
+    else:
+        q = q.where(Invoice.due_date < today)
+
+    rows = db.execute(q.order_by(Invoice.due_date.asc()).limit(50)).scalars().all()
 
     return [
         OverdueInvoiceOut(
