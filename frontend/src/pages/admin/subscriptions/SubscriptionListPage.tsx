@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { Eye, Plus } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Eye, Plus, Trash2 } from "lucide-react";
 
 import { AppLayout } from "@/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/Dialog";
 import {
   DataTable,
   type DataTableColumn,
@@ -13,6 +14,8 @@ import {
   DEFAULT_PAGE_SIZE,
 } from "@/components/DataTable";
 import { subscriptionsService } from "@/services/subscriptions";
+import { getApiErrorMessage } from "@/services/api";
+import { useToast } from "@/contexts/ToastContext";
 import {
   type Subscription,
   SUBSCRIPTION_STATUS_COLORS,
@@ -38,6 +41,9 @@ function fmtDate(d: string) {
 
 export function SubscriptionListPage() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const { showToast } = useToast();
+
   const [tableState, setTableState] = useState<DataTableState>({
     page: 1,
     pageSize: DEFAULT_PAGE_SIZE,
@@ -46,6 +52,10 @@ export function SubscriptionListPage() {
     sortDir: "desc",
   });
   const [statusFilter, setStatusFilter] = useState("");
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    sub: Subscription | null;
+  }>({ open: false, sub: null });
 
   const { data, isLoading } = useQuery({
     queryKey: ["subscriptions", tableState, statusFilter],
@@ -58,6 +68,16 @@ export function SubscriptionListPage() {
         sort_order: tableState.sortDir,
         status_filter: statusFilter || undefined,
       }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => subscriptionsService.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["subscriptions"] });
+      showToast("Subscription deleted successfully", "success");
+      setDeleteDialog({ open: false, sub: null });
+    },
+    onError: (err) => showToast(getApiErrorMessage(err), "error"),
   });
 
   const columns: DataTableColumn<Subscription>[] = [
@@ -148,17 +168,26 @@ export function SubscriptionListPage() {
     {
       key: "actions",
       header: "",
-      className: "w-20 text-right",
+      className: "w-28 text-right",
       render: (row) => (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => navigate(`/admin/subscriptions/${row.id}`)}
-          className="gap-1.5"
-        >
-          <Eye className="h-3.5 w-3.5" />
-          View
-        </Button>
+        <div className="flex items-center justify-end gap-0.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/admin/subscriptions/${row.id}`)}
+            className="gap-1.5"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            View
+          </Button>
+          <button
+            onClick={() => setDeleteDialog({ open: true, sub: row })}
+            className="ml-1 rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
+            title="Delete subscription"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
       ),
     },
   ];
@@ -218,6 +247,39 @@ export function SubscriptionListPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Delete confirmation dialog ────────────────────────────────── */}
+      <Dialog
+        open={deleteDialog.open}
+        onClose={() => setDeleteDialog({ open: false, sub: null })}
+        title="Delete Subscription"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to delete subscription{" "}
+            <strong className="font-mono">{deleteDialog.sub?.subscription_code}</strong>{" "}
+            for <strong>{deleteDialog.sub?.customer_name}</strong>?
+            This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialog({ open: false, sub: null })}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-red-600 text-white hover:bg-red-700"
+              onClick={() => {
+                if (deleteDialog.sub) deleteMutation.mutate(deleteDialog.sub.id);
+              }}
+              disabled={deleteMutation.isPending}
+            >
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </AppLayout>
   );
 }

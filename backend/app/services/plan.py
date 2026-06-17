@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models.audit_log import (
     ACTION_PLAN_CREATED,
+    ACTION_PLAN_DELETED,
     ACTION_PLAN_UPDATED,
     ACTION_PRICING_CREATED,
     ACTION_PRICING_DELETED,
@@ -205,6 +206,23 @@ class PlanService:
         self.db.commit()
         self.audit.log(
             ACTION_PRICING_DELETED,
+            user_id=actor_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+
+    def delete(
+        self,
+        plan: Plan,
+        *,
+        actor_id: uuid.UUID,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> None:
+        self.repo.soft_delete(plan)
+        self.db.commit()
+        self.audit.log(
+            ACTION_PLAN_DELETED,
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,

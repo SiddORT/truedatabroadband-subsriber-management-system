@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { Plus, Eye, Edit, ShieldOff, Key } from "lucide-react";
+import { Plus, Eye, Edit, ShieldOff, Key, Trash2 } from "lucide-react";
 
 import {
   DataTable,
@@ -52,6 +52,11 @@ export function CustomerListPage() {
     tempPassword: string | null;
   }>({ open: false, customer: null, tempPassword: null });
 
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    customer: Customer | null;
+  }>({ open: false, customer: null });
+
   const { data, isLoading } = useQuery({
     queryKey: [
       "customers",
@@ -88,6 +93,16 @@ export function CustomerListPage() {
     mutationFn: (id: string) => customersService.resetPassword(id),
     onSuccess: (data) => {
       setResetDialog((d) => ({ ...d, tempPassword: data.temp_password }));
+    },
+    onError: (err) => showToast(getApiErrorMessage(err), "error"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => customersService.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["customers"] });
+      showToast("Customer deleted successfully", "success");
+      setDeleteDialog({ open: false, customer: null });
     },
     onError: (err) => showToast(getApiErrorMessage(err), "error"),
   });
@@ -179,6 +194,13 @@ export function CustomerListPage() {
             title="Reset password"
           >
             <Key className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setDeleteDialog({ open: true, customer: row })}
+            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
+            title="Delete customer"
+          >
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
       ),
@@ -368,6 +390,38 @@ export function CustomerListPage() {
             </div>
           </div>
         )}
+      </Dialog>
+      {/* ── Delete confirmation dialog ────────────────────────────────── */}
+      <Dialog
+        open={deleteDialog.open}
+        onClose={() => setDeleteDialog({ open: false, customer: null })}
+        title="Delete Customer"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to delete{" "}
+            <strong>{deleteDialog.customer?.full_name}</strong> (
+            <span className="font-mono">{deleteDialog.customer?.customer_code}</span>)?
+            This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialog({ open: false, customer: null })}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-red-600 text-white hover:bg-red-700"
+              onClick={() => {
+                if (deleteDialog.customer) deleteMutation.mutate(deleteDialog.customer.id);
+              }}
+              disabled={deleteMutation.isPending}
+            >
+              Delete
+            </Button>
+          </div>
+        </div>
       </Dialog>
     </AppLayout>
   );

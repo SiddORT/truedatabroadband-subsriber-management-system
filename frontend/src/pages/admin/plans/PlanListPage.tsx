@@ -1,17 +1,20 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { Plus, Eye, Zap, Infinity, AlertCircle } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Plus, Eye, Zap, Infinity, AlertCircle, Trash2 } from "lucide-react";
 
 import { AppLayout } from "@/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/Dialog";
 import {
   DataTable,
   type DataTableColumn,
   type DataTableState,
 } from "@/components/DataTable";
 import { plansService } from "@/services/plans";
+import { getApiErrorMessage } from "@/services/api";
+import { useToast } from "@/contexts/ToastContext";
 import type { Plan } from "@/types/plan";
 import { BILLING_CYCLE_LABELS } from "@/types/plan";
 
@@ -63,6 +66,9 @@ const STATUS_FILTER_OPTIONS = [
 
 export function PlanListPage() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const { showToast } = useToast();
+
   const [tableState, setTableState] = useState<DataTableState>({
     page: 1,
     pageSize: 10,
@@ -71,6 +77,10 @@ export function PlanListPage() {
     sortDir: "desc",
   });
   const [statusFilter, setStatusFilter] = useState("");
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    plan: Plan | null;
+  }>({ open: false, plan: null });
 
   const { data, isLoading } = useQuery({
     queryKey: ["plans", tableState, statusFilter],
@@ -84,6 +94,16 @@ export function PlanListPage() {
         ...(statusFilter === "active" ? { is_active: true } : {}),
         ...(statusFilter === "inactive" ? { is_active: false } : {}),
       }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => plansService.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["plans"] });
+      showToast("Plan deleted successfully", "success");
+      setDeleteDialog({ open: false, plan: null });
+    },
+    onError: (err) => showToast(getApiErrorMessage(err), "error"),
   });
 
   const columns: DataTableColumn<Plan>[] = [
@@ -170,17 +190,26 @@ export function PlanListPage() {
     {
       key: "actions",
       header: "",
-      className: "w-20 text-right",
+      className: "w-28 text-right",
       render: (row) => (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => navigate(`/admin/plans/${row.id}`)}
-          className="gap-1.5"
-        >
-          <Eye className="h-3.5 w-3.5" />
-          View
-        </Button>
+        <div className="flex items-center justify-end gap-0.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/admin/plans/${row.id}`)}
+            className="gap-1.5"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            View
+          </Button>
+          <button
+            onClick={() => setDeleteDialog({ open: true, plan: row })}
+            className="ml-1 rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
+            title="Delete plan"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
       ),
     },
   ];
@@ -240,6 +269,39 @@ export function PlanListPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Delete confirmation dialog ────────────────────────────────── */}
+      <Dialog
+        open={deleteDialog.open}
+        onClose={() => setDeleteDialog({ open: false, plan: null })}
+        title="Delete Plan"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to delete{" "}
+            <strong>{deleteDialog.plan?.name}</strong> (
+            <span className="font-mono">{deleteDialog.plan?.plan_code}</span>)?
+            This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialog({ open: false, plan: null })}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-red-600 text-white hover:bg-red-700"
+              onClick={() => {
+                if (deleteDialog.plan) deleteMutation.mutate(deleteDialog.plan.id);
+              }}
+              disabled={deleteMutation.isPending}
+            >
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </AppLayout>
   );
 }

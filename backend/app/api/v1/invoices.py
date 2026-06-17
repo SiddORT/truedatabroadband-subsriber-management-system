@@ -264,6 +264,24 @@ def client_get_invoice(
 
 # ── Client: PDF download ──────────────────────────────────────────────────────
 
+@router.delete("/{invoice_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_invoice(
+    request: Request,
+    invoice_id: uuid.UUID,
+    current_user: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+) -> None:
+    invoice = InvoiceRepository(db).get(invoice_id)
+    if invoice is None:
+        raise _not_found()
+    InvoiceService(db).delete(
+        invoice,
+        actor_id=current_user.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+
 @router.get("/client/{invoice_id}/pdf")
 def client_download_pdf(
     invoice_id: uuid.UUID,

@@ -206,6 +206,22 @@ def update_subscription_status(
     return _to_out(updated)
 
 
+@router.delete("/{sub_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_subscription(
+    request: Request,
+    sub_id: uuid.UUID,
+    current_user: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+) -> None:
+    sub = _get_sub_or_404(sub_id, db)
+    SubscriptionService(db).delete(
+        sub,
+        actor_id=current_user.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+
 @router.post(
     "/{sub_id}/change-plan",
     response_model=SubscriptionOut,

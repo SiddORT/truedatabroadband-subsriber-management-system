@@ -120,6 +120,10 @@ function clientPdfUrl(id: string): string {
   return `/api/v1/invoices/client/${id}/pdf`;
 }
 
+async function deleteInvoice(id: string): Promise<void> {
+  await api.delete(`/invoices/${id}`);
+}
+
 export const invoicesService = {
   list,
   get,
@@ -129,6 +133,7 @@ export const invoicesService = {
   updateStatus,
   getHistory,
   pdfUrl,
+  delete: deleteInvoice,
   clientList,
   clientGet,
   clientPdfUrl,

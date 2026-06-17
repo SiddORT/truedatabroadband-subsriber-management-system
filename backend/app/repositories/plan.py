@@ -17,16 +17,19 @@ class PlanRepository(BaseRepository[Plan]):
     def generate_next_code(self) -> str:
         """Return next plan code in the format ``TDB-PLAN-00001``.
 
-        Reads the highest existing code so deleted codes are never reused.
+        Filters to numeric-only codes to avoid lexicographic max collision.
         """
-        result = self.db.execute(select(func.max(Plan.plan_code))).scalar()
-        if result is None:
-            n = 1
-        else:
+        rows = self.db.execute(
+            select(Plan.plan_code)
+            .where(Plan.plan_code.regexp_match(r"^TDB-PLAN-\d+$"))
+        ).scalars().all()
+        nums = []
+        for code in rows:
             try:
-                n = int(result.split("-")[-1]) + 1
+                nums.append(int(code.split("-")[-1]))
             except (ValueError, IndexError):
-                n = 1
+                pass
+        n = (max(nums) if nums else 0) + 1
         return f"TDB-PLAN-{n:05d}"
 
     # ------------------------------------------------------------------

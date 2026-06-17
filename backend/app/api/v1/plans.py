@@ -201,6 +201,22 @@ def update_pricing(
     return PricingOut.model_validate(updated)
 
 
+@router.delete("/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_plan(
+    request: Request,
+    plan_id: uuid.UUID,
+    current_user: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+) -> None:
+    plan = _get_plan_or_404(plan_id, db)
+    PlanService(db).delete(
+        plan,
+        actor_id=current_user.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+
 @router.delete("/{plan_id}/pricing/{pricing_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_pricing(
     request: Request,

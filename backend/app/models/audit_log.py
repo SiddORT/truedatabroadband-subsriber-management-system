@@ -17,10 +17,12 @@ ACTION_CUSTOMER_CREATED = "customer_created"
 ACTION_CUSTOMER_UPDATED = "customer_updated"
 ACTION_CUSTOMER_STATUS_CHANGED = "customer_status_changed"
 ACTION_CUSTOMER_PASSWORD_RESET = "customer_password_reset"
+ACTION_CUSTOMER_DELETED = "customer_deleted"
 
 # Plan domain
 ACTION_PLAN_CREATED = "plan_created"
 ACTION_PLAN_UPDATED = "plan_updated"
+ACTION_PLAN_DELETED = "plan_deleted"
 ACTION_PRICING_CREATED = "pricing_created"
 ACTION_PRICING_UPDATED = "pricing_updated"
 ACTION_PRICING_DELETED = "pricing_deleted"
@@ -30,6 +32,7 @@ ACTION_SUBSCRIPTION_CREATED = "subscription_created"
 ACTION_SUBSCRIPTION_RENEWED = "subscription_renewed"
 ACTION_SUBSCRIPTION_STATUS_CHANGED = "subscription_status_changed"
 ACTION_SUBSCRIPTION_PLAN_CHANGED = "subscription_plan_changed"
+ACTION_SUBSCRIPTION_DELETED = "subscription_deleted"
 
 # Settings domain
 ACTION_SETTINGS_UPDATED = "settings_updated"
@@ -40,9 +43,11 @@ ACTION_INVOICE_CREATED = "invoice_created"
 ACTION_INVOICE_UPDATED = "invoice_updated"
 ACTION_INVOICE_LOCKED = "invoice_locked"
 ACTION_INVOICE_CANCELLED = "invoice_cancelled"
+ACTION_INVOICE_DELETED = "invoice_deleted"
 
 # Payment domain
 ACTION_PAYMENT_RECORDED = "payment_recorded"
+ACTION_PAYMENT_DELETED = "payment_deleted"
 
 
 class AuditLog(Base):

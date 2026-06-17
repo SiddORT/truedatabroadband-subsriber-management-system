@@ -87,6 +87,24 @@ def get_payment(
 
 # ── Client: list own payments ─────────────────────────────────────────────────
 
+@router.delete("/{payment_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_payment(
+    request: Request,
+    payment_id: uuid.UUID,
+    current_user: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+) -> None:
+    payment = PaymentRepository(db).get(payment_id)
+    if payment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
+    PaymentService(db).delete(
+        payment,
+        actor_id=current_user.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+
 @router.get("/client/my", response_model=PaymentListResponse)
 def client_list_payments(
     page: int = Query(1, ge=1),

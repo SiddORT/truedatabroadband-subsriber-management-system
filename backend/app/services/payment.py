@@ -8,7 +8,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app.models.audit_log import ACTION_PAYMENT_RECORDED
+from app.models.audit_log import ACTION_PAYMENT_DELETED, ACTION_PAYMENT_RECORDED
 from app.models.invoice import Invoice, InvoiceStatus
 from app.models.payment import Payment, PaymentMethod
 from app.repositories.audit_log import AuditLogRepository
@@ -95,3 +95,20 @@ class PaymentService:
             user_agent=user_agent,
         )
         return payment
+
+    def delete(
+        self,
+        payment: Payment,
+        *,
+        actor_id: uuid.UUID,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> None:
+        self.repo.soft_delete(payment)
+        self.db.commit()
+        self.audit.log(
+            ACTION_PAYMENT_DELETED,
+            user_id=actor_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )

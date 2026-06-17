@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.models.audit_log import (
     ACTION_INVOICE_CANCELLED,
     ACTION_INVOICE_CREATED,
+    ACTION_INVOICE_DELETED,
     ACTION_INVOICE_LOCKED,
     ACTION_INVOICE_UPDATED,
 )
@@ -649,6 +650,23 @@ class InvoiceService:
         return self.repo.get(invoice.id)
 
     # ── Create replacement ─────────────────────────────────────────────────
+
+    def delete(
+        self,
+        invoice: Invoice,
+        *,
+        actor_id: uuid.UUID,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> None:
+        self.repo.soft_delete(invoice)
+        self.db.commit()
+        self.audit.log(
+            ACTION_INVOICE_DELETED,
+            user_id=actor_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
 
     def create_replacement(
         self,

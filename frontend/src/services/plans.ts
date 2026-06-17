@@ -58,4 +58,8 @@ export const plansService = {
   async deletePricing(id: string, pricingId: string): Promise<void> {
     await api.delete(`${BASE}/${id}/pricing/${pricingId}`);
   },
+
+  async delete(id: string): Promise<void> {
+    await api.delete(`${BASE}/${id}`);
+  },
 };

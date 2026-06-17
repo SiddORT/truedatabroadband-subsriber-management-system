@@ -39,9 +39,14 @@ async function clientList(
   return data;
 }
 
+async function deletePayment(id: string): Promise<void> {
+  await api.delete(`/payments/${id}`);
+}
+
 export const paymentsService = {
   list,
   get,
   record,
+  delete: deletePayment,
   clientList,
 };

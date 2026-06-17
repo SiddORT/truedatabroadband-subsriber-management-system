@@ -69,6 +69,10 @@ export const customersService = {
     return data;
   },
 
+  async delete(id: string): Promise<void> {
+    await api.delete(`${BASE}/${id}`);
+  },
+
   documentDownloadUrl(id: string, docType: DocType): string {
     return `/api/v1/customers/${id}/documents/${docType}`;
   },

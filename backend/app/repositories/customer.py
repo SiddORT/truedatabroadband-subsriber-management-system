@@ -46,17 +46,20 @@ class CustomerRepository(BaseRepository[Customer]):
         """
         Return the next customer code in the format ``TDB-CUST-00001``.
 
-        Queries the *highest* existing code (lexicographically) so deleted
-        codes are never reused.
+        Filters to numeric-only codes to avoid lexicographic max collision
+        with non-standard test codes.
         """
-        result = self.db.execute(select(func.max(Customer.customer_code))).scalar()
-        if result is None:
-            n = 1
-        else:
+        rows = self.db.execute(
+            select(Customer.customer_code)
+            .where(Customer.customer_code.regexp_match(r"^TDB-CUST-\d+$"))
+        ).scalars().all()
+        nums = []
+        for code in rows:
             try:
-                n = int(result.split("-")[-1]) + 1
+                nums.append(int(code.split("-")[-1]))
             except (ValueError, IndexError):
-                n = 1
+                pass
+        n = (max(nums) if nums else 0) + 1
         return f"TDB-CUST-{n:05d}"
 
     # ------------------------------------------------------------------

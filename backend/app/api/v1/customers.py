@@ -272,6 +272,22 @@ def download_document(
     return FileResponse(abs_path)
 
 
+@router.delete("/{customer_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_customer(
+    request: Request,
+    customer_id: uuid.UUID,
+    current_user: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+) -> None:
+    customer = _get_customer_or_404(customer_id, db)
+    CustomerService(db).delete(
+        customer,
+        actor_id=current_user.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+
 def _ext_for_mime(content_type: str) -> str:
     mapping = {
         "image/jpeg": ".jpg",

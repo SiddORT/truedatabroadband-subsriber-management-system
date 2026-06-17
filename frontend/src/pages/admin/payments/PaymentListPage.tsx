@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { Eye, Plus } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Eye, Plus, Trash2 } from "lucide-react";
 
 import { AppLayout } from "@/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/Dialog";
 import {
   DataTable,
   type DataTableColumn,
@@ -13,6 +14,8 @@ import {
   DEFAULT_PAGE_SIZE,
 } from "@/components/DataTable";
 import { paymentsService } from "@/services/payments";
+import { getApiErrorMessage } from "@/services/api";
+import { useToast } from "@/contexts/ToastContext";
 import {
   type PaymentListItem,
   PAYMENT_METHOD_COLORS,
@@ -37,6 +40,9 @@ function fmtMoney(n: string | number) {
 
 export function PaymentListPage() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const { showToast } = useToast();
+
   const [tableState, setTableState] = useState<DataTableState>({
     page: 1,
     pageSize: DEFAULT_PAGE_SIZE,
@@ -44,6 +50,10 @@ export function PaymentListPage() {
     sortBy: "payment_date",
     sortDir: "desc",
   });
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    payment: PaymentListItem | null;
+  }>({ open: false, payment: null });
 
   const { data, isLoading } = useQuery({
     queryKey: ["payments", tableState],
@@ -55,6 +65,16 @@ export function PaymentListPage() {
         sort_by: tableState.sortBy ?? undefined,
         sort_order: tableState.sortDir,
       }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => paymentsService.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["payments"] });
+      showToast("Payment deleted successfully", "success");
+      setDeleteDialog({ open: false, payment: null });
+    },
+    onError: (err) => showToast(getApiErrorMessage(err), "error"),
   });
 
   const columns: DataTableColumn<PaymentListItem>[] = [
@@ -133,6 +153,20 @@ export function PaymentListPage() {
         </span>
       ),
     },
+    {
+      key: "actions",
+      header: "",
+      className: "w-14 text-right",
+      render: (row) => (
+        <button
+          onClick={() => setDeleteDialog({ open: true, payment: row })}
+          className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
+          title="Delete payment"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      ),
+    },
   ];
 
   return (
@@ -169,6 +203,38 @@ export function PaymentListPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Delete confirmation dialog ────────────────────────────────── */}
+      <Dialog
+        open={deleteDialog.open}
+        onClose={() => setDeleteDialog({ open: false, payment: null })}
+        title="Delete Payment"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to delete payment{" "}
+            <strong className="font-mono">{deleteDialog.payment?.payment_number}</strong>?
+            This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialog({ open: false, payment: null })}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-red-600 text-white hover:bg-red-700"
+              onClick={() => {
+                if (deleteDialog.payment) deleteMutation.mutate(deleteDialog.payment.id);
+              }}
+              disabled={deleteMutation.isPending}
+            >
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </AppLayout>
   );
 }

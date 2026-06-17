@@ -65,4 +65,8 @@ export const subscriptionsService = {
     const { data } = await api.post<Subscription>(`${BASE}/${id}/change-plan`, payload);
     return data;
   },
+
+  async delete(id: string): Promise<void> {
+    await api.delete(`${BASE}/${id}`);
+  },
 };

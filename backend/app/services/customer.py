@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.security import hash_password
 from app.models.audit_log import (
     ACTION_CUSTOMER_CREATED,
+    ACTION_CUSTOMER_DELETED,
     ACTION_CUSTOMER_PASSWORD_RESET,
     ACTION_CUSTOMER_STATUS_CHANGED,
     ACTION_CUSTOMER_UPDATED,
@@ -221,3 +222,24 @@ class CustomerService:
             user_agent=user_agent,
         )
         return temp_password
+
+    # ------------------------------------------------------------------
+    # Delete (soft)
+    # ------------------------------------------------------------------
+
+    def delete(
+        self,
+        customer: Customer,
+        *,
+        actor_id: uuid.UUID,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> None:
+        self.customers.soft_delete(customer)
+        self.db.commit()
+        self.audit.log(
+            ACTION_CUSTOMER_DELETED,
+            user_id=actor_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )

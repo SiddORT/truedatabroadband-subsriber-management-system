@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models.audit_log import (
     ACTION_SUBSCRIPTION_CREATED,
+    ACTION_SUBSCRIPTION_DELETED,
     ACTION_SUBSCRIPTION_PLAN_CHANGED,
     ACTION_SUBSCRIPTION_RENEWED,
     ACTION_SUBSCRIPTION_STATUS_CHANGED,
@@ -299,3 +300,20 @@ class SubscriptionService:
         self.db.commit()
         self.db.refresh(sub)
         return sub
+
+    def delete(
+        self,
+        sub: Subscription,
+        *,
+        actor_id: uuid.UUID,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> None:
+        self.subs.soft_delete(sub)
+        self.db.commit()
+        self.audit.log(
+            ACTION_SUBSCRIPTION_DELETED,
+            user_id=actor_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
