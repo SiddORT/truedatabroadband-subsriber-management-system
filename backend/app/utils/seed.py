@@ -20,14 +20,10 @@ _DEFAULT_TEMPLATES: list[dict] = [
         "channel": NotificationChannel.SMS,
         "subject": None,
         "body": (
-            "Dear {customer_name}, welcome to True Data Broadband! "
-            "Your connection {connection_name} with plan {plan_name} is now active. "
-            "For support call {support_phone}."
+            "TrueData: Welcome {customer_name}. Your service request has been completed "
+            "successfully. Plan: {plan_name}. Thank you for choosing us."
         ),
-        "approved_variables": [
-            "customer_name", "connection_name", "plan_name",
-            "portal_url", "support_email", "support_phone",
-        ],
+        "approved_variables": ["customer_name", "plan_name"],
     },
     {
         "template_key": TemplateKey.WELCOME_CUSTOMER,
@@ -38,7 +34,6 @@ _DEFAULT_TEMPLATES: list[dict] = [
             "<p>Welcome to <strong>True Data Broadband</strong>! "
             "Your broadband connection is now active.</p>"
             "<ul>"
-            "<li><strong>Connection Name:</strong> {connection_name}</li>"
             "<li><strong>Plan:</strong> {plan_name}</li>"
             "</ul>"
             "<p>For support, contact us at <a href='mailto:{support_email}'>{support_email}</a> "
@@ -46,8 +41,7 @@ _DEFAULT_TEMPLATES: list[dict] = [
             "<p>Regards,<br>True Data Broadband Team</p>"
         ),
         "approved_variables": [
-            "customer_name", "connection_name", "plan_name",
-            "portal_url", "support_email", "support_phone",
+            "customer_name", "plan_name", "portal_url", "support_email", "support_phone",
         ],
     },
     # ── OTP_LOGIN ─────────────────────────────────────────────────────────
@@ -56,10 +50,12 @@ _DEFAULT_TEMPLATES: list[dict] = [
         "channel": NotificationChannel.SMS,
         "subject": None,
         "body": (
-            "Your OTP for True Data Broadband is {otp_code}. "
-            "Valid for {otp_expiry_minutes} minutes. Do not share this code."
+            "TrueData : Your login OTP is {otp_code}."
+            "This code is valid for 180 seconds. Do not share this OTP with anyone. "
+            "If you did not request it, please ignore this message."
         ),
-        "approved_variables": ["otp_code", "otp_expiry_minutes"],
+        "dlt_template_id": "1707178161067506187",
+        "approved_variables": ["otp_code"],
     },
     {
         "template_key": TemplateKey.OTP_LOGIN,
@@ -69,11 +65,11 @@ _DEFAULT_TEMPLATES: list[dict] = [
             "<p>Dear Customer,</p>"
             "<p>Your One-Time Password (OTP) for True Data Broadband is:</p>"
             "<h2 style='letter-spacing:4px;'>{otp_code}</h2>"
-            "<p>This OTP is valid for <strong>{otp_expiry_minutes} minutes</strong>.</p>"
+            "<p>This OTP is valid for <strong>180 seconds</strong>.</p>"
             "<p><em>Do not share this OTP with anyone.</em></p>"
             "<p>Regards,<br>True Data Broadband Team</p>"
         ),
-        "approved_variables": ["otp_code", "otp_expiry_minutes"],
+        "approved_variables": ["otp_code"],
     },
     # ── SUBSCRIPTION_EXPIRING ─────────────────────────────────────────────
     {
@@ -81,14 +77,11 @@ _DEFAULT_TEMPLATES: list[dict] = [
         "channel": NotificationChannel.SMS,
         "subject": None,
         "body": (
-            "Dear {customer_name}, your connection {connection_name} ({plan_name}) "
-            "expires on {expiry_date} ({days_remaining} day(s) left). "
-            "Renew now to avoid interruption. Call {support_phone}."
+            "Dear {customer_name}, your TrueData plan expires on {expiry_date}. "
+            "Renew now to enjoy uninterrupted service."
         ),
-        "approved_variables": [
-            "customer_name", "connection_name", "plan_name",
-            "expiry_date", "days_remaining", "portal_url", "support_email", "support_phone",
-        ],
+        "dlt_template_id": "1707178161061507836",
+        "approved_variables": ["customer_name", "expiry_date"],
     },
     {
         "template_key": TemplateKey.SUBSCRIPTION_EXPIRING,
@@ -98,7 +91,6 @@ _DEFAULT_TEMPLATES: list[dict] = [
             "<p>Dear <strong>{customer_name}</strong>,</p>"
             "<p>This is a reminder that your broadband subscription is expiring soon.</p>"
             "<ul>"
-            "<li><strong>Connection:</strong> {connection_name}</li>"
             "<li><strong>Plan:</strong> {plan_name}</li>"
             "<li><strong>Expiry Date:</strong> {expiry_date}</li>"
             "<li><strong>Days Remaining:</strong> {days_remaining}</li>"
@@ -108,8 +100,8 @@ _DEFAULT_TEMPLATES: list[dict] = [
             "<p>Regards,<br>True Data Broadband Team</p>"
         ),
         "approved_variables": [
-            "customer_name", "connection_name", "plan_name",
-            "expiry_date", "days_remaining", "portal_url", "support_email", "support_phone",
+            "customer_name", "plan_name", "expiry_date", "days_remaining",
+            "portal_url", "support_email", "support_phone",
         ],
     },
     # ── SUBSCRIPTION_EXPIRED ──────────────────────────────────────────────
@@ -118,23 +110,19 @@ _DEFAULT_TEMPLATES: list[dict] = [
         "channel": NotificationChannel.SMS,
         "subject": None,
         "body": (
-            "Dear {customer_name}, your connection {connection_name} ({plan_name}) "
-            "expired on {expiry_date}. Renew now to restore services. Call {support_phone}."
+            "Dear {customer_name}, your TrueData plan has expired on {expiry_date}. "
+            "Renew now to restore services. Call {support_phone}."
         ),
-        "approved_variables": [
-            "customer_name", "connection_name", "plan_name",
-            "expiry_date", "days_overdue", "portal_url", "support_email", "support_phone",
-        ],
+        "approved_variables": ["customer_name", "expiry_date", "support_phone"],
     },
     {
         "template_key": TemplateKey.SUBSCRIPTION_EXPIRED,
         "channel": NotificationChannel.EMAIL,
-        "subject": "Your Subscription Has Expired — {connection_name}",
+        "subject": "Your Subscription Has Expired",
         "body": (
             "<p>Dear <strong>{customer_name}</strong>,</p>"
             "<p>Your broadband subscription has expired.</p>"
             "<ul>"
-            "<li><strong>Connection:</strong> {connection_name}</li>"
             "<li><strong>Plan:</strong> {plan_name}</li>"
             "<li><strong>Expired On:</strong> {expiry_date}</li>"
             "</ul>"
@@ -143,8 +131,8 @@ _DEFAULT_TEMPLATES: list[dict] = [
             "<p>Regards,<br>True Data Broadband Team</p>"
         ),
         "approved_variables": [
-            "customer_name", "connection_name", "plan_name",
-            "expiry_date", "days_overdue", "portal_url", "support_email", "support_phone",
+            "customer_name", "plan_name", "expiry_date", "days_overdue",
+            "portal_url", "support_email", "support_phone",
         ],
     },
     # ── INVOICE_GENERATED ─────────────────────────────────────────────────
@@ -154,10 +142,9 @@ _DEFAULT_TEMPLATES: list[dict] = [
         "subject": "Invoice {invoice_number} Generated - True Data Broadband",
         "body": (
             "<p>Dear <strong>{customer_name}</strong>,</p>"
-            "<p>An invoice has been generated for your broadband connection.</p>"
+            "<p>An invoice has been generated for your broadband service.</p>"
             "<ul>"
             "<li><strong>Invoice Number:</strong> {invoice_number}</li>"
-            "<li><strong>Connection:</strong> {connection_name}</li>"
             "<li><strong>Amount:</strong> &#8377;{amount}</li>"
             "<li><strong>Due Date:</strong> {due_date}</li>"
             "</ul>"
@@ -165,7 +152,7 @@ _DEFAULT_TEMPLATES: list[dict] = [
             "<p>Regards,<br>True Data Broadband Team</p>"
         ),
         "approved_variables": [
-            "customer_name", "invoice_number", "connection_name", "amount", "due_date", "portal_url",
+            "customer_name", "invoice_number", "amount", "due_date", "portal_url",
         ],
     },
     # ── PAYMENT_RECEIVED ──────────────────────────────────────────────────
@@ -236,6 +223,7 @@ def seed_notification_templates() -> None:
                     channel=ch_val,
                     subject=tmpl.get("subject"),
                     body=tmpl["body"],
+                    dlt_template_id=tmpl.get("dlt_template_id"),
                     approved_variables=tmpl.get("approved_variables"),
                 )
                 created += 1
