@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   IndianRupee,
   LayoutDashboard,
   LogOut,
@@ -67,6 +68,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: IndianRupee,
     href: "/admin/payments",
     matchPrefix: "/admin/payments",
+    roles: ["SUPERADMIN"],
+  },
+  {
+    label: "Reports",
+    icon: BarChart3,
+    href: "/admin/reports",
+    matchPrefix: "/admin/reports",
     roles: ["SUPERADMIN"],
   },
   {

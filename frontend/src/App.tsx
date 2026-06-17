@@ -26,6 +26,13 @@ import { PaymentListPage } from "@/pages/admin/payments/PaymentListPage";
 import { PaymentCreatePage } from "@/pages/admin/payments/PaymentCreatePage";
 import { ClientInvoicePage } from "@/pages/client/ClientInvoicePage";
 import { ClientPaymentPage } from "@/pages/client/ClientPaymentPage";
+import { ReportsIndexPage } from "@/pages/admin/reports/ReportsIndexPage";
+import { CustomerReportPage } from "@/pages/admin/reports/CustomerReportPage";
+import { SubscriptionReportPage } from "@/pages/admin/reports/SubscriptionReportPage";
+import { InvoiceReportPage } from "@/pages/admin/reports/InvoiceReportPage";
+import { PaymentReportPage } from "@/pages/admin/reports/PaymentReportPage";
+import { RevenueReportPage } from "@/pages/admin/reports/RevenueReportPage";
+import { OutstandingReportPage } from "@/pages/admin/reports/OutstandingReportPage";
 
 /** Redirect to /change-password if logged in and forced, else to login. */
 function RootRedirect() {
@@ -211,6 +218,15 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+
+      {/* Reports */}
+      <Route path="/admin/reports" element={<ProtectedRoute role="SUPERADMIN" loginPath="/admin/login"><ReportsIndexPage /></ProtectedRoute>} />
+      <Route path="/admin/reports/customers" element={<ProtectedRoute role="SUPERADMIN" loginPath="/admin/login"><CustomerReportPage /></ProtectedRoute>} />
+      <Route path="/admin/reports/subscriptions" element={<ProtectedRoute role="SUPERADMIN" loginPath="/admin/login"><SubscriptionReportPage /></ProtectedRoute>} />
+      <Route path="/admin/reports/invoices" element={<ProtectedRoute role="SUPERADMIN" loginPath="/admin/login"><InvoiceReportPage /></ProtectedRoute>} />
+      <Route path="/admin/reports/payments" element={<ProtectedRoute role="SUPERADMIN" loginPath="/admin/login"><PaymentReportPage /></ProtectedRoute>} />
+      <Route path="/admin/reports/revenue" element={<ProtectedRoute role="SUPERADMIN" loginPath="/admin/login"><RevenueReportPage /></ProtectedRoute>} />
+      <Route path="/admin/reports/outstanding" element={<ProtectedRoute role="SUPERADMIN" loginPath="/admin/login"><OutstandingReportPage /></ProtectedRoute>} />
 
       {/* Settings */}
       <Route

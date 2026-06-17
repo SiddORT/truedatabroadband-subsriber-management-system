@@ -1,0 +1,4 @@
+id,customer_code,full_name,customer_type,city,mobile_number,active_subscription_count,outstanding_amount,status
+053ca5c5-af9d-4980-a867-9f7f1d27ec61,TDB-CUST-T5D65,Test Invoice Customer,INDIVIDUAL,Mumbai,9494758719,4,9910.0,ACTIVE
+0a406f07-93ed-4ad9-b7b5-f16b0de0716e,TDB-CUST-00002,Reena patel,BUSINESS,Mumbai,9867360488,2,0.0,ACTIVE
+5b5146aa-c164-4491-a316-a8b8fbb54ba4,TDB-CUST-00001,Test Customer 430811da,INDIVIDUAL,Mumbai,9289689911,0,0.0,ACTIVE

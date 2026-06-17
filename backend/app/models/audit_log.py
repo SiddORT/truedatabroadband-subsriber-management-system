@@ -56,6 +56,10 @@ ACTION_PAYMENT_DELETED = "payment_deleted"
 # Dashboard domain
 ACTION_DASHBOARD_VIEWED = "dashboard_viewed"
 
+# Reports domain
+ACTION_REPORT_VIEWED = "report_viewed"
+ACTION_REPORT_EXPORTED = "report_exported"
+
 
 class AuditLog(Base):
     """
