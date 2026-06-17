@@ -75,6 +75,8 @@ ACTION_CLIENT_LOGOUT_ALL = "client_logout_all"
 ACTION_CLIENT_PROFILE_UPDATED = "client_profile_updated"
 ACTION_CLIENT_SESSION_REVOKED = "client_session_revoked"
 ACTION_CLIENT_UNAUTHORIZED_ACCESS = "unauthorized_client_access_attempt"
+ACTION_CLIENT_DASHBOARD_VIEWED = "client_dashboard_viewed"
+ACTION_CLIENT_INVOICE_DOWNLOADED = "client_invoice_downloaded"
 
 # Communication / OTP domain
 ACTION_SMS_SETTINGS_UPDATED = "sms_settings_updated"
