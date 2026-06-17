@@ -7,6 +7,9 @@ from sqlalchemy.orm import Session
 from app.models.refresh_token import RefreshToken
 
 
+
+
+
 class RefreshTokenRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -60,3 +63,18 @@ class RefreshTokenRepository:
             .values(revoked_at=now, updated_at=now)
         )
         self.db.commit()
+
+    def list_active_for_user(self, user_id: uuid.UUID) -> list[RefreshToken]:
+        """Return all non-revoked, non-expired sessions for a user."""
+        now = datetime.now(timezone.utc)
+        stmt = (
+            select(RefreshToken)
+            .where(
+                RefreshToken.user_id == user_id,
+                RefreshToken.revoked_at.is_(None),
+                RefreshToken.deleted_at.is_(None),
+                RefreshToken.expires_at > now,
+            )
+            .order_by(RefreshToken.created_at.desc())
+        )
+        return list(self.db.scalars(stmt).all())

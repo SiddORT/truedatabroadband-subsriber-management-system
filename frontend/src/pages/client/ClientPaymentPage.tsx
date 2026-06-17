@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { IndianRupee } from "lucide-react";
 
-import { AppLayout } from "@/layouts/AppLayout";
+import { ClientLayout } from "@/layouts/ClientLayout";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   DataTable,
@@ -66,17 +66,13 @@ export function ClientPaymentPage() {
       key: "payment_number",
       header: "Payment No.",
       render: (row) => (
-        <span className="font-mono text-sm font-semibold text-primary">
-          {row.payment_number}
-        </span>
+        <span className="font-mono text-sm font-semibold text-primary">{row.payment_number}</span>
       ),
     },
     {
       key: "payment_date",
       header: "Date",
-      render: (row) => (
-        <span className="text-sm">{fmtDate(row.payment_date)}</span>
-      ),
+      render: (row) => <span className="text-sm">{fmtDate(row.payment_date)}</span>,
     },
     {
       key: "payment_method",
@@ -85,8 +81,7 @@ export function ClientPaymentPage() {
         <span
           className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${PAYMENT_METHOD_COLORS[row.payment_method as PaymentMethod] ?? "bg-gray-100 text-gray-700"}`}
         >
-          {PAYMENT_METHOD_LABELS[row.payment_method as PaymentMethod] ??
-            row.payment_method}
+          {PAYMENT_METHOD_LABELS[row.payment_method as PaymentMethod] ?? row.payment_method}
         </span>
       ),
     },
@@ -112,12 +107,10 @@ export function ClientPaymentPage() {
   ];
 
   return (
-    <AppLayout title="Payment History" portalLabel="Client Portal">
+    <ClientLayout title="Billing">
       <div className="space-y-5">
         <div>
-          <h2 className="text-xl font-semibold text-foreground">
-            Payment History
-          </h2>
+          <h2 className="text-xl font-semibold text-foreground">Payment History</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
             All payments recorded for your account.
           </p>
@@ -128,9 +121,7 @@ export function ClientPaymentPage() {
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <IndianRupee className="h-4 w-4" />
               <span>
-                <span className="font-semibold text-foreground">
-                  {data?.total ?? 0}
-                </span>{" "}
+                <span className="font-semibold text-foreground">{data?.total ?? 0}</span>{" "}
                 payment{data?.total !== 1 ? "s" : ""}
               </span>
             </div>
@@ -149,6 +140,6 @@ export function ClientPaymentPage() {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
+    </ClientLayout>
   );
 }

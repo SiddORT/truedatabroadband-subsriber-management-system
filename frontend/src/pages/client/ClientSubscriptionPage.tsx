@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Calendar, Loader2, Wifi } from "lucide-react";
 
-import { AppLayout } from "@/layouts/AppLayout";
+import { ClientLayout } from "@/layouts/ClientLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { subscriptionsService } from "@/services/subscriptions";
 import {
@@ -35,15 +35,11 @@ export function ClientSubscriptionPage() {
   });
 
   return (
-    <AppLayout title="My Subscription" portalLabel="Client Portal">
+    <ClientLayout title="My Connections">
       <div className="mx-auto max-w-2xl space-y-6">
         <div>
-          <h2 className="text-xl font-semibold text-foreground">
-            My Subscription
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Your current broadband plan details
-          </p>
+          <h2 className="text-xl font-semibold text-foreground">My Connections</h2>
+          <p className="text-sm text-muted-foreground">Your current broadband plan details</p>
         </div>
 
         {isLoading && (
@@ -58,12 +54,9 @@ export function ClientSubscriptionPage() {
               <Wifi className="h-6 w-6 text-muted-foreground/40" />
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">
-                No Active Subscription
-              </p>
+              <p className="text-sm font-medium text-muted-foreground">No Active Subscription</p>
               <p className="mt-1 text-xs text-muted-foreground/70">
-                You don't have an active subscription yet. Please contact
-                support to get started.
+                You don't have an active subscription yet. Please contact support to get started.
               </p>
             </div>
           </div>
@@ -71,7 +64,6 @@ export function ClientSubscriptionPage() {
 
         {sub && (
           <>
-            {/* Status banner */}
             <div className="flex items-center justify-between rounded-xl border bg-surface p-5 shadow-sm">
               <div className="flex items-center gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
@@ -83,8 +75,7 @@ export function ClientSubscriptionPage() {
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {sub.speed_mbps_snapshot} Mbps ·{" "}
-                    {BILLING_CYCLE_LABELS[sub.billing_cycle_snapshot] ??
-                      sub.billing_cycle_snapshot}
+                    {BILLING_CYCLE_LABELS[sub.billing_cycle_snapshot] ?? sub.billing_cycle_snapshot}
                   </p>
                 </div>
               </div>
@@ -95,7 +86,6 @@ export function ClientSubscriptionPage() {
               </span>
             </div>
 
-            {/* Details */}
             <Card>
               <CardContent className="pt-6">
                 <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -103,16 +93,10 @@ export function ClientSubscriptionPage() {
                 </p>
                 <div className="divide-y divide-border">
                   <InfoRow label="Plan Name" value={sub.plan_name_snapshot} />
-                  <InfoRow
-                    label="Speed"
-                    value={`${sub.speed_mbps_snapshot} Mbps`}
-                  />
+                  <InfoRow label="Speed" value={`${sub.speed_mbps_snapshot} Mbps`} />
                   <InfoRow
                     label="Billing Cycle"
-                    value={
-                      BILLING_CYCLE_LABELS[sub.billing_cycle_snapshot] ??
-                      sub.billing_cycle_snapshot
-                    }
+                    value={BILLING_CYCLE_LABELS[sub.billing_cycle_snapshot] ?? sub.billing_cycle_snapshot}
                   />
                   <InfoRow
                     label="Monthly Amount"
@@ -146,12 +130,11 @@ export function ClientSubscriptionPage() {
             </Card>
 
             <p className="text-center text-xs text-muted-foreground">
-              Subscription ID:{" "}
-              <span className="font-mono">{sub.subscription_code}</span>
+              Subscription ID: <span className="font-mono">{sub.subscription_code}</span>
             </p>
           </>
         )}
       </div>
-    </AppLayout>
+    </ClientLayout>
   );
 }

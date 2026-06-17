@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Download, Eye, ReceiptText } from "lucide-react";
 
-import { AppLayout } from "@/layouts/AppLayout";
+import { ClientLayout } from "@/layouts/ClientLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
@@ -68,42 +68,32 @@ export function ClientInvoicePage() {
       key: "invoice_number",
       header: "Invoice No.",
       render: (row) => (
-        <span className="font-mono text-sm font-semibold text-primary">
-          {row.invoice_number}
-        </span>
+        <span className="font-mono text-sm font-semibold text-primary">{row.invoice_number}</span>
       ),
     },
     {
       key: "connection_name_snapshot",
       header: "Connection",
       render: (row) => (
-        <span className="font-mono text-xs text-muted-foreground">
-          {row.connection_name_snapshot}
-        </span>
+        <span className="font-mono text-xs text-muted-foreground">{row.connection_name_snapshot}</span>
       ),
     },
     {
       key: "invoice_date",
       header: "Invoice Date",
-      render: (row) => (
-        <span className="text-sm">{fmtDate(row.invoice_date)}</span>
-      ),
+      render: (row) => <span className="text-sm">{fmtDate(row.invoice_date)}</span>,
     },
     {
       key: "due_date",
       header: "Due Date",
-      render: (row) => (
-        <span className="text-sm">{fmtDate(row.due_date)}</span>
-      ),
+      render: (row) => <span className="text-sm">{fmtDate(row.due_date)}</span>,
     },
     {
       key: "total_amount",
       header: "Total",
       className: "text-right",
       render: (row) => (
-        <span className="text-sm font-medium tabular-nums">
-          {fmtMoney(row.total_amount)}
-        </span>
+        <span className="text-sm font-medium tabular-nums">{fmtMoney(row.total_amount)}</span>
       ),
     },
     {
@@ -112,9 +102,7 @@ export function ClientInvoicePage() {
       className: "text-right",
       render: (row) => (
         <span
-          className={`text-sm font-medium tabular-nums ${
-            Number(row.balance_amount) > 0 ? "text-red-600" : "text-green-600"
-          }`}
+          className={`text-sm font-medium tabular-nums ${Number(row.balance_amount) > 0 ? "text-red-600" : "text-green-600"}`}
         >
           {fmtMoney(row.balance_amount)}
         </span>
@@ -146,11 +134,7 @@ export function ClientInvoicePage() {
             <Eye className="h-3.5 w-3.5" />
             View
           </Button>
-          <a
-            href={invoicesService.clientPdfUrl(row.id)}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+          <a href={invoicesService.clientPdfUrl(row.id)} target="_blank" rel="noopener noreferrer">
             <Button variant="outline" size="sm">
               <Download className="h-3.5 w-3.5" />
             </Button>
@@ -161,7 +145,7 @@ export function ClientInvoicePage() {
   ];
 
   return (
-    <AppLayout title="My Invoices" portalLabel="Client Portal">
+    <ClientLayout title="Billing">
       <div className="space-y-5">
         <div>
           <h2 className="text-xl font-semibold text-foreground">My Invoices</h2>
@@ -175,9 +159,7 @@ export function ClientInvoicePage() {
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <ReceiptText className="h-4 w-4" />
               <span>
-                <span className="font-semibold text-foreground">
-                  {data?.total ?? 0}
-                </span>{" "}
+                <span className="font-semibold text-foreground">{data?.total ?? 0}</span>{" "}
                 invoice{data?.total !== 1 ? "s" : ""}
               </span>
             </div>
@@ -196,6 +178,6 @@ export function ClientInvoicePage() {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
+    </ClientLayout>
   );
 }

@@ -26,6 +26,8 @@ import { PaymentListPage } from "@/pages/admin/payments/PaymentListPage";
 import { PaymentCreatePage } from "@/pages/admin/payments/PaymentCreatePage";
 import { ClientInvoicePage } from "@/pages/client/ClientInvoicePage";
 import { ClientPaymentPage } from "@/pages/client/ClientPaymentPage";
+import { ProfilePage } from "@/pages/client/ProfilePage";
+import { SessionsPage } from "@/pages/client/SessionsPage";
 import { ReportsIndexPage } from "@/pages/admin/reports/ReportsIndexPage";
 import { CustomerReportPage } from "@/pages/admin/reports/CustomerReportPage";
 import { SubscriptionReportPage } from "@/pages/admin/reports/SubscriptionReportPage";
@@ -44,6 +46,22 @@ function RootRedirect() {
   const { user, mustChangePassword } = useAuth();
   if (user && mustChangePassword) return <Navigate to="/change-password" replace />;
   return <Navigate to="/admin/login" replace />;
+}
+
+function ClientRoute({ children }: { children: React.ReactNode }) {
+  return (
+    <ProtectedRoute role="CLIENT" loginPath="/client/login">
+      {children}
+    </ProtectedRoute>
+  );
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  return (
+    <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+      {children}
+    </ProtectedRoute>
+  );
 }
 
 export default function App() {
@@ -75,6 +93,9 @@ export default function App() {
         }
       />
 
+      {/* Legacy /login → admin login */}
+      <Route path="/login" element={<Navigate to="/admin/login" replace />} />
+
       {/* Force-password-change wall */}
       <Route path="/change-password" element={<ChangePasswordPage />} />
 
@@ -84,244 +105,86 @@ export default function App() {
       {/* /admin → /admin/dashboard shortcut */}
       <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
 
-      {/* Protected dashboards */}
-      <Route
-        path="/admin/dashboard"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <AdminDashboard />
-          </ProtectedRoute>
-        }
-      />
+      {/* ------------------------------------------------------------------ */}
+      {/* Admin routes                                                        */}
+      {/* ------------------------------------------------------------------ */}
+
+      <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
 
       {/* Customer management */}
-      <Route
-        path="/admin/customers"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <CustomerListPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/customers/new"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <CustomerCreatePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/customers/:id"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <CustomerDetailPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/customers/:id/edit"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <CustomerEditPage />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/admin/customers" element={<AdminRoute><CustomerListPage /></AdminRoute>} />
+      <Route path="/admin/customers/new" element={<AdminRoute><CustomerCreatePage /></AdminRoute>} />
+      <Route path="/admin/customers/:id" element={<AdminRoute><CustomerDetailPage /></AdminRoute>} />
+      <Route path="/admin/customers/:id/edit" element={<AdminRoute><CustomerEditPage /></AdminRoute>} />
 
       {/* Plans & Pricing */}
-      <Route
-        path="/admin/plans"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <PlanListPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/plans/new"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <PlanCreatePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/plans/:id"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <PlanDetailPage />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/admin/plans" element={<AdminRoute><PlanListPage /></AdminRoute>} />
+      <Route path="/admin/plans/new" element={<AdminRoute><PlanCreatePage /></AdminRoute>} />
+      <Route path="/admin/plans/:id" element={<AdminRoute><PlanDetailPage /></AdminRoute>} />
 
       {/* Subscriptions */}
-      <Route
-        path="/admin/subscriptions"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <SubscriptionListPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/subscriptions/new"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <SubscriptionCreatePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/subscriptions/:id"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <SubscriptionDetailPage />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/admin/subscriptions" element={<AdminRoute><SubscriptionListPage /></AdminRoute>} />
+      <Route path="/admin/subscriptions/new" element={<AdminRoute><SubscriptionCreatePage /></AdminRoute>} />
+      <Route path="/admin/subscriptions/:id" element={<AdminRoute><SubscriptionDetailPage /></AdminRoute>} />
 
       {/* Invoices */}
-      <Route
-        path="/admin/invoices"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <InvoiceListPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/invoices/new"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <InvoiceCreatePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/invoices/:id"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <InvoiceDetailPage />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/admin/invoices" element={<AdminRoute><InvoiceListPage /></AdminRoute>} />
+      <Route path="/admin/invoices/new" element={<AdminRoute><InvoiceCreatePage /></AdminRoute>} />
+      <Route path="/admin/invoices/:id" element={<AdminRoute><InvoiceDetailPage /></AdminRoute>} />
 
       {/* Payments */}
-      <Route
-        path="/admin/payments"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <PaymentListPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/payments/new"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <PaymentCreatePage />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/admin/payments" element={<AdminRoute><PaymentListPage /></AdminRoute>} />
+      <Route path="/admin/payments/new" element={<AdminRoute><PaymentCreatePage /></AdminRoute>} />
 
       {/* Reports */}
-      <Route path="/admin/reports" element={<ProtectedRoute role="SUPERADMIN" loginPath="/admin/login"><ReportsIndexPage /></ProtectedRoute>} />
-      <Route path="/admin/reports/customers" element={<ProtectedRoute role="SUPERADMIN" loginPath="/admin/login"><CustomerReportPage /></ProtectedRoute>} />
-      <Route path="/admin/reports/subscriptions" element={<ProtectedRoute role="SUPERADMIN" loginPath="/admin/login"><SubscriptionReportPage /></ProtectedRoute>} />
-      <Route path="/admin/reports/invoices" element={<ProtectedRoute role="SUPERADMIN" loginPath="/admin/login"><InvoiceReportPage /></ProtectedRoute>} />
-      <Route path="/admin/reports/payments" element={<ProtectedRoute role="SUPERADMIN" loginPath="/admin/login"><PaymentReportPage /></ProtectedRoute>} />
-      <Route path="/admin/reports/revenue" element={<ProtectedRoute role="SUPERADMIN" loginPath="/admin/login"><RevenueReportPage /></ProtectedRoute>} />
-      <Route path="/admin/reports/outstanding" element={<ProtectedRoute role="SUPERADMIN" loginPath="/admin/login"><OutstandingReportPage /></ProtectedRoute>} />
+      <Route path="/admin/reports" element={<AdminRoute><ReportsIndexPage /></AdminRoute>} />
+      <Route path="/admin/reports/customers" element={<AdminRoute><CustomerReportPage /></AdminRoute>} />
+      <Route path="/admin/reports/subscriptions" element={<AdminRoute><SubscriptionReportPage /></AdminRoute>} />
+      <Route path="/admin/reports/invoices" element={<AdminRoute><InvoiceReportPage /></AdminRoute>} />
+      <Route path="/admin/reports/payments" element={<AdminRoute><PaymentReportPage /></AdminRoute>} />
+      <Route path="/admin/reports/revenue" element={<AdminRoute><RevenueReportPage /></AdminRoute>} />
+      <Route path="/admin/reports/outstanding" element={<AdminRoute><OutstandingReportPage /></AdminRoute>} />
 
       {/* Notifications */}
-      <Route
-        path="/admin/notifications/templates"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <NotificationTemplatesPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/notifications/logs"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <NotificationLogsPage />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/admin/notifications/templates" element={<AdminRoute><NotificationTemplatesPage /></AdminRoute>} />
+      <Route path="/admin/notifications/logs" element={<AdminRoute><NotificationLogsPage /></AdminRoute>} />
 
-      {/* Communication Logs */}
-      <Route
-        path="/admin/communications"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <CommunicationsPage />
-          </ProtectedRoute>
-        }
-      />
+      {/* Communications */}
+      <Route path="/admin/communications" element={<AdminRoute><CommunicationsPage /></AdminRoute>} />
 
-      {/* Activity / Audit Center */}
-      <Route
-        path="/admin/activity"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <ActivityPage />
-          </ProtectedRoute>
-        }
-      />
+      {/* Activity */}
+      <Route path="/admin/activity" element={<AdminRoute><ActivityPage /></AdminRoute>} />
 
       {/* Settings */}
-      <Route
-        path="/admin/settings"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <SettingsPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/settings/communication"
-        element={
-          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
-            <CommunicationSettingsPage />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/admin/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
+      <Route path="/admin/settings/communication" element={<AdminRoute><CommunicationSettingsPage /></AdminRoute>} />
 
-      {/* Client */}
-      <Route
-        path="/client/dashboard"
-        element={
-          <ProtectedRoute role="CLIENT" loginPath="/client/login">
-            <ClientDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/client/subscription"
-        element={
-          <ProtectedRoute role="CLIENT" loginPath="/client/login">
-            <ClientSubscriptionPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/client/invoices"
-        element={
-          <ProtectedRoute role="CLIENT" loginPath="/client/login">
-            <ClientInvoicePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/client/payments"
-        element={
-          <ProtectedRoute role="CLIENT" loginPath="/client/login">
-            <ClientPaymentPage />
-          </ProtectedRoute>
-        }
-      />
+      {/* ------------------------------------------------------------------ */}
+      {/* Client routes                                                       */}
+      {/* ------------------------------------------------------------------ */}
+
+      {/* /client → /client/dashboard shortcut */}
+      <Route path="/client" element={<Navigate to="/client/dashboard" replace />} />
+
+      <Route path="/client/dashboard" element={<ClientRoute><ClientDashboard /></ClientRoute>} />
+
+      {/* My Connections (subscription detail) */}
+      <Route path="/client/connections" element={<ClientRoute><ClientSubscriptionPage /></ClientRoute>} />
+      {/* Legacy path kept for compatibility */}
+      <Route path="/client/subscription" element={<Navigate to="/client/connections" replace />} />
+
+      {/* Billing — shows invoices; payments at /client/billing/payments */}
+      <Route path="/client/billing" element={<ClientRoute><ClientInvoicePage /></ClientRoute>} />
+      <Route path="/client/billing/payments" element={<ClientRoute><ClientPaymentPage /></ClientRoute>} />
+      {/* Legacy paths */}
+      <Route path="/client/invoices" element={<Navigate to="/client/billing" replace />} />
+      <Route path="/client/payments" element={<Navigate to="/client/billing/payments" replace />} />
+
+      {/* Profile */}
+      <Route path="/client/profile" element={<ClientRoute><ProfilePage /></ClientRoute>} />
+
+      {/* Sessions */}
+      <Route path="/client/sessions" element={<ClientRoute><SessionsPage /></ClientRoute>} />
 
       {/* Catch-all */}
       <Route path="*" element={<Navigate to="/admin/login" replace />} />

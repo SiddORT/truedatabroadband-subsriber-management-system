@@ -1,0 +1,430 @@
+You are continuing development of the existing project.
+
+IMPORTANT:
+
+Follow existing architecture, coding standards, folder structure, reusable components, API conventions, authentication flow, notification services, and audit logging patterns.
+
+Implement ONLY the Client Portal Foundation.
+
+Do NOT implement:
+
+* Support ticket workflows
+* Payment gateway integration
+* Plan upgrades
+* Renewals
+* Client invoice payments
+
+Those will be implemented in later prompts.
+
+Prerequisites already exist:
+
+* Authentication & RBAC
+* Customers
+* Subscriptions
+* Invoices
+* Payments
+* OTP Login
+* Notification Framework
+* Audit Logs
+
+==================================================
+OBJECTIVE
+=========
+
+Build the foundation for the client self-service portal.
+
+Implement:
+
+* Client authentication
+* Client authorization
+* Client layout
+* Client navigation
+* Client profile management
+* Ownership validation
+
+==================================================
+USER ROLES
+==========
+
+Supported roles:
+
+* SUPERADMIN
+* CLIENT
+
+Rules:
+
+SUPERADMIN:
+
+* Can access only /admin/*
+
+CLIENT:
+
+* Can access only /client/*
+
+Prevent cross-role access.
+
+Unauthorized access must return:
+
+HTTP 403
+
+==================================================
+USER TO CUSTOMER MAPPING
+========================
+
+Each CLIENT user must be linked to exactly one customer.
+
+users table:
+
+Add:
+
+* customer_id (nullable FK → customers.id)
+
+Rules:
+
+SUPERADMIN:
+
+customer_id = null
+
+CLIENT:
+
+customer_id is required
+
+A customer can have only one login account in Phase 1.
+
+Add unique constraint:
+
+users.customer_id
+
+==================================================
+OWNERSHIP RULES
+===============
+
+Clients can access only their own data.
+
+Always enforce ownership in backend queries.
+
+Never trust frontend filtering.
+
+Rules:
+
+subscriptions.customer_id == logged_in_user.customer_id
+
+invoices.customer_id == logged_in_user.customer_id
+
+payments.customer_id == logged_in_user.customer_id
+
+Example:
+
+WHERE customer_id = current_user.customer_id
+
+Apply ownership validation to every client API.
+
+==================================================
+AUTHENTICATION
+==============
+
+Reuse existing authentication system.
+
+Support:
+
+* Email + Password
+
+OR
+
+* Mobile Number + OTP
+
+Do not create separate authentication services.
+
+Reuse:
+
+* JWT tokens
+* Refresh tokens
+* OTP service
+* Notification service
+
+==================================================
+LOGIN PAGE
+==========
+
+Create:
+
+/login
+
+Add role-aware redirect.
+
+After login:
+
+SUPERADMIN:
+
+/admin/dashboard
+
+CLIENT:
+
+/client/dashboard
+
+Add login methods:
+
+* Email + Password
+
+* Mobile + OTP
+
+==================================================
+FRONTEND ROUTES
+===============
+
+Create:
+
+/client
+
+/client/dashboard
+
+/client/connections
+
+/client/billing
+
+/client/profile
+
+/client/sessions
+
+==================================================
+CLIENT LAYOUT
+=============
+
+Create reusable:
+
+ClientLayout
+
+Components:
+
+* Header
+* Sidebar
+* Content Area
+* User Menu
+
+Sidebar:
+
+* Dashboard
+* My Connections
+* Billing
+* Profile
+* Sessions
+
+Desktop:
+
+Collapsible sidebar.
+
+Mobile:
+
+Drawer navigation.
+
+==================================================
+ROUTE PROTECTION
+================
+
+Create:
+
+ProtectedClientRoute
+
+Rules:
+
+* User must be authenticated
+
+* Role must be CLIENT
+
+* Redirect unauthorized users
+
+==================================================
+CLIENT API NAMESPACE
+====================
+
+Create dedicated APIs.
+
+Prefix:
+
+/api/v1/client
+
+Do not reuse admin routes.
+
+Create:
+
+GET /api/v1/client/profile
+
+PUT /api/v1/client/profile
+
+GET /api/v1/client/sessions
+
+POST /api/v1/client/logout-all
+
+==================================================
+PROFILE MANAGEMENT
+==================
+
+Allow clients to update:
+
+* alternate_email
+
+* alternate_mobile
+
+* communication_preferences
+
+Do not allow editing:
+
+* customer_code
+
+* primary_email
+
+* registered_mobile
+
+* gst_number
+
+* customer_type
+
+* legal_name
+
+==================================================
+SESSION MANAGEMENT
+==================
+
+Create:
+
+Active Sessions page.
+
+Display:
+
+* Device Name
+* Browser
+* IP Address
+* Login Time
+* Last Activity
+
+Actions:
+
+* Logout Current Session
+
+* Logout All Sessions
+
+==================================================
+CLIENT COMPONENTS
+=================
+
+Create reusable components:
+
+* ClientLayout
+
+* ProtectedClientRoute
+
+* ClientDataTable
+
+* EmptyState
+
+* LoadingSkeleton
+
+==================================================
+UI REQUIREMENTS
+===============
+
+Reuse existing theme.
+
+Primary:
+
+#1F4959
+
+Secondary:
+
+#5C7C89
+
+Requirements:
+
+* Fully responsive
+* Mobile-first
+* Loading states
+* Error states
+* Empty states
+
+==================================================
+SECURITY REQUIREMENTS
+=====================
+
+Clients must never access:
+
+* /admin/*
+
+* Admin APIs
+
+Prevent ID enumeration.
+
+Never expose:
+
+* Internal IDs
+
+Use UUIDs only.
+
+Enforce ownership checks in backend services.
+
+Log unauthorized access attempts.
+
+==================================================
+AUDIT LOGGING
+=============
+
+Track:
+
+* client_login
+
+* client_logout
+
+* client_logout_all
+
+* client_profile_updated
+
+* unauthorized_client_access_attempt
+
+==================================================
+TESTING
+=======
+
+Create tests for:
+
+* Client login
+
+* OTP login
+
+* Role-based redirects
+
+* Ownership validation
+
+* API authorization
+
+* Session management
+
+* Profile updates
+
+* Unauthorized access
+
+==================================================
+ACCEPTANCE CRITERIA
+===================
+
+Success means:
+
+1. Client login works
+
+2. OTP login works
+
+3. Role-based redirects work
+
+4. Clients cannot access admin routes
+
+5. Clients cannot access other customers' data
+
+6. Ownership validation works in backend
+
+7. Client layout is responsive
+
+8. Session management works
+
+9. Profile updates work
+
+10. Unauthorized access is blocked
+
+11. Audit logs are created

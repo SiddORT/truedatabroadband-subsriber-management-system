@@ -68,6 +68,14 @@ ACTION_NOTIFICATION_TEST_SMS_SENT = "test_sms_sent"
 ACTION_NOTIFICATION_SENT = "notification_sent"
 ACTION_NOTIFICATION_FAILED = "notification_failed"
 
+# Client portal domain
+ACTION_CLIENT_LOGIN = "client_login"
+ACTION_CLIENT_LOGOUT = "client_logout"
+ACTION_CLIENT_LOGOUT_ALL = "client_logout_all"
+ACTION_CLIENT_PROFILE_UPDATED = "client_profile_updated"
+ACTION_CLIENT_SESSION_REVOKED = "client_session_revoked"
+ACTION_CLIENT_UNAUTHORIZED_ACCESS = "unauthorized_client_access_attempt"
+
 # Communication / OTP domain
 ACTION_SMS_SETTINGS_UPDATED = "sms_settings_updated"
 ACTION_EMAIL_SETTINGS_UPDATED = "email_settings_updated"
@@ -84,6 +92,10 @@ ACTION_OTP_FAILED = "otp_failed"
 
 def derive_module(action: str) -> str:
     """Derive the logical module name from an action string."""
+    if action.startswith("client_"):
+        return "CLIENT"
+    if action == "unauthorized_client_access_attempt":
+        return "CLIENT"
     if action in ("login", "logout") or "password" in action:
         return "AUTH"
     if action.startswith("customer"):
