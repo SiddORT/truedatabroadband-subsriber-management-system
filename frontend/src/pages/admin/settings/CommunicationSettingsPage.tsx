@@ -489,7 +489,7 @@ export function CommunicationSettingsPage() {
 
   return (
     <AppLayout title="Communication Settings" portalLabel="Administration">
-      <div className="p-6 max-w-3xl mx-auto space-y-6">
+      <div className="p-6 space-y-6">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-[#1F4959]">Communication Settings</h1>
