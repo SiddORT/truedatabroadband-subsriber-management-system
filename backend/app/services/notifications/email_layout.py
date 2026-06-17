@@ -36,8 +36,11 @@ def render_email_html(
     # ── Header content ────────────────────────────────────────────────────
     if logo_url:
         header_img = (
+            f'<div style="display:inline-block;background:#ffffff;'
+            f'border-radius:10px;padding:10px 20px;margin-bottom:14px;">'
             f'<img src="{logo_url}" alt="{safe_company}" '
-            f'style="max-height:48px;max-width:200px;display:block;margin:0 auto 10px;" />'
+            f'style="max-height:44px;max-width:180px;display:block;" />'
+            f'</div>'
         )
     else:
         header_img = ""
