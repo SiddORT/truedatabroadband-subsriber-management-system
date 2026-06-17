@@ -1,0 +1,492 @@
+You are continuing development of the existing project.
+
+IMPORTANT:
+
+Follow existing architecture, coding standards, folder structure, reusable components, API conventions, authentication flow, ownership validation rules, notification services, file storage standards, and audit logging patterns.
+
+Implement ONLY the Client Billing & Invoices module.
+
+Do NOT implement:
+
+* Payment gateway integration
+* Online payments
+* Auto-renewals
+* Plan changes
+* Support tickets
+
+These will be implemented in later prompts.
+
+Prerequisites already exist:
+
+* Client Portal Foundation
+* Client Dashboard
+* Invoices
+* Payments
+* Invoice PDFs
+* Invoice Email Service
+* OTP Login
+* Notifications
+* Audit Logs
+
+==================================================
+OBJECTIVE
+=========
+
+Provide customers with complete visibility into their billing information.
+
+Clients must be able to:
+
+* View invoices
+* View invoice details
+* Download invoice PDFs
+* Request invoice emails
+* View payment history
+* View outstanding balances
+
+Clients must never be able to:
+
+* Edit invoices
+* Create invoices
+* Delete invoices
+* Record payments
+
+==================================================
+OWNERSHIP RULES
+===============
+
+All APIs must enforce:
+
+customer_id = logged_in_user.customer_id
+
+Never trust frontend filtering.
+
+Never expose another customer's data.
+
+Do not reuse admin APIs.
+
+Create dedicated client APIs.
+
+==================================================
+FRONTEND ROUTES
+===============
+
+Create:
+
+/client/billing
+
+/client/billing/invoices
+
+/client/billing/invoices/{invoice_id}
+
+/client/billing/payments
+
+==================================================
+API ROUTES
+==========
+
+Invoices:
+
+GET /api/v1/client/invoices
+
+GET /api/v1/client/invoices/{id}
+
+POST /api/v1/client/invoices/{id}/email
+
+Payments:
+
+GET /api/v1/client/payments
+
+GET /api/v1/client/payments/{id}
+
+Summary:
+
+GET /api/v1/client/billing/summary
+
+==================================================
+BILLING SUMMARY
+===============
+
+Display KPI cards.
+
+Show:
+
+Total Invoiced Amount
+
+Total Paid Amount
+
+Outstanding Amount
+
+Overdue Amount
+
+Last Payment Amount
+
+Last Payment Date
+
+All values must use:
+
+₹ currency symbol
+
+Indian number formatting.
+
+==================================================
+INVOICE LIST
+============
+
+Default sorting:
+
+created_at DESC
+
+Newest first.
+
+Columns:
+
+* Invoice Number
+* Connection Name
+* Invoice Date
+* Due Date
+* Total Amount
+* Paid Amount
+* Balance Amount
+* Status
+
+Statuses:
+
+* UNPAID
+* PARTIALLY_PAID
+* PAID
+* OVERDUE
+* CANCELLED
+
+Actions:
+
+* View Details
+* Download PDF
+* Email Invoice
+
+==================================================
+INVOICE FILTERS
+===============
+
+Filters must be server-side.
+
+Search:
+
+* Invoice Number
+* Connection Name
+
+Filters:
+
+* Status
+
+* Connection
+
+Invoice Date Range:
+
+* Start Date
+* End Date
+
+Due Date Range:
+
+* Start Date
+* End Date
+
+Quick Filters:
+
+* Due Today
+* Due in 7 Days
+* Overdue
+
+==================================================
+INVOICE DETAILS PAGE
+====================
+
+Display:
+
+Invoice Information:
+
+* Invoice Number
+* Invoice Date
+* Due Date
+* Status
+
+Connection Information:
+
+* Connection Name
+* Plan Name
+* Billing Period
+
+Financial Information:
+
+* Subtotal
+* Discounts
+* GST
+* Total Amount
+* Paid Amount
+* Outstanding Amount
+
+Payment Information:
+
+* Payment History
+
+Actions:
+
+* Download PDF
+* Email Invoice
+
+Use existing invoice snapshots.
+
+Never query live plan or company data.
+
+==================================================
+DOWNLOAD PDF
+============
+
+Use existing PDF files.
+
+Source:
+
+invoice.pdf_path
+
+Do not regenerate PDFs.
+
+Only allow access to owned invoices.
+
+==================================================
+EMAIL INVOICE
+=============
+
+Allow client to request invoice delivery.
+
+Button:
+
+Email Invoice
+
+Action:
+
+POST /api/v1/client/invoices/{id}/email
+
+Requirements:
+
+* Use existing INVOICE_GENERATED template
+
+* Send to registered customer email
+
+* Prevent duplicate sends within 5 minutes
+
+* Create communication logs
+
+==================================================
+PAYMENT HISTORY
+===============
+
+Default sorting:
+
+payment_date DESC
+
+Columns:
+
+* Payment Date
+* Invoice Number
+* Connection Name
+* Amount
+* Payment Method
+* Transaction Reference
+
+Methods:
+
+* CASH
+* UPI
+* BANK_TRANSFER
+* CHEQUE
+
+Filters:
+
+* Connection
+
+Payment Date Range:
+
+* Start Date
+* End Date
+
+==================================================
+OUTSTANDING INVOICES
+====================
+
+Display unpaid invoices.
+
+Condition:
+
+balance_amount > 0
+
+Sort:
+
+due_date ASC
+
+Highlight:
+
+* Due within 7 days
+
+* Overdue
+
+Display:
+
+Days Overdue
+
+==================================================
+PAGINATION STANDARD
+===================
+
+Support:
+
+* page
+* page_size
+* search
+* sort_by
+* sort_order
+
+Default:
+
+page_size = 25
+
+Allowed:
+
+10, 25, 50, 100
+
+==================================================
+EMPTY STATES
+============
+
+Invoices:
+
+"No invoices found."
+
+Payments:
+
+"No payment history found."
+
+Outstanding:
+
+"No outstanding invoices."
+
+==================================================
+UI REQUIREMENTS
+===============
+
+Reuse existing theme.
+
+Primary:
+
+#1F4959
+
+Secondary:
+
+#5C7C89
+
+Requirements:
+
+* Fully responsive
+* Mobile friendly
+* Loading skeletons
+* Empty states
+* Error states
+
+Use:
+
+* Existing DataTable component
+* Existing card components
+
+Desktop:
+
+4-column summary grid.
+
+Tablet:
+
+2-column layout.
+
+Mobile:
+
+Single-column layout.
+
+==================================================
+SECURITY REQUIREMENTS
+=====================
+
+Prevent:
+
+* ID enumeration
+
+* Access to other customer invoices
+
+* Access to other customer payments
+
+Use UUIDs only.
+
+Enforce ownership validation in backend services.
+
+Log unauthorized access attempts.
+
+==================================================
+AUDIT LOGGING
+=============
+
+Track:
+
+* client_billing_viewed
+
+* client_invoice_viewed
+
+* client_invoice_downloaded
+
+* client_invoice_emailed
+
+* client_payment_history_viewed
+
+* unauthorized_client_access_attempt
+
+==================================================
+TESTING
+=======
+
+Create tests for:
+
+* Ownership validation
+
+* Invoice filtering
+
+* Payment filtering
+
+* PDF download authorization
+
+* Invoice email requests
+
+* Outstanding calculations
+
+* Pagination
+
+* Unauthorized access
+
+==================================================
+ACCEPTANCE CRITERIA
+===================
+
+Success means:
+
+1. Customers can view only their invoices
+
+2. Customers can view only their payments
+
+3. Invoice filters work correctly
+
+4. Payment filters work correctly
+
+5. Invoice PDFs download correctly
+
+6. Invoice emails are sent successfully
+
+7. Outstanding balances are accurate
+
+8. Dashboard totals match billing totals
+
+9. Unauthorized access is blocked
+
+10. Audit logs are created

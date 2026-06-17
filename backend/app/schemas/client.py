@@ -131,3 +131,93 @@ class DashboardNotification(BaseModel):
     template_key: str
     channel: str
     status: str
+
+
+# ---------------------------------------------------------------------------
+# Billing & Invoices
+# ---------------------------------------------------------------------------
+
+class BillingSummary(BaseModel):
+    total_invoiced: Decimal
+    total_paid: Decimal
+    outstanding_amount: Decimal
+    overdue_amount: Decimal
+    last_payment_amount: Decimal | None = None
+    last_payment_date: str | None = None
+
+
+class ClientInvoiceListItem(BaseModel):
+    id: uuid.UUID
+    invoice_number: str
+    connection_name: str | None
+    invoice_date: str
+    due_date: str
+    total_amount: Decimal
+    paid_amount: Decimal
+    balance_amount: Decimal
+    status: str
+
+
+class ClientInvoicesPage(BaseModel):
+    items: list[ClientInvoiceListItem]
+    total: int
+    page: int
+    page_size: int
+    pages: int
+
+
+class ClientInvoicePayment(BaseModel):
+    id: uuid.UUID
+    payment_number: str
+    payment_date: str
+    amount: Decimal
+    payment_method: str
+    transaction_reference: str | None = None
+
+
+class ClientInvoiceDetail(BaseModel):
+    id: uuid.UUID
+    invoice_number: str
+    invoice_date: str
+    due_date: str
+    status: str
+    # Connection
+    connection_name: str | None
+    plan_name: str
+    billing_period_start: str
+    billing_period_end: str
+    # Financial
+    base_amount: Decimal
+    discount_amount: Decimal
+    gst_amount: Decimal
+    gst_percentage: Decimal
+    total_amount: Decimal
+    paid_amount: Decimal
+    balance_amount: Decimal
+    # Payments
+    payments: list[ClientInvoicePayment]
+    # Meta
+    pdf_available: bool
+
+
+# ---------------------------------------------------------------------------
+# Payments
+# ---------------------------------------------------------------------------
+
+class ClientPaymentListItem(BaseModel):
+    id: uuid.UUID
+    payment_number: str
+    payment_date: str
+    invoice_number: str
+    connection_name: str | None
+    amount: Decimal
+    payment_method: str
+    transaction_reference: str | None = None
+
+
+class ClientPaymentsPage(BaseModel):
+    items: list[ClientPaymentListItem]
+    total: int
+    page: int
+    page_size: int
+    pages: int

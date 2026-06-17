@@ -92,3 +92,89 @@ export interface DashboardNotification {
   channel: string;
   status: string;
 }
+
+// ---------------------------------------------------------------------------
+// Billing & Invoices
+// ---------------------------------------------------------------------------
+
+export interface BillingSummary {
+  total_invoiced: string;
+  total_paid: string;
+  outstanding_amount: string;
+  overdue_amount: string;
+  last_payment_amount: string | null;
+  last_payment_date: string | null;
+}
+
+export interface ClientInvoiceListItem {
+  id: string;
+  invoice_number: string;
+  connection_name: string | null;
+  invoice_date: string;
+  due_date: string;
+  total_amount: string;
+  paid_amount: string;
+  balance_amount: string;
+  status: string;
+}
+
+export interface ClientInvoicesPage {
+  items: ClientInvoiceListItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
+}
+
+export interface ClientInvoicePayment {
+  id: string;
+  payment_number: string;
+  payment_date: string;
+  amount: string;
+  payment_method: string;
+  transaction_reference: string | null;
+}
+
+export interface ClientInvoiceDetail {
+  id: string;
+  invoice_number: string;
+  invoice_date: string;
+  due_date: string;
+  status: string;
+  connection_name: string | null;
+  plan_name: string;
+  billing_period_start: string;
+  billing_period_end: string;
+  base_amount: string;
+  discount_amount: string;
+  gst_amount: string;
+  gst_percentage: string;
+  total_amount: string;
+  paid_amount: string;
+  balance_amount: string;
+  payments: ClientInvoicePayment[];
+  pdf_available: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Payments
+// ---------------------------------------------------------------------------
+
+export interface ClientPaymentListItem {
+  id: string;
+  payment_number: string;
+  payment_date: string;
+  invoice_number: string;
+  connection_name: string | null;
+  amount: string;
+  payment_method: string;
+  transaction_reference: string | null;
+}
+
+export interface ClientPaymentsPage {
+  items: ClientPaymentListItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
+}

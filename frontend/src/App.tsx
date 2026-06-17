@@ -24,7 +24,9 @@ import { InvoiceCreatePage } from "@/pages/admin/invoices/InvoiceCreatePage";
 import { InvoiceDetailPage } from "@/pages/admin/invoices/InvoiceDetailPage";
 import { PaymentListPage } from "@/pages/admin/payments/PaymentListPage";
 import { PaymentCreatePage } from "@/pages/admin/payments/PaymentCreatePage";
+import { BillingOverviewPage } from "@/pages/client/BillingOverviewPage";
 import { ClientInvoicePage } from "@/pages/client/ClientInvoicePage";
+import { ClientInvoiceDetailPage } from "@/pages/client/ClientInvoiceDetailPage";
 import { ClientPaymentPage } from "@/pages/client/ClientPaymentPage";
 import { ProfilePage } from "@/pages/client/ProfilePage";
 import { SessionsPage } from "@/pages/client/SessionsPage";
@@ -173,11 +175,13 @@ export default function App() {
       {/* Legacy path kept for compatibility */}
       <Route path="/client/subscription" element={<Navigate to="/client/connections" replace />} />
 
-      {/* Billing — shows invoices; payments at /client/billing/payments */}
-      <Route path="/client/billing" element={<ClientRoute><ClientInvoicePage /></ClientRoute>} />
+      {/* Billing */}
+      <Route path="/client/billing" element={<ClientRoute><BillingOverviewPage /></ClientRoute>} />
+      <Route path="/client/billing/invoices" element={<ClientRoute><ClientInvoicePage /></ClientRoute>} />
+      <Route path="/client/billing/invoices/:id" element={<ClientRoute><ClientInvoiceDetailPage /></ClientRoute>} />
       <Route path="/client/billing/payments" element={<ClientRoute><ClientPaymentPage /></ClientRoute>} />
       {/* Legacy paths */}
-      <Route path="/client/invoices" element={<Navigate to="/client/billing" replace />} />
+      <Route path="/client/invoices" element={<Navigate to="/client/billing/invoices" replace />} />
       <Route path="/client/payments" element={<Navigate to="/client/billing/payments" replace />} />
 
       {/* Profile */}

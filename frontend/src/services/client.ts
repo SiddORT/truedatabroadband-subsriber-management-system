@@ -1,5 +1,10 @@
 import { api } from "@/services/api";
 import type {
+  BillingSummary,
+  ClientInvoiceDetail,
+  ClientInvoicesPage,
+  ClientPaymentListItem,
+  ClientPaymentsPage,
   ClientProfile,
   ClientProfileUpdate,
   ClientSession,
@@ -57,6 +62,71 @@ export const clientService = {
 
   async getDashboardNotifications(): Promise<DashboardNotification[]> {
     const { data } = await api.get<DashboardNotification[]>("/client/dashboard/notifications");
+    return data;
+  },
+
+  // Billing summary
+  async getBillingSummary(): Promise<BillingSummary> {
+    const { data } = await api.get<BillingSummary>("/client/billing/summary");
+    return data;
+  },
+
+  // Invoice list (with filters)
+  async listInvoices(params: {
+    page?: number;
+    page_size?: number;
+    search?: string;
+    status?: string;
+    connection_id?: string;
+    invoice_date_start?: string;
+    invoice_date_end?: string;
+    due_date_start?: string;
+    due_date_end?: string;
+    due_today?: boolean;
+    due_in_7_days?: boolean;
+    overdue?: boolean;
+    sort_by?: string;
+    sort_order?: string;
+  }): Promise<ClientInvoicesPage> {
+    const { data } = await api.get<ClientInvoicesPage>("/client/invoices", { params });
+    return data;
+  },
+
+  // Invoice detail
+  async getInvoiceDetail(id: string): Promise<ClientInvoiceDetail> {
+    const { data } = await api.get<ClientInvoiceDetail>(`/client/invoices/${id}`);
+    return data;
+  },
+
+  // Invoice PDF URL
+  invoicePdfUrl(id: string): string {
+    return `/api/v1/client/invoices/${id}/pdf`;
+  },
+
+  // Email invoice
+  async emailInvoice(id: string): Promise<{ message: string }> {
+    const { data } = await api.post<{ message: string }>(`/client/invoices/${id}/email`);
+    return data;
+  },
+
+  // Payment list (with filters)
+  async listPayments(params: {
+    page?: number;
+    page_size?: number;
+    search?: string;
+    connection_id?: string;
+    payment_date_start?: string;
+    payment_date_end?: string;
+    sort_by?: string;
+    sort_order?: string;
+  }): Promise<ClientPaymentsPage> {
+    const { data } = await api.get<ClientPaymentsPage>("/client/payments", { params });
+    return data;
+  },
+
+  // Payment detail
+  async getPaymentDetail(id: string): Promise<ClientPaymentListItem> {
+    const { data } = await api.get<ClientPaymentListItem>(`/client/payments/${id}`);
     return data;
   },
 };

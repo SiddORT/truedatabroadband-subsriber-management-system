@@ -5,25 +5,31 @@ Ownership is enforced at the query level (customer_id == current_user's customer
 """
 from __future__ import annotations
 
+import math
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import FileResponse
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.dependencies.auth import require_client
 from app.models.audit_log import (
+    ACTION_CLIENT_BILLING_VIEWED,
     ACTION_CLIENT_DASHBOARD_VIEWED,
     ACTION_CLIENT_INVOICE_DOWNLOADED,
+    ACTION_CLIENT_INVOICE_EMAILED,
+    ACTION_CLIENT_INVOICE_VIEWED,
     ACTION_CLIENT_LOGOUT_ALL,
+    ACTION_CLIENT_PAYMENT_HISTORY_VIEWED,
     ACTION_CLIENT_PROFILE_UPDATED,
     ACTION_CLIENT_SESSION_REVOKED,
     ACTION_CLIENT_UNAUTHORIZED_ACCESS,
 )
 from app.models.invoice import Invoice, InvoiceStatus
-from app.models.notification import NotificationLog
+from app.models.notification import NotificationLog, TemplateKey
 from app.models.payment import Payment
 from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.user import User
@@ -32,6 +38,13 @@ from app.repositories.customer import CustomerRepository
 from app.repositories.refresh_token import RefreshTokenRepository
 from app.schemas.auth import MessageResponse
 from app.schemas.client import (
+    BillingSummary,
+    ClientInvoiceDetail,
+    ClientInvoiceListItem,
+    ClientInvoicePayment,
+    ClientInvoicesPage,
+    ClientPaymentListItem,
+    ClientPaymentsPage,
     ClientProfileOut,
     ClientProfileUpdate,
     DashboardConnection,
@@ -44,6 +57,8 @@ from app.schemas.client import (
     RevokeSessionRequest,
     SessionOut,
 )
+from app.services.invoice import InvoiceService
+from app.services.notifications.notification_service import NotificationService
 
 router = APIRouter(prefix="/client", tags=["client"])
 
@@ -563,3 +578,503 @@ def dashboard_notifications(
         )
         for r in rows
     ]
+
+
+# ---------------------------------------------------------------------------
+# Billing helpers
+# ---------------------------------------------------------------------------
+
+_VALID_SORT_COLS = {
+    "invoice_date": Invoice.invoice_date,
+    "due_date": Invoice.due_date,
+    "total_amount": Invoice.total_amount,
+    "invoice_number": Invoice.invoice_number,
+    "status": Invoice.status,
+    "created_at": Invoice.created_at,
+}
+
+_NON_DRAFT_STATUSES = [
+    InvoiceStatus.UNPAID,
+    InvoiceStatus.PARTIALLY_PAID,
+    InvoiceStatus.PAID,
+    InvoiceStatus.OVERDUE,
+    InvoiceStatus.CANCELLED,
+]
+
+_OUTSTANDING_STATUSES = [
+    InvoiceStatus.UNPAID,
+    InvoiceStatus.PARTIALLY_PAID,
+    InvoiceStatus.OVERDUE,
+]
+
+
+def _get_owned_invoice_or_404(invoice_id: uuid.UUID, customer, db: Session) -> Invoice:
+    """Fetch an invoice that belongs to this customer. Returns 404 for both
+    not-found and access-denied (prevents ID enumeration)."""
+    inv = (
+        db.query(Invoice)
+        .filter(
+            Invoice.id == invoice_id,
+            _invoice_ownership_filter(customer, db),
+            Invoice.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if inv is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found.")
+    return inv
+
+
+def _get_owned_payment_or_404(payment_id: uuid.UUID, customer, db: Session) -> Payment:
+    """Fetch a payment that belongs to this customer via invoice ownership."""
+    pay = (
+        db.query(Payment)
+        .join(Invoice, Payment.invoice_id == Invoice.id)
+        .filter(
+            Payment.id == payment_id,
+            _invoice_ownership_filter(customer, db),
+            Payment.deleted_at.is_(None),
+            Invoice.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if pay is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found.")
+    return pay
+
+
+# ---------------------------------------------------------------------------
+# Billing — Summary KPIs
+# ---------------------------------------------------------------------------
+
+
+@router.get("/billing/summary", response_model=BillingSummary)
+def billing_summary(
+    request: Request,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> BillingSummary:
+    customer = _get_customer_or_403(current_user, db, request)
+    inv_filter = _invoice_ownership_filter(customer, db)
+
+    base_q = db.query(Invoice).filter(
+        inv_filter,
+        Invoice.status.in_(_NON_DRAFT_STATUSES),
+        Invoice.deleted_at.is_(None),
+    )
+
+    total_invoiced = (
+        db.query(func.coalesce(func.sum(Invoice.total_amount), 0))
+        .filter(inv_filter, Invoice.status.in_(_NON_DRAFT_STATUSES), Invoice.deleted_at.is_(None))
+        .scalar()
+        or 0
+    )
+
+    total_paid = (
+        db.query(func.coalesce(func.sum(Invoice.paid_amount), 0))
+        .filter(inv_filter, Invoice.status.in_(_NON_DRAFT_STATUSES), Invoice.deleted_at.is_(None))
+        .scalar()
+        or 0
+    )
+
+    outstanding_amount = (
+        db.query(func.coalesce(func.sum(Invoice.balance_amount), 0))
+        .filter(
+            inv_filter,
+            Invoice.status.in_(_OUTSTANDING_STATUSES),
+            Invoice.balance_amount > 0,
+            Invoice.deleted_at.is_(None),
+        )
+        .scalar()
+        or 0
+    )
+
+    overdue_amount = (
+        db.query(func.coalesce(func.sum(Invoice.balance_amount), 0))
+        .filter(
+            inv_filter,
+            Invoice.status == InvoiceStatus.OVERDUE,
+            Invoice.deleted_at.is_(None),
+        )
+        .scalar()
+        or 0
+    )
+
+    last_pay = (
+        db.query(Payment.amount, Payment.payment_date)
+        .join(Invoice, Payment.invoice_id == Invoice.id)
+        .filter(inv_filter, Payment.deleted_at.is_(None), Invoice.deleted_at.is_(None))
+        .order_by(Payment.payment_date.desc(), Payment.created_at.desc())
+        .first()
+    )
+
+    _audit(db, ACTION_CLIENT_BILLING_VIEWED, request, user_id=current_user.id)
+
+    return BillingSummary(
+        total_invoiced=total_invoiced,
+        total_paid=total_paid,
+        outstanding_amount=outstanding_amount,
+        overdue_amount=overdue_amount,
+        last_payment_amount=last_pay.amount if last_pay else None,
+        last_payment_date=last_pay.payment_date.isoformat() if last_pay else None,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Billing — Invoice list
+# ---------------------------------------------------------------------------
+
+
+@router.get("/invoices", response_model=ClientInvoicesPage)
+def list_invoices(
+    request: Request,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    search: str = Query(""),
+    filter_status: str | None = Query(None, alias="status"),
+    connection_id: uuid.UUID | None = Query(None),
+    invoice_date_start: date | None = Query(None),
+    invoice_date_end: date | None = Query(None),
+    due_date_start: date | None = Query(None),
+    due_date_end: date | None = Query(None),
+    due_today: bool = Query(False),
+    due_in_7_days: bool = Query(False),
+    overdue: bool = Query(False),
+    sort_by: str = Query("invoice_date"),
+    sort_order: str = Query("desc"),
+) -> ClientInvoicesPage:
+    customer = _get_customer_or_403(current_user, db, request)
+    inv_filter = _invoice_ownership_filter(customer, db)
+    today = date.today()
+
+    q = db.query(Invoice).filter(
+        inv_filter,
+        Invoice.status.in_(_NON_DRAFT_STATUSES),
+        Invoice.deleted_at.is_(None),
+    )
+
+    if search:
+        pat = f"%{search}%"
+        q = q.filter(
+            or_(
+                Invoice.invoice_number.ilike(pat),
+                Invoice.connection_name_snapshot.ilike(pat),
+            )
+        )
+
+    if filter_status and filter_status in InvoiceStatus.__members__:
+        q = q.filter(Invoice.status == InvoiceStatus[filter_status])
+
+    if connection_id:
+        q = q.filter(Invoice.subscription_id == connection_id)
+
+    if invoice_date_start:
+        q = q.filter(Invoice.invoice_date >= invoice_date_start)
+    if invoice_date_end:
+        q = q.filter(Invoice.invoice_date <= invoice_date_end)
+
+    if due_date_start:
+        q = q.filter(Invoice.due_date >= due_date_start)
+    if due_date_end:
+        q = q.filter(Invoice.due_date <= due_date_end)
+
+    if due_today:
+        q = q.filter(Invoice.due_date == today)
+    if due_in_7_days:
+        q = q.filter(Invoice.due_date >= today, Invoice.due_date <= today + timedelta(days=7))
+    if overdue:
+        q = q.filter(Invoice.status == InvoiceStatus.OVERDUE)
+
+    sort_col = _VALID_SORT_COLS.get(sort_by, Invoice.invoice_date)
+    q = q.order_by(sort_col.asc() if sort_order == "asc" else sort_col.desc())
+
+    total = q.count()
+    pages = max(1, math.ceil(total / page_size))
+    offset = (page - 1) * page_size
+    rows = q.offset(offset).limit(page_size).all()
+
+    _audit(db, ACTION_CLIENT_BILLING_VIEWED, request, user_id=current_user.id)
+
+    return ClientInvoicesPage(
+        items=[
+            ClientInvoiceListItem(
+                id=r.id,
+                invoice_number=r.invoice_number,
+                connection_name=r.connection_name_snapshot,
+                invoice_date=r.invoice_date.isoformat(),
+                due_date=r.due_date.isoformat(),
+                total_amount=r.total_amount,
+                paid_amount=r.paid_amount,
+                balance_amount=r.balance_amount,
+                status=r.status.value,
+            )
+            for r in rows
+        ],
+        total=total,
+        page=page,
+        page_size=page_size,
+        pages=pages,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Billing — Invoice detail
+# ---------------------------------------------------------------------------
+
+
+@router.get("/invoices/{invoice_id}", response_model=ClientInvoiceDetail)
+def get_invoice_detail(
+    invoice_id: uuid.UUID,
+    request: Request,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> ClientInvoiceDetail:
+    customer = _get_customer_or_403(current_user, db, request)
+    invoice = _get_owned_invoice_or_404(invoice_id, customer, db)
+
+    payments = [
+        ClientInvoicePayment(
+            id=p.id,
+            payment_number=p.payment_number,
+            payment_date=p.payment_date.isoformat(),
+            amount=p.amount,
+            payment_method=p.payment_method.value,
+            transaction_reference=p.transaction_reference,
+        )
+        for p in sorted(invoice.payments, key=lambda x: x.payment_date, reverse=True)
+        if p.deleted_at is None
+    ]
+
+    _audit(db, ACTION_CLIENT_INVOICE_VIEWED, request, user_id=current_user.id)
+
+    return ClientInvoiceDetail(
+        id=invoice.id,
+        invoice_number=invoice.invoice_number,
+        invoice_date=invoice.invoice_date.isoformat(),
+        due_date=invoice.due_date.isoformat(),
+        status=invoice.status.value,
+        connection_name=invoice.connection_name_snapshot,
+        plan_name=invoice.plan_name_snapshot,
+        billing_period_start=invoice.billing_period_start.isoformat(),
+        billing_period_end=invoice.billing_period_end.isoformat(),
+        base_amount=invoice.base_amount,
+        discount_amount=invoice.discount_amount,
+        gst_amount=invoice.gst_amount,
+        gst_percentage=invoice.gst_percentage,
+        total_amount=invoice.total_amount,
+        paid_amount=invoice.paid_amount,
+        balance_amount=invoice.balance_amount,
+        payments=payments,
+        pdf_available=bool(invoice.pdf_path),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Billing — Invoice PDF download
+# ---------------------------------------------------------------------------
+
+
+@router.get("/invoices/{invoice_id}/pdf")
+def download_invoice_pdf(
+    invoice_id: uuid.UUID,
+    request: Request,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> FileResponse:
+    customer = _get_customer_or_403(current_user, db, request)
+    invoice = _get_owned_invoice_or_404(invoice_id, customer, db)
+
+    if not invoice.pdf_path:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="PDF not yet available for this invoice.",
+        )
+
+    from app.storage.service import get_storage_service
+
+    storage = get_storage_service()
+    if not storage.exists("invoices", invoice.pdf_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="PDF file not found.",
+        )
+
+    path = storage.url("invoices", invoice.pdf_path)
+
+    _audit(db, ACTION_CLIENT_INVOICE_DOWNLOADED, request, user_id=current_user.id)
+
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename=f"{invoice.invoice_number}.pdf",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Billing — Email invoice
+# ---------------------------------------------------------------------------
+
+
+@router.post("/invoices/{invoice_id}/email", response_model=MessageResponse)
+def email_invoice(
+    invoice_id: uuid.UUID,
+    request: Request,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    customer = _get_customer_or_403(current_user, db, request)
+    invoice = _get_owned_invoice_or_404(invoice_id, customer, db)
+
+    five_min_ago = datetime.utcnow() - timedelta(minutes=5)
+    recent = (
+        db.query(NotificationLog)
+        .filter(
+            NotificationLog.entity_type == "INVOICE",
+            NotificationLog.entity_id == str(invoice.id),
+            NotificationLog.template_key == TemplateKey.INVOICE_GENERATED,
+            NotificationLog.created_at >= five_min_ago,
+        )
+        .first()
+    )
+    if recent:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Invoice email was sent recently. Please wait 5 minutes before requesting again.",
+        )
+
+    svc = NotificationService(db)
+    svc.send(
+        template_key=TemplateKey.INVOICE_GENERATED,
+        recipient={"email": customer.email, "mobile": customer.mobile_number},
+        variables={
+            "customer_name": invoice.customer_name_snapshot,
+            "invoice_number": invoice.invoice_number,
+            "amount": str(invoice.total_amount),
+            "due_date": invoice.due_date.isoformat(),
+            "portal_url": "",
+        },
+        entity_type="INVOICE",
+        entity_id=str(invoice.id),
+        customer_id=customer.id,
+    )
+
+    _audit(db, ACTION_CLIENT_INVOICE_EMAILED, request, user_id=current_user.id)
+    return MessageResponse(message="Invoice email sent successfully.")
+
+
+# ---------------------------------------------------------------------------
+# Billing — Payment list
+# ---------------------------------------------------------------------------
+
+
+@router.get("/payments", response_model=ClientPaymentsPage)
+def list_payments(
+    request: Request,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    search: str = Query(""),
+    connection_id: uuid.UUID | None = Query(None),
+    payment_date_start: date | None = Query(None),
+    payment_date_end: date | None = Query(None),
+    sort_by: str = Query("payment_date"),
+    sort_order: str = Query("desc"),
+) -> ClientPaymentsPage:
+    customer = _get_customer_or_403(current_user, db, request)
+    inv_filter = _invoice_ownership_filter(customer, db)
+
+    q = (
+        db.query(Payment)
+        .join(Invoice, Payment.invoice_id == Invoice.id)
+        .filter(
+            inv_filter,
+            Payment.deleted_at.is_(None),
+            Invoice.deleted_at.is_(None),
+        )
+    )
+
+    if search:
+        pat = f"%{search}%"
+        q = q.filter(
+            or_(
+                Payment.payment_number.ilike(pat),
+                Invoice.invoice_number.ilike(pat),
+                Invoice.connection_name_snapshot.ilike(pat),
+                Payment.transaction_reference.ilike(pat),
+            )
+        )
+
+    if connection_id:
+        q = q.filter(Invoice.subscription_id == connection_id)
+
+    if payment_date_start:
+        q = q.filter(Payment.payment_date >= payment_date_start)
+    if payment_date_end:
+        q = q.filter(Payment.payment_date <= payment_date_end)
+
+    pay_sort_cols = {
+        "payment_date": Payment.payment_date,
+        "amount": Payment.amount,
+        "payment_number": Payment.payment_number,
+    }
+    sort_col = pay_sort_cols.get(sort_by, Payment.payment_date)
+    q = q.order_by(sort_col.asc() if sort_order == "asc" else sort_col.desc(), Payment.created_at.desc())
+
+    total = q.count()
+    pages = max(1, math.ceil(total / page_size))
+    offset = (page - 1) * page_size
+    rows = q.offset(offset).limit(page_size).all()
+
+    _audit(db, ACTION_CLIENT_PAYMENT_HISTORY_VIEWED, request, user_id=current_user.id)
+
+    return ClientPaymentsPage(
+        items=[
+            ClientPaymentListItem(
+                id=r.id,
+                payment_number=r.payment_number,
+                payment_date=r.payment_date.isoformat(),
+                invoice_number=r.invoice.invoice_number,
+                connection_name=r.invoice.connection_name_snapshot,
+                amount=r.amount,
+                payment_method=r.payment_method.value,
+                transaction_reference=r.transaction_reference,
+            )
+            for r in rows
+        ],
+        total=total,
+        page=page,
+        page_size=page_size,
+        pages=pages,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Billing — Payment detail
+# ---------------------------------------------------------------------------
+
+
+@router.get("/payments/{payment_id}", response_model=ClientPaymentListItem)
+def get_payment_detail(
+    payment_id: uuid.UUID,
+    request: Request,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> ClientPaymentListItem:
+    customer = _get_customer_or_403(current_user, db, request)
+    pay = _get_owned_payment_or_404(payment_id, customer, db)
+
+    _audit(db, ACTION_CLIENT_PAYMENT_HISTORY_VIEWED, request, user_id=current_user.id)
+
+    return ClientPaymentListItem(
+        id=pay.id,
+        payment_number=pay.payment_number,
+        payment_date=pay.payment_date.isoformat(),
+        invoice_number=pay.invoice.invoice_number,
+        connection_name=pay.invoice.connection_name_snapshot,
+        amount=pay.amount,
+        payment_method=pay.payment_method.value,
+        transaction_reference=pay.transaction_reference,
+    )

@@ -1,18 +1,20 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { IndianRupee } from "lucide-react";
+import { IndianRupee, X } from "lucide-react";
 
 import { ClientLayout } from "@/layouts/ClientLayout";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   DataTable,
   type DataTableColumn,
   type DataTableState,
   DEFAULT_PAGE_SIZE,
 } from "@/components/DataTable";
-import { paymentsService } from "@/services/payments";
+import { clientService } from "@/services/client";
+import type { ClientPaymentListItem } from "@/types/client";
 import {
-  type PaymentListItem,
   PAYMENT_METHOD_COLORS,
   PAYMENT_METHOD_LABELS,
   type PaymentMethod,
@@ -33,6 +35,20 @@ function fmtMoney(n: string | number) {
   })}`;
 }
 
+interface Filters {
+  payment_date_start: string;
+  payment_date_end: string;
+}
+
+const EMPTY_FILTERS: Filters = {
+  payment_date_start: "",
+  payment_date_end: "",
+};
+
+function countFilters(f: Filters) {
+  return (f.payment_date_start ? 1 : 0) + (f.payment_date_end ? 1 : 0);
+}
+
 export function ClientPaymentPage() {
   const [tableState, setTableState] = useState<DataTableState>({
     page: 1,
@@ -41,23 +57,82 @@ export function ClientPaymentPage() {
     sortBy: "payment_date",
     sortDir: "desc",
   });
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["client-payments", tableState.page, tableState.pageSize],
+    queryKey: [
+      "client-payments-list",
+      tableState.page,
+      tableState.pageSize,
+      tableState.search,
+      tableState.sortBy,
+      tableState.sortDir,
+      filters,
+    ],
     queryFn: () =>
-      paymentsService.clientList({
+      clientService.listPayments({
         page: tableState.page,
         page_size: tableState.pageSize,
+        search: tableState.search || undefined,
+        sort_by: tableState.sortBy ?? undefined,
+        sort_order: tableState.sortDir,
+        payment_date_start: filters.payment_date_start || undefined,
+        payment_date_end: filters.payment_date_end || undefined,
       }),
   });
 
-  const columns: DataTableColumn<PaymentListItem>[] = [
+  function setFilter<K extends keyof Filters>(key: K, value: Filters[K]) {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setTableState((prev) => ({ ...prev, page: 1 }));
+  }
+
+  function resetFilters() {
+    setFilters(EMPTY_FILTERS);
+    setTableState((prev) => ({ ...prev, page: 1 }));
+  }
+
+  const filterCount = countFilters(filters);
+
+  const filtersNode = (
+    <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div>
+        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+          Payment Date From
+        </label>
+        <Input
+          type="date"
+          value={filters.payment_date_start}
+          onChange={(e) => setFilter("payment_date_start", e.target.value)}
+        />
+      </div>
+      <div>
+        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+          Payment Date To
+        </label>
+        <Input
+          type="date"
+          value={filters.payment_date_end}
+          onChange={(e) => setFilter("payment_date_end", e.target.value)}
+        />
+      </div>
+      {filterCount > 0 && (
+        <div className="flex items-end">
+          <Button variant="ghost" size="sm" onClick={resetFilters} className="text-xs text-muted-foreground">
+            <X className="mr-1 h-3.5 w-3.5" />
+            Clear filters
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+
+  const columns: DataTableColumn<ClientPaymentListItem>[] = [
     {
       key: "_sr",
-      header: "Sr.",
-      className: "w-12 text-center",
+      header: "#",
+      className: "w-10 text-center",
       render: (_, index) => (
-        <span className="text-sm text-muted-foreground tabular-nums">
+        <span className="text-xs text-muted-foreground tabular-nums">
           {(tableState.page - 1) * tableState.pageSize + index + 1}
         </span>
       ),
@@ -73,6 +148,20 @@ export function ClientPaymentPage() {
       key: "payment_date",
       header: "Date",
       render: (row) => <span className="text-sm">{fmtDate(row.payment_date)}</span>,
+    },
+    {
+      key: "invoice_number",
+      header: "Invoice No.",
+      render: (row) => (
+        <span className="font-mono text-xs text-muted-foreground">{row.invoice_number}</span>
+      ),
+    },
+    {
+      key: "connection_name",
+      header: "Connection",
+      render: (row) => (
+        <span className="text-xs text-muted-foreground">{row.connection_name ?? "—"}</span>
+      ),
     },
     {
       key: "payment_method",
@@ -99,7 +188,7 @@ export function ClientPaymentPage() {
       header: "Amount",
       className: "text-right",
       render: (row) => (
-        <span className="text-sm font-semibold text-green-600 tabular-nums">
+        <span className="text-sm font-semibold text-emerald-600 tabular-nums">
           {fmtMoney(row.amount)}
         </span>
       ),
@@ -135,7 +224,9 @@ export function ClientPaymentPage() {
               state={tableState}
               onStateChange={setTableState}
               rowKey={(row) => row.id}
-              emptyMessage="No payments found for your account."
+              emptyMessage="No payment history found."
+              filtersNode={filtersNode}
+              filterCount={filterCount}
             />
           </CardContent>
         </Card>

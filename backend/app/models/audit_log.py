@@ -77,6 +77,10 @@ ACTION_CLIENT_SESSION_REVOKED = "client_session_revoked"
 ACTION_CLIENT_UNAUTHORIZED_ACCESS = "unauthorized_client_access_attempt"
 ACTION_CLIENT_DASHBOARD_VIEWED = "client_dashboard_viewed"
 ACTION_CLIENT_INVOICE_DOWNLOADED = "client_invoice_downloaded"
+ACTION_CLIENT_BILLING_VIEWED = "client_billing_viewed"
+ACTION_CLIENT_INVOICE_VIEWED = "client_invoice_viewed"
+ACTION_CLIENT_INVOICE_EMAILED = "client_invoice_emailed"
+ACTION_CLIENT_PAYMENT_HISTORY_VIEWED = "client_payment_history_viewed"
 
 # Communication / OTP domain
 ACTION_SMS_SETTINGS_UPDATED = "sms_settings_updated"
