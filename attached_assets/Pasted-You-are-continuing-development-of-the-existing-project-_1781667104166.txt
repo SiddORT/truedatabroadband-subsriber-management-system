@@ -1,0 +1,564 @@
+You are continuing development of the existing project.
+
+IMPORTANT:
+
+Follow the existing architecture, coding standards, theme, folder structure, reusable components, pagination standards, API conventions, and audit logging patterns.
+
+Implement ONLY the Reports & Exports module.
+
+Do NOT implement:
+
+* Notifications
+* OTP login
+* Client portal
+* Support tickets
+* Payment gateway integration
+
+Prerequisites already exist:
+
+* Customers
+* Plans
+* Subscriptions
+* Invoices
+* Payments
+* Dashboard
+
+Reuse existing dashboard aggregation logic wherever possible.
+
+==================================================
+OBJECTIVE
+=========
+
+Create a comprehensive reporting module for SuperAdmin.
+
+Reports must provide:
+
+* Operational insights
+* Financial analysis
+* Revenue visibility
+* Outstanding tracking
+
+All reports must support:
+
+* Server-side pagination
+* Search
+* Filters
+* Sorting
+* Export
+
+==================================================
+GENERAL RULES
+=============
+
+Do not fetch entire datasets into React.
+
+Perform all:
+
+* Aggregations
+* Calculations
+* Filtering
+* Sorting
+
+on the backend.
+
+Target:
+
+Report loading time < 5 seconds.
+
+==================================================
+EXPORT REQUIREMENTS
+===================
+
+Support:
+
+* CSV
+* Excel (.xlsx)
+
+Generate exports on the backend.
+
+Do not export frontend tables.
+
+Store generated files locally.
+
+Folder:
+
+storage/reports/
+
+Database stores only:
+
+* file_path
+
+Auto-delete export files after:
+
+24 hours
+
+==================================================
+FRONTEND ROUTES
+===============
+
+Create:
+
+/admin/reports
+
+/admin/reports/customers
+
+/admin/reports/subscriptions
+
+/admin/reports/invoices
+
+/admin/reports/payments
+
+/admin/reports/revenue
+
+/admin/reports/outstanding
+
+==================================================
+COMMON FILTERS
+==============
+
+All reports must support:
+
+* Search
+* Date Range
+* Export
+
+Use existing DataTable component.
+
+All filters must be server-side.
+
+==================================================
+CUSTOMER REPORT
+===============
+
+API:
+
+GET /api/v1/reports/customers
+
+Filters:
+
+* Customer Type
+
+Values:
+
+* INDIVIDUAL
+
+* BUSINESS
+
+* Status
+
+* City
+
+* Reference Source
+
+* Sales Person
+
+* Created Date Range
+
+Search:
+
+* Customer Code
+* Name
+* Mobile Number
+* Email
+
+Columns:
+
+* Customer Code
+* Customer Name
+* Customer Type
+* City
+* Mobile Number
+* Active Subscription Count
+* Outstanding Amount
+* Status
+
+Summary:
+
+* Total Customers
+* Active Customers
+* Business Customers
+* Individual Customers
+
+==================================================
+SUBSCRIPTION REPORT
+===================
+
+API:
+
+GET /api/v1/reports/subscriptions
+
+Filters:
+
+* Customer
+* Plan
+* Status
+
+Date Ranges:
+
+* Subscription Date Range
+* Expiry Date Range
+
+Quick Filters:
+
+* Expiring in 7 Days
+* Expiring in 15 Days
+* Expiring in 30 Days
+* Expired
+
+Search:
+
+* Subscription Code
+* Customer Name
+* Connection Name
+
+Columns:
+
+* Subscription Code
+* Customer
+* Connection Name
+* Plan
+* Billing Cycle
+* Start Date
+* Renewal Date
+* Expiry Date
+* Status
+
+Summary:
+
+* Total Subscriptions
+* Active Subscriptions
+* Expiring Soon
+* Expired
+
+Default Sorting:
+
+expiry_date ASC
+
+==================================================
+INVOICE REPORT
+==============
+
+API:
+
+GET /api/v1/reports/invoices
+
+Filters:
+
+* Customer
+* Plan
+* Status
+
+Date Ranges:
+
+* Invoice Date Range
+* Due Date Range
+
+Quick Filters:
+
+* Due Today
+* Due in 7 Days
+* Due in 15 Days
+* Due in 30 Days
+* Overdue
+
+Search:
+
+* Invoice Number
+* Customer Name
+* Connection Name
+
+Columns:
+
+* Invoice Number
+* Customer
+* Connection Name
+* Plan
+* Invoice Date
+* Due Date
+* Total Amount
+* Paid Amount
+* Balance Amount
+* Status
+
+Summary:
+
+* Total Invoices
+* Total Invoiced Amount
+* Total Collected Amount
+* Total Outstanding Amount
+
+Default Sorting:
+
+created_at DESC
+
+Overdue Definition:
+
+due_date < today
+
+AND
+
+balance_amount > 0
+
+==================================================
+PAYMENT REPORT
+==============
+
+API:
+
+GET /api/v1/reports/payments
+
+Filters:
+
+* Customer
+
+* Payment Method
+
+Values:
+
+* CASH
+* UPI
+* BANK_TRANSFER
+* CHEQUE
+
+Date Range:
+
+* Payment Date Range
+
+Search:
+
+* Payment Number
+* Invoice Number
+* Transaction Reference
+
+Columns:
+
+* Payment Number
+* Invoice Number
+* Customer
+* Amount
+* Payment Method
+* Payment Date
+
+Summary:
+
+* Total Payments
+* Total Collection Amount
+
+Default Sorting:
+
+payment_date DESC
+
+==================================================
+REVENUE REPORT
+==============
+
+API:
+
+GET /api/v1/reports/revenue
+
+Filters:
+
+* Date Range
+* Plan
+* Customer Type
+* City
+
+Widgets:
+
+Revenue by Month
+
+Revenue by Plan
+
+Revenue by Customer
+
+Revenue by City
+
+Charts:
+
+* Line Chart
+* Bar Chart
+* Donut Chart
+
+Summary:
+
+* Total Revenue
+* Average Revenue Per Customer
+* Average Revenue Per Subscription
+
+==================================================
+OUTSTANDING REPORT
+==================
+
+API:
+
+GET /api/v1/reports/outstanding
+
+Filters:
+
+* Customer
+* City
+* Plan
+
+Search:
+
+* Customer Name
+* Invoice Number
+
+Columns:
+
+* Invoice Number
+* Customer
+* Connection Name
+* Due Date
+* Outstanding Amount
+* Days Overdue
+
+Create aging buckets:
+
+* 0–30 Days
+* 31–60 Days
+* 61–90 Days
+* 90+ Days
+
+Summary:
+
+* Total Outstanding Amount
+
+* 0–30 Days Amount
+
+* 31–60 Days Amount
+
+* 61–90 Days Amount
+
+* 90+ Days Amount
+
+==================================================
+PAGINATION STANDARD
+===================
+
+Support:
+
+* page
+* page_size
+* search
+* sort_by
+* sort_order
+
+Default:
+
+page_size = 25
+
+Allowed:
+
+10, 25, 50, 100
+
+Response:
+
+{
+"items": [],
+"total": 0,
+"page": 1,
+"page_size": 25,
+"total_pages": 0,
+"summary": {}
+}
+
+==================================================
+EXPORT API
+==========
+
+Create:
+
+POST /api/v1/reports/export
+
+Request:
+
+{
+"report_type": "",
+"filters": {},
+"format": "csv | xlsx"
+}
+
+Response:
+
+{
+"download_url": "",
+"expires_at": ""
+}
+
+==================================================
+UI REQUIREMENTS
+===============
+
+Use:
+
+* Existing theme
+* Existing DataTable component
+* Existing chart library
+
+Features:
+
+* Saved filters per user
+* Export buttons
+* Summary cards
+* Empty states
+* Loading skeletons
+
+Desktop:
+
+4-column summary grid
+
+Mobile:
+
+Single-column layout
+
+==================================================
+AUDIT LOGGING
+=============
+
+Track:
+
+* report_viewed
+* report_exported
+
+Store:
+
+* report_type
+* filters
+* export_format
+
+==================================================
+TESTING
+=======
+
+Create tests for:
+
+* Customer report filters
+* Subscription report filters
+* Invoice report filters
+* Payment report filters
+* Outstanding calculations
+* Revenue calculations
+* Export generation
+* CSV exports
+* Excel exports
+* Permission checks
+
+==================================================
+ACCEPTANCE CRITERIA
+===================
+
+Success means:
+
+1. All reports support server-side filters
+2. Reports support pagination
+3. Reports support sorting
+4. Reports support search
+5. CSV exports work
+6. Excel exports work
+7. Summary metrics are accurate
+8. Revenue calculations are correct
+9. Outstanding aging buckets are accurate
+10. Report generation takes less than 5 seconds
+11. Export files are automatically cleaned up
+12. Audit logs are created
