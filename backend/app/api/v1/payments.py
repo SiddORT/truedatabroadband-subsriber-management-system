@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -93,7 +93,7 @@ def delete_payment(
     payment_id: uuid.UUID,
     current_user: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
-) -> None:
+) -> Response:
     payment = PaymentRepository(db).get(payment_id)
     if payment is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
@@ -103,6 +103,7 @@ def delete_payment(
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/client/my", response_model=PaymentListResponse)

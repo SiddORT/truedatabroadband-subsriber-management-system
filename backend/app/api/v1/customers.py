@@ -3,7 +3,7 @@ import math
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -323,7 +323,7 @@ def delete_customer(
     customer_id: uuid.UUID,
     current_user: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
-) -> None:
+) -> Response:
     customer = _get_customer_or_404(customer_id, db)
     CustomerService(db).delete(
         customer,
@@ -331,6 +331,7 @@ def delete_customer(
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 def _ext_for_mime(content_type: str) -> str:

@@ -1,7 +1,7 @@
 import math
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -228,7 +228,7 @@ def delete_plan(
     plan_id: uuid.UUID,
     current_user: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
-) -> None:
+) -> Response:
     plan = _get_plan_or_404(plan_id, db)
     sub_count = db.scalar(
         select(func.count()).select_from(Subscription)
@@ -247,6 +247,7 @@ def delete_plan(
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.delete("/{plan_id}/pricing/{pricing_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -256,7 +257,7 @@ def delete_pricing(
     pricing_id: uuid.UUID,
     current_user: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
-) -> None:
+) -> Response:
     pricing = _get_pricing_or_404(plan_id, pricing_id, db)
     PlanService(db).delete_pricing(
         pricing,
@@ -264,3 +265,4 @@ def delete_pricing(
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

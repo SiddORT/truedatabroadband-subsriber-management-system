@@ -2,7 +2,7 @@ import math
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -227,7 +227,7 @@ def delete_subscription(
     sub_id: uuid.UUID,
     current_user: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
-) -> None:
+) -> Response:
     sub = _get_sub_or_404(sub_id, db)
     active_invoices = [
         i for i in InvoiceRepository(db).list_by_subscription(sub_id)
@@ -244,6 +244,7 @@ def delete_subscription(
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(
