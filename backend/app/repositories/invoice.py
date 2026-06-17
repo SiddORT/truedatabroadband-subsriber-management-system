@@ -9,7 +9,7 @@ from decimal import Decimal
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models.invoice import ChangeType, Invoice, InvoiceChangeLog, InvoiceStatus
+from app.models.invoice import ChangeType, Invoice, InvoiceChangeLog, InvoiceStatus, InvoiceSubscriptionItem
 
 
 class InvoiceRepository:
@@ -26,6 +26,7 @@ class InvoiceRepository:
             .options(
                 selectinload(Invoice.payments),
                 selectinload(Invoice.change_logs),
+                selectinload(Invoice.subscription_items),
             )
         )
         return self.db.scalars(stmt).first()
@@ -46,16 +47,31 @@ class InvoiceRepository:
     def list_by_customer_user(
         self, user_id: uuid.UUID, *, page: int = 1, page_size: int = 10
     ) -> tuple[list[Invoice], int]:
-        """For client portal — invoices whose subscription belongs to this user's customer."""
+        """For client portal — invoices whose subscription (SINGLE) or customer_id (CONSOLIDATED)
+        belong to this user's customer account."""
         from app.models.customer import Customer
         from app.models.subscription import Subscription
 
         stmt = (
             select(Invoice)
-            .join(Subscription, Invoice.subscription_id == Subscription.id)
-            .join(Customer, Subscription.customer_id == Customer.id)
-            .where(Customer.user_id == user_id)
             .where(Invoice.deleted_at.is_(None))
+            .where(
+                or_(
+                    # SINGLE: subscription belongs to user's customer
+                    Invoice.subscription_id.in_(
+                        select(Subscription.id)
+                        .join(Customer, Subscription.customer_id == Customer.id)
+                        .where(Customer.user_id == user_id)
+                        .where(Subscription.deleted_at.is_(None))
+                    ),
+                    # CONSOLIDATED: directly linked to user's customer
+                    Invoice.customer_id.in_(
+                        select(Customer.id)
+                        .where(Customer.user_id == user_id)
+                        .where(Customer.deleted_at.is_(None))
+                    ),
+                )
+            )
             .order_by(Invoice.invoice_date.desc())
         )
         total: int = (

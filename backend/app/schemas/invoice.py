@@ -16,14 +16,14 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class LineItemIn(BaseModel):
     description: str = Field(..., min_length=1, max_length=200)
-    amount: Decimal = Field(..., ge=0)        # net amount (after per-item discount)
-    original_amount: Optional[Decimal] = None  # gross amount before per-item discount
-    discount_type: Optional[str] = None        # "percentage" | "fixed"
+    amount: Decimal = Field(..., ge=0)
+    original_amount: Optional[Decimal] = None
+    discount_type: Optional[str] = None
     discount_value: Optional[Decimal] = None
     discount_amount: Optional[Decimal] = None
 
 
-# ── Request ───────────────────────────────────────────────────────────────────
+# ── Single-subscription invoice ───────────────────────────────────────────────
 
 
 class InvoiceCreate(BaseModel):
@@ -33,27 +33,46 @@ class InvoiceCreate(BaseModel):
     invoice_date: date
     due_date: Optional[date] = None
     remarks: Optional[str] = None
-
-    # Custom line items (installation charges, service charges, etc.)
     line_items: list[LineItemIn] = Field(default_factory=list)
-
-    # Discount fields
-    discount_type: Optional[str] = None   # "percentage" or "fixed"
+    discount_type: Optional[str] = None
     discount_value: Optional[Decimal] = Field(default=None, ge=0)
     discount_label: Optional[str] = Field(default=None, max_length=100)
-    # "base" = applied to plan base price before GST (default)
-    # "overall" = applied to entire total (base + GST + all line items)
     discount_scope: Optional[str] = Field(default="base")
 
 
+# ── Consolidated (multi-subscription) invoice ─────────────────────────────────
+
+
+class SubscriptionBillingIn(BaseModel):
+    """Per-subscription config within a consolidated invoice."""
+    subscription_id: UUID
+    line_items: list[LineItemIn] = Field(default_factory=list)
+    discount_type: Optional[str] = None
+    discount_value: Optional[Decimal] = Field(default=None, ge=0)
+    discount_label: Optional[str] = Field(default=None, max_length=100)
+    discount_scope: Optional[str] = Field(default="base")
+
+
+class ConsolidatedInvoiceCreate(BaseModel):
+    customer_id: UUID
+    billing_period_start: date
+    billing_period_end: date
+    invoice_date: date
+    due_date: Optional[date] = None
+    remarks: Optional[str] = None
+    subscriptions: list[SubscriptionBillingIn] = Field(..., min_length=1)
+
+
+# ── Edits ──────────────────────────────────────────────────────────────────────
+
+
 class InvoiceUpdate(BaseModel):
-    """Only date/remarks fields are editable; locked invoices reject this."""
     billing_period_start: Optional[date] = None
     billing_period_end: Optional[date] = None
     invoice_date: Optional[date] = None
     due_date: Optional[date] = None
     remarks: Optional[str] = None
-    change_reason: str = Field(..., min_length=1, description="Mandatory reason for edit")
+    change_reason: str = Field(..., min_length=1)
 
 
 class InvoiceStatusUpdate(BaseModel):
@@ -61,7 +80,7 @@ class InvoiceStatusUpdate(BaseModel):
     change_reason: str = Field(..., min_length=1)
 
 
-# ── Response ──────────────────────────────────────────────────────────────────
+# ── Response schemas ───────────────────────────────────────────────────────────
 
 
 class PaymentSummaryOut(BaseModel):
@@ -87,12 +106,44 @@ class ChangeLogOut(BaseModel):
     created_at: datetime
 
 
+class SubscriptionItemOut(BaseModel):
+    """One subscription's billing details within a CONSOLIDATED invoice."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    subscription_id: UUID
+    sort_order: int
+    connection_name_snapshot: str
+    installation_address_snapshot: Optional[str] = None
+    plan_code_snapshot: str
+    plan_name_snapshot: str
+    speed_mbps_snapshot: int
+    data_policy_snapshot: str
+    fup_limit_gb_snapshot: Optional[int] = None
+    billing_cycle_snapshot: str
+    billing_period_start: date
+    billing_period_end: date
+    base_amount: Decimal
+    gst_percentage: Decimal
+    gst_amount: Decimal
+    total_amount: Decimal
+    line_items: Optional[list[Any]] = None
+    line_items_total: Decimal
+    discount_type: Optional[str] = None
+    discount_value: Optional[Decimal] = None
+    discount_amount: Decimal
+    discount_label: Optional[str] = None
+    discount_scope: str
+
+
 class InvoiceOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
     invoice_number: str
-    subscription_id: UUID
+    invoice_type: str = "SINGLE"
+    subscription_id: Optional[UUID] = None
+    customer_id: Optional[UUID] = None
     version_number: int
     edited_count: int
     is_locked: bool
@@ -112,6 +163,8 @@ class InvoiceOut(BaseModel):
     # Customer snapshots
     customer_code_snapshot: str
     customer_name_snapshot: str
+    customer_email_snapshot: Optional[str] = None
+    customer_mobile_snapshot: Optional[str] = None
 
     # Connection snapshots
     connection_name_snapshot: str
@@ -161,12 +214,14 @@ class InvoiceOut(BaseModel):
     # Nested
     payments: list[PaymentSummaryOut] = []
     change_logs: list[ChangeLogOut] = []
+    subscription_items: list[SubscriptionItemOut] = []
 
 
 class InvoiceListItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
     invoice_number: str
+    invoice_type: str = "SINGLE"
     customer_code_snapshot: str
     customer_name_snapshot: str
     connection_name_snapshot: str

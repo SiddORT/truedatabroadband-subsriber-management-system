@@ -21,7 +21,7 @@ from app.models.subscription import Subscription, SubscriptionStatus
 from app.repositories.audit_log import AuditLogRepository
 from app.repositories.company_settings import CompanySettingsRepository
 from app.repositories.invoice import InvoiceRepository
-from app.schemas.invoice import InvoiceCreate, InvoiceUpdate
+from app.schemas.invoice import ConsolidatedInvoiceCreate, InvoiceCreate, InvoiceUpdate
 from app.storage.service import get_storage_service
 
 INVOICE_BUCKET = "invoices"
@@ -410,6 +410,243 @@ class InvoiceService:
             new_values={"pdf_path": pdf_key},
         )
         return storage.url(INVOICE_BUCKET, pdf_key)
+
+    # ── Create consolidated ────────────────────────────────────────────────
+
+    def create_consolidated(
+        self,
+        payload: ConsolidatedInvoiceCreate,
+        *,
+        actor_id: uuid.UUID,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> Invoice:
+        """Create a single invoice covering multiple subscriptions for one customer."""
+        from datetime import timedelta
+
+        from app.models.customer import Customer
+        from app.models.invoice import InvoiceSubscriptionItem
+        from app.models.plan import Plan, PlanPricing
+
+        customer = self.db.get(Customer, payload.customer_id)
+        if customer is None or customer.deleted_at is not None:
+            raise InvoiceError("Customer not found")
+
+        if not payload.subscriptions:
+            raise InvoiceError("At least one subscription is required")
+
+        cs = CompanySettingsRepository(self.db).get_or_create()
+
+        sub_computations: list[dict] = []
+        grand_total = Decimal("0.00")
+
+        for idx, sub_billing in enumerate(payload.subscriptions):
+            sub = self._get_subscription_or_raise(sub_billing.subscription_id)
+            if sub.customer_id != customer.id:
+                raise InvoiceError(
+                    f"Subscription {sub.subscription_code} does not belong to customer {customer.customer_code}"
+                )
+
+            plan = sub.plan
+            pricing = self.db.get(PlanPricing, sub.plan_pricing_id)
+            if pricing is None:
+                raise InvoiceError(f"Plan pricing not found for subscription {sub.subscription_code}")
+
+            base = pricing.base_price
+            gst_pct = pricing.gst_percentage
+            disc_scope = sub_billing.discount_scope or "base"
+
+            # Line items
+            line_items_data: list[dict] = []
+            lit = Decimal("0.00")
+            for item in (sub_billing.line_items or []):
+                amt = Decimal(str(item.amount)).quantize(Decimal("0.01"))
+                if amt > 0:
+                    entry: dict = {"description": item.description, "amount": str(amt)}
+                    if item.original_amount is not None:
+                        entry["original_amount"] = str(Decimal(str(item.original_amount)).quantize(Decimal("0.01")))
+                    if item.discount_type:
+                        entry["discount_type"] = item.discount_type
+                    if item.discount_value is not None:
+                        entry["discount_value"] = str(item.discount_value)
+                    if item.discount_amount is not None:
+                        entry["discount_amount"] = str(Decimal(str(item.discount_amount)).quantize(Decimal("0.01")))
+                    line_items_data.append(entry)
+                    lit += amt
+
+            disc_type = sub_billing.discount_type
+            disc_value = sub_billing.discount_value or Decimal("0")
+            disc_amt = Decimal("0.00")
+
+            if disc_type and disc_value > 0:
+                if disc_scope == "overall":
+                    gst_on_full = (base * gst_pct / 100).quantize(Decimal("0.01"))
+                    subtotal = base + gst_on_full + lit
+                    if disc_type == "percentage":
+                        disc_amt = (subtotal * disc_value / 100).quantize(Decimal("0.01"))
+                    else:
+                        disc_amt = min(disc_value, subtotal).quantize(Decimal("0.01"))
+                    gst_amt = gst_on_full
+                    total = (subtotal - disc_amt).quantize(Decimal("0.01"))
+                else:
+                    if disc_type == "percentage":
+                        disc_amt = (base * disc_value / 100).quantize(Decimal("0.01"))
+                    else:
+                        disc_amt = min(disc_value, base).quantize(Decimal("0.01"))
+                    eff_base = base - disc_amt
+                    gst_amt = (eff_base * gst_pct / 100).quantize(Decimal("0.01"))
+                    total = (eff_base + gst_amt + lit).quantize(Decimal("0.01"))
+            else:
+                gst_amt = (base * gst_pct / 100).quantize(Decimal("0.01"))
+                total = (base + gst_amt + lit).quantize(Decimal("0.01"))
+
+            grand_total += total
+            sub_computations.append({
+                "sub": sub, "plan": plan, "pricing": pricing,
+                "base": base, "gst_pct": gst_pct, "gst_amt": gst_amt,
+                "total": total, "lit": lit, "disc_amt": disc_amt,
+                "disc_type": disc_type,
+                "disc_value": disc_value if disc_amt > 0 else None,
+                "disc_label": sub_billing.discount_label,
+                "disc_scope": disc_scope,
+                "line_items_data": line_items_data,
+                "sort_order": idx,
+            })
+
+        grand_base = sum(c["base"] for c in sub_computations)
+        grand_gst  = sum(c["gst_amt"] for c in sub_computations)
+        grand_lit  = sum(c["lit"] for c in sub_computations)
+        grand_disc = sum(c["disc_amt"] for c in sub_computations)
+        first = sub_computations[0]
+
+        today = payload.invoice_date
+        inv_num = self.repo.generate_invoice_number(cs.invoice_prefix, today.year, today.month)
+
+        due = payload.due_date
+        if due is None:
+            due = today + timedelta(days=cs.invoice_due_days)
+
+        sub_count = len(sub_computations)
+        invoice = Invoice(
+            invoice_number=inv_num,
+            subscription_id=None,
+            invoice_type="CONSOLIDATED",
+            customer_id=customer.id,
+            version_number=1,
+            edited_count=0,
+            is_locked=False,
+            # Company snapshots
+            company_name_snapshot=cs.company_name,
+            legal_name_snapshot=cs.legal_name,
+            gst_number_snapshot=cs.gst_number,
+            pan_number_snapshot=cs.pan_number,
+            support_email_snapshot=cs.support_email,
+            support_phone_snapshot=cs.support_phone,
+            company_address_snapshot=self._build_company_address(cs),
+            invoice_footer_snapshot=cs.invoice_footer_text,
+            terms_snapshot=cs.terms_and_conditions,
+            # Customer snapshots
+            customer_code_snapshot=customer.customer_code,
+            customer_name_snapshot=customer.full_name,
+            customer_email_snapshot=getattr(customer, "email", None),
+            customer_mobile_snapshot=getattr(customer, "mobile_number", None),
+            # Connection: generic for consolidated
+            connection_name_snapshot=f"Consolidated ({sub_count} subscriptions)",
+            installation_address_snapshot=self._build_installation_address(customer),
+            # Plan: first sub's plan for reference
+            plan_code_snapshot="CONSOLIDATED",
+            plan_name_snapshot=f"Consolidated Invoice ({sub_count} subscriptions)",
+            speed_mbps_snapshot=0,
+            data_policy_snapshot="Multiple",
+            fup_limit_gb_snapshot=None,
+            billing_cycle_snapshot=first["pricing"].billing_cycle.value,
+            # Aggregate amounts
+            base_amount=Decimal(str(grand_base)).quantize(Decimal("0.01")),
+            gst_percentage=Decimal("0.00"),
+            gst_amount=Decimal(str(grand_gst)).quantize(Decimal("0.01")),
+            total_amount=grand_total.quantize(Decimal("0.01")),
+            paid_amount=Decimal("0.00"),
+            balance_amount=grand_total.quantize(Decimal("0.01")),
+            # Aggregate line items & discount
+            line_items=None,
+            line_items_total=Decimal(str(grand_lit)).quantize(Decimal("0.01")),
+            discount_type=None,
+            discount_value=None,
+            discount_amount=Decimal(str(grand_disc)).quantize(Decimal("0.01")),
+            discount_label=None,
+            discount_scope="base",
+            # Dates
+            billing_period_start=payload.billing_period_start,
+            billing_period_end=payload.billing_period_end,
+            invoice_date=today,
+            due_date=due,
+            status=InvoiceStatus.UNPAID,
+            remarks=payload.remarks,
+            # Bank snapshots
+            bank_name_snapshot=getattr(cs, "bank_name", None),
+            account_name_snapshot=getattr(cs, "account_name", None),
+            account_number_snapshot=getattr(cs, "account_number", None),
+            ifsc_code_snapshot=getattr(cs, "ifsc_code", None),
+            upi_id_snapshot=getattr(cs, "upi_id", None),
+        )
+        invoice = self.repo.create(invoice)
+
+        # Create per-subscription items
+        for comp in sub_computations:
+            sub  = comp["sub"]
+            plan = comp["plan"]
+            pricing = comp["pricing"]
+            item = InvoiceSubscriptionItem(
+                invoice_id=invoice.id,
+                subscription_id=sub.id,
+                sort_order=comp["sort_order"],
+                connection_name_snapshot=sub.subscription_code,
+                installation_address_snapshot=self._build_installation_address(sub.customer),
+                plan_code_snapshot=plan.plan_code,
+                plan_name_snapshot=plan.name,
+                speed_mbps_snapshot=plan.speed_mbps,
+                data_policy_snapshot=plan.data_policy.value,
+                fup_limit_gb_snapshot=plan.fup_limit_gb,
+                billing_cycle_snapshot=pricing.billing_cycle.value,
+                billing_period_start=payload.billing_period_start,
+                billing_period_end=payload.billing_period_end,
+                base_amount=comp["base"],
+                gst_percentage=comp["gst_pct"],
+                gst_amount=comp["gst_amt"],
+                total_amount=comp["total"],
+                line_items=comp["line_items_data"] if comp["line_items_data"] else None,
+                line_items_total=comp["lit"],
+                discount_type=comp["disc_type"],
+                discount_value=comp["disc_value"],
+                discount_amount=comp["disc_amt"],
+                discount_label=comp["disc_label"],
+                discount_scope=comp["disc_scope"],
+            )
+            self.db.add(item)
+        self.db.flush()
+        self.db.commit()
+
+        # Generate PDF
+        try:
+            pdf_key = self._generate_and_store_pdf(invoice)
+            invoice = self.repo.update(invoice, pdf_path=pdf_key)
+        except Exception:
+            pass
+
+        # Change log
+        self.repo.add_change_log(
+            invoice.id,
+            actor_id,
+            ChangeType.CREATED,
+            new_values={
+                "invoice_number": inv_num,
+                "status": invoice.status.value,
+                "invoice_type": "CONSOLIDATED",
+                "subscription_count": sub_count,
+            },
+        )
+        self.audit.log(ACTION_INVOICE_CREATED, user_id=actor_id, ip_address=ip_address, user_agent=user_agent)
+        return self.repo.get(invoice.id)
 
     # ── Create replacement ─────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-"""Invoice and InvoiceChangeLog models."""
+"""Invoice, InvoiceSubscriptionItem, and InvoiceChangeLog models."""
 
 import enum
 import uuid
@@ -56,10 +56,20 @@ class Invoice(Base, BaseModelMixin):
     invoice_number: Mapped[str] = mapped_column(
         String(50), unique=True, index=True, nullable=False
     )
-    subscription_id: Mapped[uuid.UUID] = mapped_column(
+    # nullable for CONSOLIDATED invoices (no single subscription)
+    subscription_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("subscriptions.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
+        index=True,
+    )
+    # SINGLE (default) | CONSOLIDATED
+    invoice_type: Mapped[str] = mapped_column(String(20), nullable=False, default="SINGLE")
+    # set for CONSOLIDATED invoices; can be derived for SINGLE
+    customer_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("customers.id", ondelete="RESTRICT"),
+        nullable=True,
         index=True,
     )
 
@@ -68,7 +78,6 @@ class Invoice(Base, BaseModelMixin):
     edited_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_locked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
-    # Replacement invoice link (set when this invoice is a replacement)
     original_invoice_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("invoices.id", ondelete="SET NULL"),
@@ -94,7 +103,7 @@ class Invoice(Base, BaseModelMixin):
     customer_mobile_snapshot: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     # ── Connection snapshots ───────────────────────────────────────────────
-    connection_name_snapshot: Mapped[str] = mapped_column(String(50), nullable=False)
+    connection_name_snapshot: Mapped[str] = mapped_column(String(100), nullable=False)
     installation_address_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # ── Plan snapshots ─────────────────────────────────────────────────────
@@ -130,8 +139,6 @@ class Invoice(Base, BaseModelMixin):
         Numeric(10, 2), nullable=False, default=Decimal("0.00")
     )
     discount_label: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    # "base" = discount on plan base price (before GST)
-    # "overall" = discount on the final total (base + GST + line items)
     discount_scope: Mapped[str] = mapped_column(
         String(20), nullable=False, default="base"
     )
@@ -154,7 +161,7 @@ class Invoice(Base, BaseModelMixin):
     remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
     pdf_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    # ── Bank / payment snapshots (captured from CompanySettings at creation) ─
+    # ── Bank / payment snapshots ───────────────────────────────────────────
     bank_name_snapshot: Mapped[str | None] = mapped_column(String(100), nullable=True)
     account_name_snapshot: Mapped[str | None] = mapped_column(String(100), nullable=True)
     account_number_snapshot: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -162,7 +169,7 @@ class Invoice(Base, BaseModelMixin):
     upi_id_snapshot: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # ── Relationships ──────────────────────────────────────────────────────
-    subscription: Mapped["Subscription"] = relationship(  # type: ignore[name-defined]
+    subscription: Mapped["Subscription | None"] = relationship(  # type: ignore[name-defined]
         "Subscription", foreign_keys=[subscription_id], lazy="select"
     )
     payments: Mapped[list["Payment"]] = relationship(  # type: ignore[name-defined]
@@ -177,9 +184,84 @@ class Invoice(Base, BaseModelMixin):
         lazy="select",
         foreign_keys="InvoiceChangeLog.invoice_id",
     )
+    subscription_items: Mapped[list["InvoiceSubscriptionItem"]] = relationship(
+        "InvoiceSubscriptionItem",
+        back_populates="invoice",
+        lazy="select",
+        order_by="InvoiceSubscriptionItem.sort_order",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self) -> str:
-        return f"<Invoice {self.invoice_number} status={self.status}>"
+        return f"<Invoice {self.invoice_number} type={self.invoice_type} status={self.status}>"
+
+
+class InvoiceSubscriptionItem(Base):
+    """Per-subscription billing line for CONSOLIDATED invoices."""
+
+    __tablename__ = "invoice_subscription_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    invoice_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("invoices.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    subscription_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("subscriptions.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # Subscription / connection snapshots
+    connection_name_snapshot: Mapped[str] = mapped_column(String(50), nullable=False)
+    installation_address_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Plan snapshots
+    plan_code_snapshot: Mapped[str] = mapped_column(String(20), nullable=False)
+    plan_name_snapshot: Mapped[str] = mapped_column(String(255), nullable=False)
+    speed_mbps_snapshot: Mapped[int] = mapped_column(Integer, nullable=False)
+    data_policy_snapshot: Mapped[str] = mapped_column(String(20), nullable=False)
+    fup_limit_gb_snapshot: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    billing_cycle_snapshot: Mapped[str] = mapped_column(String(20), nullable=False)
+
+    # Billing period
+    billing_period_start: Mapped[date] = mapped_column(Date, nullable=False)
+    billing_period_end: Mapped[date] = mapped_column(Date, nullable=False)
+
+    # Amounts
+    base_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    gst_percentage: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
+    gst_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    total_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+
+    # Line items (per-subscription charges)
+    line_items: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    line_items_total: Mapped[Decimal] = mapped_column(
+        Numeric(10, 2), nullable=False, default=Decimal("0.00")
+    )
+
+    # Discount
+    discount_type: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    discount_value: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    discount_amount: Mapped[Decimal] = mapped_column(
+        Numeric(10, 2), nullable=False, default=Decimal("0.00")
+    )
+    discount_label: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    discount_scope: Mapped[str] = mapped_column(String(20), nullable=False, default="base")
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    invoice: Mapped["Invoice"] = relationship("Invoice", back_populates="subscription_items")
+
+    def __repr__(self) -> str:
+        return f"<InvoiceSubscriptionItem invoice={self.invoice_id} sub={self.subscription_id}>"
 
 
 class InvoiceChangeLog(Base):

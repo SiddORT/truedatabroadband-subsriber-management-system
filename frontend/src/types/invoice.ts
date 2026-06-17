@@ -1,11 +1,43 @@
 export interface LineItem {
   description: string;
   amount: string;
+  original_amount?: string;
+  discount_type?: string;
+  discount_value?: string;
+  discount_amount?: string;
+}
+
+export interface SubscriptionItem {
+  id: string;
+  subscription_id: string;
+  sort_order: number;
+  connection_name_snapshot: string;
+  installation_address_snapshot: string | null;
+  plan_code_snapshot: string;
+  plan_name_snapshot: string;
+  speed_mbps_snapshot: number;
+  data_policy_snapshot: string;
+  fup_limit_gb_snapshot: number | null;
+  billing_cycle_snapshot: string;
+  billing_period_start: string;
+  billing_period_end: string;
+  base_amount: string;
+  gst_percentage: string;
+  gst_amount: string;
+  total_amount: string;
+  line_items: LineItem[] | null;
+  line_items_total: string;
+  discount_type: string | null;
+  discount_value: string | null;
+  discount_amount: string;
+  discount_label: string | null;
+  discount_scope: string;
 }
 
 export interface InvoiceListItem {
   id: string;
   invoice_number: string;
+  invoice_type: "SINGLE" | "CONSOLIDATED";
   customer_code_snapshot: string;
   customer_name_snapshot: string;
   connection_name_snapshot: string;
@@ -42,7 +74,8 @@ export interface ChangeLog {
 }
 
 export interface Invoice extends InvoiceListItem {
-  subscription_id: string;
+  subscription_id: string | null;
+  customer_id: string | null;
   version_number: number;
   edited_count: number;
   original_invoice_id: string | null;
@@ -55,6 +88,8 @@ export interface Invoice extends InvoiceListItem {
   company_address_snapshot: string | null;
   invoice_footer_snapshot: string | null;
   terms_snapshot: string | null;
+  customer_email_snapshot: string | null;
+  customer_mobile_snapshot: string | null;
   installation_address_snapshot: string | null;
   plan_code_snapshot: string;
   plan_name_snapshot: string;
@@ -65,10 +100,8 @@ export interface Invoice extends InvoiceListItem {
   base_amount: string;
   gst_percentage: string;
   gst_amount: string;
-  // Line items
   line_items: LineItem[] | null;
   line_items_total: string;
-  // Discount
   discount_type: "percentage" | "fixed" | null;
   discount_value: string | null;
   discount_amount: string;
@@ -81,6 +114,7 @@ export interface Invoice extends InvoiceListItem {
   updated_at: string;
   payments: PaymentSummary[];
   change_logs: ChangeLog[];
+  subscription_items: SubscriptionItem[];
 }
 
 export type InvoiceStatus =

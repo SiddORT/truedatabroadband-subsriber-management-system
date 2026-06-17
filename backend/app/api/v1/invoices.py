@@ -14,6 +14,7 @@ from app.dependencies.auth import require_client, require_superadmin
 from app.models.user import User
 from app.repositories.invoice import InvoiceRepository
 from app.schemas.invoice import (
+    ConsolidatedInvoiceCreate,
     InvoiceCreate,
     InvoiceListResponse,
     InvoiceOut,
@@ -67,7 +68,7 @@ def list_invoices(
     )
 
 
-# ── Admin: create ─────────────────────────────────────────────────────────────
+# ── Admin: create single ───────────────────────────────────────────────────────
 
 @router.post("", response_model=InvoiceOut, status_code=status.HTTP_201_CREATED)
 def create_invoice(
@@ -79,6 +80,28 @@ def create_invoice(
     svc = InvoiceService(db)
     try:
         invoice = svc.create(
+            payload,
+            actor_id=current_user.id,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+    except InvoiceError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    return _to_out(invoice)
+
+
+# ── Admin: create consolidated ─────────────────────────────────────────────────
+
+@router.post("/consolidated", response_model=InvoiceOut, status_code=status.HTTP_201_CREATED)
+def create_consolidated_invoice(
+    payload: ConsolidatedInvoiceCreate,
+    request: Request,
+    current_user: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+) -> InvoiceOut:
+    svc = InvoiceService(db)
+    try:
+        invoice = svc.create_consolidated(
             payload,
             actor_id=current_user.id,
             ip_address=request.client.host if request.client else None,
@@ -222,10 +245,20 @@ def client_get_invoice(
     invoice = InvoiceRepository(db).get(invoice_id)
     if invoice is None:
         raise _not_found()
-    sub = invoice.subscription
-    customer = sub.customer if sub else None
-    if customer is None or customer.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    # For SINGLE invoices, validate via subscription → customer
+    # For CONSOLIDATED invoices, validate via customer_id directly
+    if invoice.invoice_type == "CONSOLIDATED":
+        from app.models.customer import Customer as Cust
+        cust = db.get(Cust, invoice.customer_id)
+        if cust is None or cust.user_id != current_user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    else:
+        sub = invoice.subscription
+        customer = sub.customer if sub else None
+        if customer is None or customer.user_id != current_user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
     return _to_out(invoice)
 
 
@@ -237,13 +270,22 @@ def client_download_pdf(
     current_user: User = Depends(require_client),
     db: Session = Depends(get_db),
 ):
+    from app.models.customer import Customer
+
     invoice = InvoiceRepository(db).get(invoice_id)
     if invoice is None:
         raise _not_found()
-    sub = invoice.subscription
-    customer = sub.customer if sub else None
-    if customer is None or customer.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    if invoice.invoice_type == "CONSOLIDATED":
+        cust = db.get(Customer, invoice.customer_id)
+        if cust is None or cust.user_id != current_user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    else:
+        sub = invoice.subscription
+        customer = sub.customer if sub else None
+        if customer is None or customer.user_id != current_user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
     svc = InvoiceService(db)
     path = svc.get_pdf_path(invoice)
     return FileResponse(

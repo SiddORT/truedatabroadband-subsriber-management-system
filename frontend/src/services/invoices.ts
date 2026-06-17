@@ -19,6 +19,15 @@ interface LineItemPayload {
   discount_amount?: string;
 }
 
+interface SubscriptionBillingPayload {
+  subscription_id: string;
+  line_items?: LineItemPayload[];
+  discount_type?: "percentage" | "fixed";
+  discount_value?: string;
+  discount_label?: string;
+  discount_scope?: "base" | "overall";
+}
+
 async function list(params: ListParams = {}): Promise<InvoiceListResponse> {
   const { data } = await api.get("/invoices", { params });
   return data;
@@ -43,6 +52,19 @@ async function create(payload: {
   discount_scope?: "base" | "overall";
 }): Promise<Invoice> {
   const { data } = await api.post("/invoices", payload);
+  return data;
+}
+
+async function createConsolidated(payload: {
+  customer_id: string;
+  billing_period_start: string;
+  billing_period_end: string;
+  invoice_date: string;
+  due_date?: string;
+  remarks?: string;
+  subscriptions: SubscriptionBillingPayload[];
+}): Promise<Invoice> {
+  const { data } = await api.post("/invoices/consolidated", payload);
   return data;
 }
 
@@ -102,6 +124,7 @@ export const invoicesService = {
   list,
   get,
   create,
+  createConsolidated,
   update,
   updateStatus,
   getHistory,

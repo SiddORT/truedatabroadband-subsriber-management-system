@@ -23,7 +23,7 @@ from reportlab.platypus import (
 )
 
 if TYPE_CHECKING:
-    from app.models.invoice import Invoice
+    from app.models.invoice import Invoice, InvoiceSubscriptionItem
 
 # ── Fonts ─────────────────────────────────────────────────────────────────────
 import os as _os
@@ -271,8 +271,11 @@ def _sec_header(invoice: "Invoice", logo_path: str | None) -> list:
         left_parts.append(_p("  |  ".join(contact), _s("cc", fontSize=7, leading=10, textColor=C_SECOND)))
 
     # ── Right: INVOICE title + meta ───────────────────────────────────────
+    invoice_type = getattr(invoice, "invoice_type", "SINGLE")
+    inv_title = "CONSOLIDATED INVOICE" if invoice_type == "CONSOLIDATED" else "INVOICE"
     right_parts: list[object] = [
-        _p("INVOICE", _s("ititle", fontName=_FB, fontSize=26, leading=30, textColor=C_PRIMARY, alignment=TA_RIGHT)),
+        _p(inv_title, _s("ititle", fontName=_FB, fontSize=22 if invoice_type == "CONSOLIDATED" else 26,
+                         leading=28, textColor=C_PRIMARY, alignment=TA_RIGHT)),
         Spacer(1, 3 * mm),
     ]
     for lbl, val in [
@@ -320,6 +323,7 @@ def _sec_header(invoice: "Invoice", logo_path: str | None) -> list:
 def _sec_customer(invoice: "Invoice") -> list:
     """Two bordered cards: Bill To | Connection Details."""
     pad = 8
+    invoice_type = getattr(invoice, "invoice_type", "SINGLE")
 
     def _card(title: str, rows: list[tuple[str, str | None]]) -> list:
         items: list[object] = [
@@ -340,14 +344,23 @@ def _sec_customer(invoice: "Invoice") -> list:
         ("Email", getattr(invoice, "customer_email_snapshot", None)),
         ("Mobile", getattr(invoice, "customer_mobile_snapshot", None)),
     ])
-    connection = _card("CONNECTION DETAILS", [
-        ("",          invoice.connection_name_snapshot),
-        ("Sub. Code", invoice.connection_name_snapshot),
-        ("Address",   invoice.installation_address_snapshot),
-    ])
+
+    if invoice_type == "CONSOLIDATED":
+        sub_count = len(getattr(invoice, "subscription_items", []) or [])
+        billing_period = f"{_date(invoice.billing_period_start)} \u2013 {_date(invoice.billing_period_end)}"
+        right_card = _card("CONSOLIDATED INVOICE DETAILS", [
+            ("Subscriptions",   str(sub_count)),
+            ("Billing Period",  billing_period),
+        ])
+    else:
+        right_card = _card("CONNECTION DETAILS", [
+            ("",          invoice.connection_name_snapshot),
+            ("Sub. Code", invoice.connection_name_snapshot),
+            ("Address",   invoice.installation_address_snapshot),
+        ])
 
     col_w = (CW - 4 * mm) / 2
-    tbl = Table([[bill_to, connection]], colWidths=[col_w, col_w])
+    tbl = Table([[bill_to, right_card]], colWidths=[col_w, col_w])
     tbl.setStyle(TableStyle([
         ("BOX",           (0, 0), (0, 0), 0.6, C_BORDER),
         ("BOX",           (1, 0), (1, 0), 0.6, C_BORDER),
@@ -597,6 +610,229 @@ def _sec_charges(invoice: "Invoice") -> list:
     return [charges_tbl, Spacer(1, 5 * mm), layout]
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Consolidated: per-subscription section
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _sec_sub_item(item: "InvoiceSubscriptionItem", idx: int, total: int) -> list:
+    """Render one subscription's section for CONSOLIDATED invoices."""
+    story: list = []
+
+    cycle  = (item.billing_cycle_snapshot or "").replace("_", " ").title()
+    period = f"{_date(item.billing_period_start)} \u2013 {_date(item.billing_period_end)}"
+    fup    = f" · FUP {item.fup_limit_gb_snapshot} GB" if item.fup_limit_gb_snapshot else ""
+
+    # ── Sub-section header ──────────────────────────────────────────────
+    header_tbl = Table([[
+        _p(f"Subscription {idx + 1} of {total}: {item.connection_name_snapshot}",
+           _s("ssh", fontName=_FB, fontSize=8.5, textColor=C_WHITE)),
+        _p(f"{item.plan_name_snapshot}  ·  {item.speed_mbps_snapshot} Mbps  ·  {item.data_policy_snapshot or ''}{fup}  ·  {cycle}",
+           _s("ssd", fontSize=7.5, textColor=C_WHITE, alignment=TA_RIGHT)),
+    ]], colWidths=[CW * 0.5, CW * 0.5])
+    header_tbl.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, -1), C_PRIMARY),
+        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
+        ("TOPPADDING",    (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(header_tbl)
+
+    # ── Mini charges table ───────────────────────────────────────────────
+    cw = [CW * 0.52, CW * 0.08, CW * 0.20, CW * 0.20]
+    th   = _s(f"th{idx}", fontName=_FB, fontSize=7, textColor=C_WHITE)
+    th_r = _s(f"thr{idx}", fontName=_FB, fontSize=7, textColor=C_WHITE, alignment=TA_RIGHT)
+    tc   = _s(f"tc{idx}",  fontSize=7.5, leading=10)
+    tc_r = _s(f"tcr{idx}", fontSize=7.5, leading=10, alignment=TA_RIGHT)
+    tc_m = _s(f"tcm{idx}", fontSize=7, leading=10, textColor=C_GREY)
+    tc_d = _s(f"tcd{idx}", fontSize=7, leading=10, textColor=C_ACCENT)
+
+    rows = [[
+        _p("DESCRIPTION", th),
+        _p("QTY", th),
+        _p("UNIT PRICE", th_r),
+        _p("AMOUNT", th_r),
+    ]]
+
+    disc_amt   = getattr(item, "discount_amount", Decimal("0")) or Decimal("0")
+    disc_scope = getattr(item, "discount_scope", "base") or "base"
+    disc_type  = getattr(item, "discount_type", None)
+    disc_value = getattr(item, "discount_value", None)
+    disc_label = getattr(item, "discount_label", None) or ""
+    line_items = getattr(item, "line_items", None) or []
+
+    # Plan row
+    rows.append([
+        _p(f'{item.plan_name_snapshot}<br/><font size="6" color="#6B7280">Period: {period}</font>',
+           _s(f"pd{idx}", fontName=_FB, fontSize=8, leading=11)),
+        _p("1", tc),
+        _p(_cur(item.base_amount), tc_r),
+        _p(_cur(item.base_amount), tc_r),
+    ])
+
+    # Base-scope discount
+    if disc_amt > 0 and disc_scope != "overall":
+        if disc_type == "percentage" and disc_value:
+            dlbl = f"Discount ({float(disc_value):.2g}%)"
+        else:
+            dlbl = "Discount"
+        if disc_label:
+            dlbl += f" · {disc_label}"
+        rows.append([
+            _p(dlbl, tc_d), _p("", tc), _p("", tc_r),
+            _p(f"\u2212{_cur(disc_amt)}", _s(f"dd{idx}", fontSize=7.5, textColor=C_ACCENT, alignment=TA_RIGHT)),
+        ])
+
+    # GST row
+    rows.append([
+        _p(f"GST @ {float(item.gst_percentage):.0f}%", _s(f"gt{idx}", fontName=_FB, fontSize=7.5)),
+        _p("1", tc), _p("", tc_r),
+        _p(_cur(item.gst_amount), tc_r),
+    ])
+
+    # Line items
+    for li in line_items:
+        net_amt    = Decimal(str(li.get("amount", "0")))
+        orig_amt   = li.get("original_amount")
+        li_disc    = li.get("discount_amount")
+        li_dtype   = li.get("discount_type", "")
+        li_dval    = li.get("discount_value", "")
+        has_disc   = orig_amt and li_disc and Decimal(str(li_disc)) > 0
+
+        if has_disc:
+            rows.append([
+                _p(li.get("description", ""), _s(f"lid{idx}", fontName=_FB, fontSize=7.5)),
+                _p("1", tc),
+                _p(_cur(Decimal(str(orig_amt))), _s(f"lo{idx}", fontSize=7, textColor=C_GREY, alignment=TA_RIGHT)),
+                _p(_cur(Decimal(str(orig_amt))), _s(f"la{idx}", fontSize=7, textColor=C_GREY, alignment=TA_RIGHT)),
+            ])
+            dlbl2 = f"  Discount ({li_dval}%)" if li_dtype == "percentage" else "  Discount"
+            rows.append([
+                _p(dlbl2, tc_d), _p("", tc), _p("", tc_r),
+                _p(f"\u2212{_cur(Decimal(str(li_disc)))}", _s(f"ld{idx}", fontSize=7, textColor=C_ACCENT, alignment=TA_RIGHT)),
+            ])
+            rows.append([
+                _p("  Net", _s(f"ln{idx}", fontName=_FB, fontSize=7)), _p("", tc), _p("", tc_r),
+                _p(_cur(net_amt), tc_r),
+            ])
+        else:
+            rows.append([
+                _p(li.get("description", ""), _s(f"li{idx}", fontName=_FB, fontSize=7.5)),
+                _p("1", tc), _p(_cur(net_amt), tc_r), _p(_cur(net_amt), tc_r),
+            ])
+
+    # Overall-scope discount
+    if disc_amt > 0 and disc_scope == "overall":
+        if disc_type == "percentage" and disc_value:
+            dlbl = f"Overall Discount ({float(disc_value):.2g}%)"
+        else:
+            dlbl = "Overall Discount"
+        if disc_label:
+            dlbl += f" · {disc_label}"
+        rows.append([
+            _p(dlbl, tc_d), _p("", tc), _p("", tc_r),
+            _p(f"\u2212{_cur(disc_amt)}", _s(f"od{idx}", fontSize=7.5, textColor=C_ACCENT, alignment=TA_RIGHT)),
+        ])
+
+    # Sub-total row
+    rows.append([
+        _p(f"SUB-TOTAL — {item.connection_name_snapshot}",
+           _s(f"st{idx}", fontName=_FB, fontSize=7.5, textColor=C_WHITE)),
+        _p("", _s(f"stb{idx}", textColor=C_WHITE)),
+        _p("", _s(f"stc{idx}", textColor=C_WHITE)),
+        _p(_cur(item.total_amount), _s(f"stv{idx}", fontName=_FB, fontSize=8, textColor=C_WHITE, alignment=TA_RIGHT)),
+    ])
+
+    n = len(rows)
+    mini_tbl = Table(rows, colWidths=cw)
+    mini_tbl.setStyle(TableStyle([
+        ("BACKGROUND",     (0, 0), (-1, 0),         C_SECOND),
+        ("BACKGROUND",     (0, n-1), (-1, n-1),     C_DARK),
+        ("VALIGN",         (0, 0), (-1, -1),         "MIDDLE"),
+        ("ALIGN",          (1, 0), (3, -1),          "RIGHT"),
+        ("TOPPADDING",     (0, 0), (-1, -1),         4),
+        ("BOTTOMPADDING",  (0, 0), (-1, -1),         4),
+        ("LEFTPADDING",    (0, 0), (-1, -1),         6),
+        ("RIGHTPADDING",   (0, 0), (-1, -1),         6),
+        ("LINEBELOW",      (0, 1), (-1, n - 2),      0.3, C_BORDER),
+        ("ROWBACKGROUNDS", (0, 1), (-1, n - 2),      [C_WHITE, C_LIGHT]),
+    ]))
+    story.append(mini_tbl)
+    story.append(Spacer(1, 3 * mm))
+
+    return [KeepTogether(story)]
+
+
+def _sec_consolidated_totals(invoice: "Invoice") -> list:
+    """Grand total row for consolidated invoices."""
+    tw_l = _s("ctw_l", fontName=_FB, fontSize=10, leading=13, textColor=C_WHITE)
+    tw_v = _s("ctw_v", fontName=_FB, fontSize=10, leading=13, textColor=C_WHITE, alignment=TA_RIGHT)
+    tb_l = _s("ctb_l", fontName=_FB, fontSize=8.5, textColor=C_ACCENT)
+    tb_v = _s("ctb_v", fontName=_FB, fontSize=8.5, textColor=C_ACCENT, alignment=TA_RIGHT)
+    tl   = _s("ctl",   fontSize=8, leading=11, textColor=C_GREY)
+    tv   = _s("ctv",   fontSize=8, leading=11, alignment=TA_RIGHT)
+
+    paid = getattr(invoice, "paid_amount", None) or Decimal("0")
+    bal  = getattr(invoice, "balance_amount", None) or Decimal("0")
+    gst  = getattr(invoice, "gst_amount", Decimal("0")) or Decimal("0")
+    lit  = getattr(invoice, "line_items_total", Decimal("0")) or Decimal("0")
+    disc = getattr(invoice, "discount_amount", Decimal("0")) or Decimal("0")
+    base = getattr(invoice, "base_amount", Decimal("0")) or Decimal("0")
+
+    t_rows: list = [
+        [_p("Total Plan Charges", tl), _p(_cur(base), tv)],
+        [_p("Total GST",          tl), _p(_cur(gst),  tv)],
+    ]
+    if float(lit) > 0:
+        t_rows.append([_p("Other Charges", tl), _p(_cur(lit), tv)])
+    if float(disc) > 0:
+        t_rows.append([
+            _p("Total Discounts", tl),
+            _p(f"\u2212{_cur(disc)}", _s("ctd", fontSize=8, textColor=C_ACCENT, alignment=TA_RIGHT)),
+        ])
+    if float(paid) > 0:
+        t_rows.append([
+            _p("Paid Amount", tl),
+            _p(f"\u2212{_cur(paid)}", _s("ctp", fontSize=8, textColor=C_GREEN, alignment=TA_RIGHT)),
+        ])
+
+    sep_idx = len(t_rows)
+    t_rows.append([_p("GRAND TOTAL", tw_l), _p(_cur(invoice.total_amount), tw_v)])
+
+    if float(bal) > 0 and float(paid) > 0:
+        t_rows.append([_p("Balance Due", tb_l), _p(_cur(bal), tb_v)])
+
+    tot_w = CW * 0.48
+    tc1, tc2 = tot_w * 0.55, tot_w * 0.45
+    totals_tbl = Table(t_rows, colWidths=[tc1, tc2])
+    totals_tbl.setStyle(TableStyle([
+        ("ALIGN",         (1, 0), (1, -1),             "RIGHT"),
+        ("VALIGN",        (0, 0), (-1, -1),             "MIDDLE"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1),             3),
+        ("TOPPADDING",    (0, 0), (-1, -1),             3),
+        ("LEFTPADDING",   (0, 0), (-1, -1),             7),
+        ("RIGHTPADDING",  (0, 0), (-1, -1),             7),
+        ("LINEABOVE",     (0, sep_idx), (-1, sep_idx), 0.5, C_BORDER),
+        ("BACKGROUND",    (0, sep_idx), (-1, sep_idx), C_DARK),
+        ("LINEBELOW",     (0, -1),      (-1, -1),       0.3, C_BORDER),
+    ]))
+
+    layout = Table(
+        [[None, totals_tbl]],
+        colWidths=[CW * 0.52, CW * 0.48],
+    )
+    layout.setStyle(TableStyle([
+        ("VALIGN",        (0, 0), (-1, -1), "BOTTOM"),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 0),
+        ("TOPPADDING",    (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+
+    return [layout]
+
+
 def _sec_payment_summary(invoice: "Invoice") -> list:
     """3-card payment summary: Total | Paid | Outstanding."""
     paid = getattr(invoice, "paid_amount", None) or Decimal("0")
@@ -740,6 +976,10 @@ def generate_invoice_pdf(invoice: "Invoice", logo_path: str | None = None) -> by
         author       = invoice.company_name_snapshot or "True Data",
     )
 
+    invoice_type = getattr(invoice, "invoice_type", "SINGLE")
+    is_consolidated = invoice_type == "CONSOLIDATED"
+    subscription_items = getattr(invoice, "subscription_items", []) or []
+
     story: list = []
 
     # 1. Header
@@ -750,13 +990,23 @@ def generate_invoice_pdf(invoice: "Invoice", logo_path: str | None = None) -> by
     story.extend(_sec_customer(invoice))
     story.append(Spacer(1, 4 * mm))
 
-    # 3. Plan info box
-    story.extend(_sec_plan(invoice))
-    story.append(Spacer(1, 5 * mm))
+    if is_consolidated and subscription_items:
+        # 3. Per-subscription billing sections
+        for idx, item in enumerate(subscription_items):
+            story.extend(_sec_sub_item(item, idx, len(subscription_items)))
 
-    # 4. Charges table + totals
-    story.extend(_sec_charges(invoice))
-    story.append(Spacer(1, 5 * mm))
+        # 4. Grand total block
+        story.append(HRFlowable(width="100%", thickness=0.4, color=C_BORDER, spaceAfter=3 * mm, spaceBefore=2 * mm))
+        story.extend(_sec_consolidated_totals(invoice))
+        story.append(Spacer(1, 5 * mm))
+    else:
+        # 3. Plan info box
+        story.extend(_sec_plan(invoice))
+        story.append(Spacer(1, 5 * mm))
+
+        # 4. Charges table + totals
+        story.extend(_sec_charges(invoice))
+        story.append(Spacer(1, 5 * mm))
 
     # 5. Payment summary
     story.extend(_sec_payment_summary(invoice))
