@@ -9,6 +9,7 @@ from app.api.v1 import (
     dashboard,
     health,
     invoices,
+    notifications,
     payments,
     plans,
     reports,
@@ -29,4 +30,5 @@ api_router.include_router(invoices.router)
 api_router.include_router(payments.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(reports.router)
+api_router.include_router(notifications.router)
 api_router.include_router(activity.router)

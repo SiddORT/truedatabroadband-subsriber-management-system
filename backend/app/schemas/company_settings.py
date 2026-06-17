@@ -69,6 +69,23 @@ class CompanySettingsUpdate(BaseModel):
     invoice_footer_text: Optional[str] = None
     terms_and_conditions: Optional[str] = None
 
+    # SMS provider
+    sms_provider: Optional[str] = Field(None, max_length=20)
+    sms_api_key: Optional[str] = Field(None, max_length=255)
+    sms_sender_id: Optional[str] = Field(None, max_length=50)
+    sms_base_url: Optional[str] = Field(None, max_length=255)
+    sms_entity_id: Optional[str] = Field(None, max_length=100)
+
+    # SMTP / Email
+    smtp_host: Optional[str] = Field(None, max_length=255)
+    smtp_port: Optional[int] = Field(None, ge=1, le=65535)
+    smtp_username: Optional[str] = Field(None, max_length=255)
+    smtp_password: Optional[str] = Field(None, max_length=255)
+    smtp_from_email: Optional[str] = Field(None, max_length=255)
+    smtp_from_name: Optional[str] = Field(None, max_length=255)
+    smtp_use_tls: Optional[bool] = None
+    smtp_use_ssl: Optional[bool] = None
+
     @field_validator("gst_number", mode="before")
     @classmethod
     def validate_gst(cls, v: str | None) -> str | None:
@@ -115,6 +132,23 @@ class CompanySettingsOut(BaseModel):
     default_gst_percentage: Decimal = Decimal("18.00")
     invoice_footer_text: Optional[str] = None
     terms_and_conditions: Optional[str] = None
+
+    # SMS provider (api_key masked — use sms_api_key_configured)
+    sms_provider: Optional[str] = None
+    sms_api_key_configured: bool = False
+    sms_sender_id: Optional[str] = None
+    sms_base_url: Optional[str] = None
+    sms_entity_id: Optional[str] = None
+
+    # SMTP (password masked — use smtp_password_configured)
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[int] = 587
+    smtp_username: Optional[str] = None
+    smtp_password_configured: bool = False
+    smtp_from_email: Optional[str] = None
+    smtp_from_name: Optional[str] = None
+    smtp_use_tls: bool = True
+    smtp_use_ssl: bool = False
 
     created_at: datetime
     updated_at: datetime

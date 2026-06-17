@@ -34,6 +34,8 @@ import { PaymentReportPage } from "@/pages/admin/reports/PaymentReportPage";
 import { RevenueReportPage } from "@/pages/admin/reports/RevenueReportPage";
 import { OutstandingReportPage } from "@/pages/admin/reports/OutstandingReportPage";
 import { ActivityPage } from "@/pages/admin/activity/ActivityPage";
+import { NotificationTemplatesPage } from "@/pages/admin/notifications/TemplatesPage";
+import { NotificationLogsPage } from "@/pages/admin/notifications/LogsPage";
 
 /** Redirect to /change-password if logged in and forced, else to login. */
 function RootRedirect() {
@@ -228,6 +230,24 @@ export default function App() {
       <Route path="/admin/reports/payments" element={<ProtectedRoute role="SUPERADMIN" loginPath="/admin/login"><PaymentReportPage /></ProtectedRoute>} />
       <Route path="/admin/reports/revenue" element={<ProtectedRoute role="SUPERADMIN" loginPath="/admin/login"><RevenueReportPage /></ProtectedRoute>} />
       <Route path="/admin/reports/outstanding" element={<ProtectedRoute role="SUPERADMIN" loginPath="/admin/login"><OutstandingReportPage /></ProtectedRoute>} />
+
+      {/* Notifications */}
+      <Route
+        path="/admin/notifications/templates"
+        element={
+          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+            <NotificationTemplatesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/notifications/logs"
+        element={
+          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+            <NotificationLogsPage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Activity / Audit Center */}
       <Route

@@ -61,6 +61,13 @@ ACTION_DASHBOARD_VIEWED = "dashboard_viewed"
 ACTION_REPORT_VIEWED = "report_viewed"
 ACTION_REPORT_EXPORTED = "report_exported"
 
+# Notifications domain
+ACTION_NOTIFICATION_TEMPLATE_UPDATED = "notification_template_updated"
+ACTION_NOTIFICATION_TEST_EMAIL_SENT = "test_email_sent"
+ACTION_NOTIFICATION_TEST_SMS_SENT = "test_sms_sent"
+ACTION_NOTIFICATION_SENT = "notification_sent"
+ACTION_NOTIFICATION_FAILED = "notification_failed"
+
 
 def derive_module(action: str) -> str:
     """Derive the logical module name from an action string."""
@@ -82,6 +89,8 @@ def derive_module(action: str) -> str:
         return "REPORTS"
     if action.startswith("dashboard"):
         return "DASHBOARD"
+    if action.startswith("notification") or action in ("test_email_sent", "test_sms_sent"):
+        return "NOTIFICATIONS"
     return "SYSTEM"
 
 

@@ -16,8 +16,18 @@ logger = get_logger(__name__)
 async def lifespan(app: FastAPI):
     # Create the local storage folder structure on startup.
     init_storage()
+
+    # Seed default data
+    from app.utils.seed import seed_notification_templates
+    seed_notification_templates()
+
+    # Start renewal reminder scheduler
+    from app.services.notifications.scheduler import create_scheduler
+    scheduler = create_scheduler()
+    scheduler.start()
     logger.info("app.startup", project=settings.PROJECT_NAME)
     yield
+    scheduler.shutdown(wait=False)
     logger.info("app.shutdown")
 
 

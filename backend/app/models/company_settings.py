@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Integer, Numeric, String, Text, func
+from sqlalchemy import Boolean, DateTime, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -67,6 +67,29 @@ class CompanySettings(Base):
     account_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
     ifsc_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
     upi_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    # ── SMS Provider ────────────────────────────────────────────────────
+    sms_provider: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    sms_api_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    sms_sender_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    sms_base_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    sms_entity_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    # ── SMTP / Email ────────────────────────────────────────────────────
+    smtp_host: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    smtp_port: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, server_default="587"
+    )
+    smtp_username: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    smtp_password: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    smtp_from_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    smtp_from_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    smtp_use_tls: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="true"
+    )
+    smtp_use_ssl: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
 
     # ── Audit timestamps ───────────────────────────────────────────────────
     created_at: Mapped[datetime] = mapped_column(

@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Bell,
   IndianRupee,
   LayoutDashboard,
   LogOut,
@@ -76,6 +77,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: BarChart3,
     href: "/admin/reports",
     matchPrefix: "/admin/reports",
+    roles: ["SUPERADMIN"],
+  },
+  {
+    label: "Notifications",
+    icon: Bell,
+    href: "/admin/notifications/templates",
+    matchPrefix: "/admin/notifications",
     roles: ["SUPERADMIN"],
   },
   {

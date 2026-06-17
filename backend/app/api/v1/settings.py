@@ -28,6 +28,9 @@ def _to_out(record, request: Request | None = None) -> CompanySettingsOut:
     out = CompanySettingsOut.model_validate(record)
     if record.logo_path:
         out.logo_url = "/api/v1/settings/company/logo"
+    # Mask sensitive values — expose only whether they are configured
+    out.sms_api_key_configured = bool(record.sms_api_key)
+    out.smtp_password_configured = bool(record.smtp_password)
     return out
 
 

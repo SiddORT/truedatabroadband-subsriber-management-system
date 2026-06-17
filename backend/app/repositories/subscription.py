@@ -78,6 +78,17 @@ class SubscriptionRepository(BaseRepository[Subscription]):
         )
         return list(self.db.scalars(stmt).all())
 
+    def list_by_expiry_date(self, expiry_date: "date") -> list[Subscription]:
+        """ACTIVE subscriptions whose expiry_date matches the given date (used by scheduler)."""
+        from datetime import date as _date
+        stmt = (
+            select(Subscription)
+            .where(Subscription.expiry_date == expiry_date)
+            .where(Subscription.deleted_at.is_(None))
+            .where(Subscription.status == SubscriptionStatus.ACTIVE)
+        )
+        return list(self.db.scalars(stmt).all())
+
     def list_paginated(
         self,
         *,
