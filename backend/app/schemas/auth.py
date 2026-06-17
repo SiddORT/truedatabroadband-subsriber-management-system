@@ -2,8 +2,7 @@ from pydantic import BaseModel
 
 
 class LoginRequest(BaseModel):
-    # Plain str (not EmailStr) so internal domains like
-    # admin@truedata.local are accepted.
+    # Plain str (not EmailStr) so non-standard domains are accepted.
     email: str
     password: str
 

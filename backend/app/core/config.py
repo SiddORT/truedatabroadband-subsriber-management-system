@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     STORAGE_ROOT: str = os.getenv("STORAGE_ROOT", "storage")
 
     # Seed user
-    SEED_ADMIN_EMAIL: str = os.getenv("SEED_ADMIN_EMAIL", "admin@truedata.local")
+    SEED_ADMIN_EMAIL: str = os.getenv("SEED_ADMIN_EMAIL", "admin@truedatabroadband.com")
     SEED_ADMIN_PASSWORD: str = os.getenv("SEED_ADMIN_PASSWORD", "TrueData@123")
 
     @property
