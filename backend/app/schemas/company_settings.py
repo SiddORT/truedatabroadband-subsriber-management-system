@@ -101,6 +101,8 @@ class SmsSettingsUpdate(BaseModel):
     replace_client_id: bool = False
     replace_sender_id: bool = False
     replace_entity_id: bool = False
+    test_template_id: Optional[str] = Field(None, max_length=100)
+    test_message: Optional[str] = None
 
 
 class SmsSettingsOut(BaseModel):
@@ -112,6 +114,8 @@ class SmsSettingsOut(BaseModel):
     client_id_configured: bool = False
     sender_id_configured: bool = False
     entity_id_configured: bool = False
+    test_template_id: Optional[str] = None
+    test_message: Optional[str] = None
 
 
 # ── Email Settings ────────────────────────────────────────────────────────────

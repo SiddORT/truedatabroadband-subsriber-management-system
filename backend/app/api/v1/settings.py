@@ -112,6 +112,8 @@ def get_sms_settings(
         client_id_configured=bool(record.sms_client_id_encrypted),
         sender_id_configured=bool(record.sms_sender_id_encrypted),
         entity_id_configured=bool(record.sms_entity_id_encrypted),
+        test_template_id=record.sms_test_template_id,
+        test_message=record.sms_test_message,
     )
 
 
@@ -138,6 +140,8 @@ def update_sms_settings(
         replace_client_id=payload.replace_client_id,
         replace_sender_id=payload.replace_sender_id,
         replace_entity_id=payload.replace_entity_id,
+        test_template_id=payload.test_template_id,
+        test_message=payload.test_message,
     )
     _audit(db, ACTION_SMS_SETTINGS_UPDATED, request, user_id=current_user.id)
     return SmsSettingsOut(
@@ -149,6 +153,8 @@ def update_sms_settings(
         client_id_configured=bool(record.sms_client_id_encrypted),
         sender_id_configured=bool(record.sms_sender_id_encrypted),
         entity_id_configured=bool(record.sms_entity_id_encrypted),
+        test_template_id=record.sms_test_template_id,
+        test_message=record.sms_test_message,
     )
 
 
@@ -166,11 +172,16 @@ def test_sms(
     record = repo.get_or_create()
     sms_settings = repo.get_sms_settings(record)
 
+    test_message = (
+        sms_settings.get("test_message")
+        or "This is a test SMS from True Data Broadband Pvt. Ltd."
+    )
     svc = SmsService()
     result = svc.send(
         mobile_number=payload.mobile_number,
         template_key="TEST",
-        rendered_body="This is a test SMS from True Data Broadband Pvt. Ltd.",
+        rendered_body=test_message,
+        dlt_template_id=sms_settings.get("test_template_id"),
         dlt_entity_id=sms_settings.get("entity_id"),
         sms_settings=sms_settings,
     )

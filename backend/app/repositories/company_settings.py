@@ -71,6 +71,8 @@ class CompanySettingsRepository:
         replace_client_id: bool = False,
         replace_sender_id: bool = False,
         replace_entity_id: bool = False,
+        test_template_id: str | None = None,
+        test_message: str | None = None,
     ) -> CompanySettings:
         """Update SMS settings. Credentials only overwritten when replace_* = True AND new value provided."""
         record.sms_is_enabled = is_enabled
@@ -85,6 +87,8 @@ class CompanySettingsRepository:
             record.sms_sender_id_encrypted = sender_id
         if replace_entity_id and entity_id:
             record.sms_entity_id_encrypted = entity_id
+        record.sms_test_template_id = test_template_id
+        record.sms_test_message = test_message
         self.db.commit()
         self.db.refresh(record)
         return record
@@ -132,6 +136,8 @@ class CompanySettingsRepository:
             "client_id": record.sms_client_id_encrypted,
             "sender_id": record.sms_sender_id_encrypted,
             "entity_id": record.sms_entity_id_encrypted,
+            "test_template_id": record.sms_test_template_id,
+            "test_message": record.sms_test_message,
         }
 
     def get_smtp_settings(self, record: CompanySettings) -> dict:

@@ -118,6 +118,8 @@ function SmsTab() {
   const [replaceClientId, setReplaceClientId] = useState(false);
   const [replaceSenderId, setReplaceSenderId] = useState(false);
   const [replaceEntityId, setReplaceEntityId] = useState(false);
+  const [testTemplateId, setTestTemplateId] = useState("");
+  const [testMessage, setTestMessage] = useState("");
   const [testMobile, setTestMobile] = useState("");
   const [initialized, setInitialized] = useState(false);
 
@@ -126,6 +128,8 @@ function SmsTab() {
     setProvider(settings.provider ?? "");
     setApiBaseUrl(settings.api_base_url ?? "");
     setStatusApiUrl(settings.status_api_url ?? "");
+    setTestTemplateId(settings.test_template_id ?? "");
+    setTestMessage(settings.test_message ?? "");
     setInitialized(true);
   }
 
@@ -162,6 +166,8 @@ function SmsTab() {
       replace_client_id: doReplaceClientId,
       replace_sender_id: doReplaceSenderId,
       replace_entity_id: doReplaceEntityId,
+      test_template_id: testTemplateId || null,
+      test_message: testMessage || null,
     };
     saveMutation.mutate(payload);
   };
@@ -267,6 +273,33 @@ function SmsTab() {
           setValue={setEntityId}
           placeholder="Your DLT entity ID"
         />
+      </div>
+
+      {/* Test SMS Configuration */}
+      <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 space-y-4">
+        <p className="text-sm font-medium text-gray-700">Test SMS Configuration</p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label>Test DLT Template ID</Label>
+            <Input
+              value={testTemplateId}
+              onChange={(e) => setTestTemplateId(e.target.value)}
+              placeholder="DLT template ID for test SMS"
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>Test Message Body</Label>
+            <textarea
+              value={testMessage}
+              onChange={(e) => setTestMessage(e.target.value)}
+              placeholder="Exact DLT-approved test message text…"
+              rows={3}
+              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1F4959]/30 resize-none"
+            />
+            <p className="text-xs text-gray-400">Must match your DLT-registered test template exactly.</p>
+          </div>
+        </div>
       </div>
 
       {/* Actions */}

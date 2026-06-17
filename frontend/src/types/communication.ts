@@ -14,6 +14,8 @@ export interface SmsSettingsOut {
   client_id_configured: boolean;
   sender_id_configured: boolean;
   entity_id_configured: boolean;
+  test_template_id: string | null;
+  test_message: string | null;
 }
 
 export interface SmsSettingsUpdate {
@@ -29,6 +31,8 @@ export interface SmsSettingsUpdate {
   replace_client_id?: boolean;
   replace_sender_id?: boolean;
   replace_entity_id?: boolean;
+  test_template_id?: string | null;
+  test_message?: string | null;
 }
 
 // ── Email Settings ────────────────────────────────────────────────────────

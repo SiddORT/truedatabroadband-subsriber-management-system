@@ -83,6 +83,10 @@ class CompanySettings(Base):
     sms_sender_id_encrypted: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
     sms_entity_id_encrypted: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
 
+    # Test SMS — plain text (not secrets)
+    sms_test_template_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    sms_test_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # ── SMTP / Email ─────────────────────────────────────────────────────────
     email_is_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default="false"
