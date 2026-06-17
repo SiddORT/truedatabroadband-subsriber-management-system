@@ -328,7 +328,15 @@ class InvoiceService:
             new_values={"invoice_number": inv_num, "status": invoice.status.value},
         )
 
-        self.audit.log(ACTION_INVOICE_CREATED, user_id=actor_id, ip_address=ip_address, user_agent=user_agent)
+        self.audit.log(
+            ACTION_INVOICE_CREATED,
+            user_id=actor_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            entity_type="invoice",
+            entity_id=str(invoice.id),
+            entity_name=invoice.invoice_number,
+        )
         return self.repo.get(invoice.id)
 
     # ── Full edit ──────────────────────────────────────────────────────────
@@ -496,7 +504,13 @@ class InvoiceService:
             old_values=old, new_values=new,
             change_reason=payload.change_reason,
         )
-        self.audit.log(ACTION_INVOICE_EDITED, user_id=actor_id)
+        self.audit.log(
+            ACTION_INVOICE_EDITED,
+            user_id=actor_id,
+            entity_type="invoice",
+            entity_id=str(invoice.id),
+            entity_name=invoice.invoice_number,
+        )
         return self.repo.get(invoice.id)
 
     # ── Status change ──────────────────────────────────────────────────────
@@ -527,7 +541,15 @@ class InvoiceService:
                 new_values={"status": target.value},
                 change_reason=change_reason,
             )
-            self.audit.log(ACTION_INVOICE_CANCELLED, user_id=actor_id)
+            self.audit.log(
+                ACTION_INVOICE_CANCELLED,
+                user_id=actor_id,
+                entity_type="invoice",
+                entity_id=str(invoice.id),
+                entity_name=invoice.invoice_number,
+                old_values={"status": old_status.value},
+                new_values={"status": target.value},
+            )
         else:
             self.repo.add_change_log(
                 invoice.id, actor_id, ChangeType.STATUS_CHANGED,
@@ -547,7 +569,13 @@ class InvoiceService:
             invoice.id, actor_id, ChangeType.LOCKED,
             new_values={"is_locked": True},
         )
-        self.audit.log(ACTION_INVOICE_LOCKED, user_id=actor_id)
+        self.audit.log(
+            ACTION_INVOICE_LOCKED,
+            user_id=actor_id,
+            entity_type="invoice",
+            entity_id=str(invoice.id),
+            entity_name=invoice.invoice_number,
+        )
         return invoice
 
     # ── Recalculate amounts & status after payment ─────────────────────────
@@ -592,6 +620,9 @@ class InvoiceService:
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,
+            entity_type="invoice",
+            entity_id=str(invoice.id),
+            entity_name=invoice.invoice_number,
         )
 
     # ── Create consolidated ────────────────────────────────────────────────
@@ -796,5 +827,13 @@ class InvoiceService:
             invoice.id, actor_id, ChangeType.CREATED,
             new_values={"invoice_number": inv_num, "invoice_type": "CONSOLIDATED"},
         )
-        self.audit.log(ACTION_INVOICE_CREATED, user_id=actor_id, ip_address=ip_address, user_agent=user_agent)
+        self.audit.log(
+            ACTION_INVOICE_CREATED,
+            user_id=actor_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            entity_type="invoice",
+            entity_id=str(invoice.id),
+            entity_name=invoice.invoice_number,
+        )
         return self.repo.get(invoice.id)

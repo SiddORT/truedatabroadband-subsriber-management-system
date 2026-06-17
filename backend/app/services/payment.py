@@ -93,6 +93,9 @@ class PaymentService:
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,
+            entity_type="payment",
+            entity_id=str(payment.id),
+            entity_name=payment.payment_number,
         )
         return payment
 
@@ -115,4 +118,7 @@ class PaymentService:
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,
+            entity_type="payment",
+            entity_id=str(payment.id),
+            entity_name=payment.payment_number,
         )

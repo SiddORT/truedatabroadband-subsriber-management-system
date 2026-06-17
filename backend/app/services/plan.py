@@ -89,6 +89,9 @@ class PlanService:
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,
+            entity_type="plan",
+            entity_id=str(plan.id),
+            entity_name=plan.name,
         )
         return plan
 
@@ -110,6 +113,9 @@ class PlanService:
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,
+            entity_type="plan",
+            entity_id=str(plan.id),
+            entity_name=plan.name,
         )
         return plan
 
@@ -130,6 +136,9 @@ class PlanService:
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,
+            entity_type="plan",
+            entity_id=str(plan.id),
+            entity_name=plan.name,
         )
         return plan
 
@@ -168,6 +177,9 @@ class PlanService:
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,
+            entity_type="pricing",
+            entity_id=str(pricing.id),
+            entity_name=plan.name,
         )
         return pricing
 
@@ -191,6 +203,8 @@ class PlanService:
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,
+            entity_type="pricing",
+            entity_id=str(pricing.id),
         )
         return pricing
 
@@ -209,6 +223,8 @@ class PlanService:
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,
+            entity_type="pricing",
+            entity_id=str(pricing.id),
         )
 
     def delete(
@@ -226,4 +242,7 @@ class PlanService:
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,
+            entity_type="plan",
+            entity_id=str(plan.id),
+            entity_name=plan.name,
         )

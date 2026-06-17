@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -48,6 +48,7 @@ ACTION_DUPLICATE_INVOICE_BLOCKED = "duplicate_invoice_blocked"
 ACTION_INVOICE_LOCKED = "invoice_locked"
 ACTION_INVOICE_CANCELLED = "invoice_cancelled"
 ACTION_INVOICE_DELETED = "invoice_deleted"
+ACTION_INVOICE_EMAILED = "invoice_emailed"
 
 # Payment domain
 ACTION_PAYMENT_RECORDED = "payment_recorded"
@@ -59,6 +60,29 @@ ACTION_DASHBOARD_VIEWED = "dashboard_viewed"
 # Reports domain
 ACTION_REPORT_VIEWED = "report_viewed"
 ACTION_REPORT_EXPORTED = "report_exported"
+
+
+def derive_module(action: str) -> str:
+    """Derive the logical module name from an action string."""
+    if action in ("login", "logout") or "password" in action:
+        return "AUTH"
+    if action.startswith("customer"):
+        return "CUSTOMERS"
+    if action.startswith("plan") or action.startswith("pricing"):
+        return "PLANS"
+    if action.startswith("subscription"):
+        return "SUBSCRIPTIONS"
+    if action.startswith("settings") or action.startswith("logo"):
+        return "SETTINGS"
+    if action.startswith("invoice") or action.startswith("duplicate_invoice"):
+        return "INVOICES"
+    if action.startswith("payment"):
+        return "PAYMENTS"
+    if action.startswith("report"):
+        return "REPORTS"
+    if action.startswith("dashboard"):
+        return "DASHBOARD"
+    return "SYSTEM"
 
 
 class AuditLog(Base):
@@ -75,17 +99,39 @@ class AuditLog(Base):
         primary_key=True,
         default=uuid.uuid4,
     )
-    # Nullable so records survive even if the user is later soft-deleted.
+    # Module classification (AUTH, CUSTOMERS, PLANS, …)
+    module: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+
+    # Action performed
+    action: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+
+    # Entity this action touched
+    entity_type: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    entity_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    entity_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # Who performed the action — nullable so records survive user soft-delete.
     user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True, index=True
     )
-    action: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    performed_by_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # Request metadata
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Change tracking (JSONB — only changed fields stored)
+    old_values: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    new_values: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    # Free-form note
+    remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
+        index=True,
     )
 
     def __repr__(self) -> str:

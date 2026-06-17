@@ -33,6 +33,7 @@ import { InvoiceReportPage } from "@/pages/admin/reports/InvoiceReportPage";
 import { PaymentReportPage } from "@/pages/admin/reports/PaymentReportPage";
 import { RevenueReportPage } from "@/pages/admin/reports/RevenueReportPage";
 import { OutstandingReportPage } from "@/pages/admin/reports/OutstandingReportPage";
+import { ActivityPage } from "@/pages/admin/activity/ActivityPage";
 
 /** Redirect to /change-password if logged in and forced, else to login. */
 function RootRedirect() {
@@ -227,6 +228,16 @@ export default function App() {
       <Route path="/admin/reports/payments" element={<ProtectedRoute role="SUPERADMIN" loginPath="/admin/login"><PaymentReportPage /></ProtectedRoute>} />
       <Route path="/admin/reports/revenue" element={<ProtectedRoute role="SUPERADMIN" loginPath="/admin/login"><RevenueReportPage /></ProtectedRoute>} />
       <Route path="/admin/reports/outstanding" element={<ProtectedRoute role="SUPERADMIN" loginPath="/admin/login"><OutstandingReportPage /></ProtectedRoute>} />
+
+      {/* Activity / Audit Center */}
+      <Route
+        path="/admin/activity"
+        element={
+          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+            <ActivityPage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Settings */}
       <Route

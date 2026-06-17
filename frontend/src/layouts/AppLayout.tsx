@@ -7,6 +7,7 @@ import {
   ReceiptText,
   RefreshCw,
   Settings,
+  ShieldCheck,
   Users,
   Wifi,
 } from "lucide-react";
@@ -75,6 +76,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: BarChart3,
     href: "/admin/reports",
     matchPrefix: "/admin/reports",
+    roles: ["SUPERADMIN"],
+  },
+  {
+    label: "Activity Logs",
+    icon: ShieldCheck,
+    href: "/admin/activity",
+    matchPrefix: "/admin/activity",
     roles: ["SUPERADMIN"],
   },
   {

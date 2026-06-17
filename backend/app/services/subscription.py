@@ -166,6 +166,9 @@ class SubscriptionService:
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,
+            entity_type="subscription",
+            entity_id=str(sub.id),
+            entity_name=sub.subscription_code,
         )
         return sub
 
@@ -194,6 +197,9 @@ class SubscriptionService:
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,
+            entity_type="subscription",
+            entity_id=str(sub.id),
+            entity_name=sub.subscription_code,
         )
         return sub
 
@@ -218,6 +224,9 @@ class SubscriptionService:
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,
+            entity_type="subscription",
+            entity_id=str(sub.id),
+            entity_name=sub.subscription_code,
         )
         return sub
 
@@ -276,6 +285,9 @@ class SubscriptionService:
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,
+            entity_type="subscription",
+            entity_id=str(new_sub.id),
+            entity_name=new_sub.subscription_code,
         )
         return new_sub
 
@@ -316,4 +328,7 @@ class SubscriptionService:
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,
+            entity_type="subscription",
+            entity_id=str(sub.id),
+            entity_name=sub.subscription_code,
         )

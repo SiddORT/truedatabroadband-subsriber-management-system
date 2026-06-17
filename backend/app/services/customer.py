@@ -135,6 +135,9 @@ class CustomerService:
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,
+            entity_type="customer",
+            entity_id=str(customer.id),
+            entity_name=customer.full_name,
         )
         return customer, temp_password
 
@@ -177,6 +180,9 @@ class CustomerService:
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,
+            entity_type="customer",
+            entity_id=str(customer.id),
+            entity_name=customer.full_name,
         )
         return customer
 
@@ -193,6 +199,7 @@ class CustomerService:
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> Customer:
+        old_status = customer.status
         customer.status = new_status
         # Sync the linked user's active flag
         customer.user.is_active = new_status == CustomerStatus.ACTIVE
@@ -203,6 +210,11 @@ class CustomerService:
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,
+            entity_type="customer",
+            entity_id=str(customer.id),
+            entity_name=customer.full_name,
+            old_values={"status": old_status.value},
+            new_values={"status": new_status.value},
         )
         return customer
 
@@ -229,6 +241,9 @@ class CustomerService:
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,
+            entity_type="customer",
+            entity_id=str(customer.id),
+            entity_name=customer.full_name,
         )
         return temp_password
 
@@ -252,4 +267,7 @@ class CustomerService:
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,
+            entity_type="customer",
+            entity_id=str(customer.id),
+            entity_name=customer.full_name,
         )
