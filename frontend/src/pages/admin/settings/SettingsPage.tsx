@@ -6,12 +6,14 @@ import {
   Image,
   Loader2,
   MapPin,
+  MessageSquare,
   Receipt,
   Save,
   Upload,
   X,
 } from "lucide-react";
 
+import { Link } from "react-router-dom";
 import { AppLayout } from "@/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -189,6 +191,16 @@ export function SettingsPage() {
   return (
     <AppLayout title="Settings" portalLabel="Administration">
       <div className="space-y-5">
+        {/* ── Communication Settings Quick Link ─────────────────────────── */}
+        <Link
+          to="/admin/settings/communication"
+          className="flex items-center gap-3 rounded-xl border border-[#1F4959]/20 bg-[#1F4959]/5 px-4 py-3 text-sm text-[#1F4959] hover:bg-[#1F4959]/10 transition-colors"
+        >
+          <MessageSquare className="h-4 w-4 shrink-0" />
+          <span className="font-medium">Communication Settings</span>
+          <span className="ml-auto text-xs text-[#5C7C89]">SMS &amp; Email provider configuration →</span>
+        </Link>
+
         {/* ── Page header ──────────────────────────────────────────────── */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>

@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquare,
   ReceiptText,
   RefreshCw,
   Settings,
@@ -84,6 +85,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: Bell,
     href: "/admin/notifications/templates",
     matchPrefix: "/admin/notifications",
+    roles: ["SUPERADMIN"],
+  },
+  {
+    label: "Communications",
+    icon: MessageSquare,
+    href: "/admin/communications",
+    matchPrefix: "/admin/communications",
     roles: ["SUPERADMIN"],
   },
   {

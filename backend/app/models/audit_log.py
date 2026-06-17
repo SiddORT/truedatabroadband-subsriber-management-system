@@ -68,6 +68,19 @@ ACTION_NOTIFICATION_TEST_SMS_SENT = "test_sms_sent"
 ACTION_NOTIFICATION_SENT = "notification_sent"
 ACTION_NOTIFICATION_FAILED = "notification_failed"
 
+# Communication / OTP domain
+ACTION_SMS_SETTINGS_UPDATED = "sms_settings_updated"
+ACTION_EMAIL_SETTINGS_UPDATED = "email_settings_updated"
+ACTION_SMS_SENT = "sms_sent"
+ACTION_SMS_FAILED = "sms_failed"
+ACTION_SMS_DELIVERED = "sms_delivered"
+ACTION_EMAIL_SENT = "email_sent"
+ACTION_EMAIL_FAILED = "email_failed"
+ACTION_OTP_REQUESTED = "otp_requested"
+ACTION_OTP_SENT = "otp_sent"
+ACTION_OTP_VERIFIED = "otp_verified"
+ACTION_OTP_FAILED = "otp_failed"
+
 
 def derive_module(action: str) -> str:
     """Derive the logical module name from an action string."""

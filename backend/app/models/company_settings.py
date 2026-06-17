@@ -9,6 +9,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.core.encryption import EncryptedString
 
 
 class CompanySettings(Base):
@@ -68,20 +69,28 @@ class CompanySettings(Base):
     ifsc_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
     upi_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
-    # ── SMS Provider ────────────────────────────────────────────────────
+    # ── SMS Provider ────────────────────────────────────────────────────────
+    sms_is_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
     sms_provider: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    sms_api_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    sms_sender_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    sms_base_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    sms_entity_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    sms_api_base_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    sms_status_api_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    # ── SMTP / Email ────────────────────────────────────────────────────
+    # Encrypted — decrypted only in memory, never exposed via API
+    sms_api_key_encrypted: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
+    sms_client_id_encrypted: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
+    sms_sender_id_encrypted: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
+    sms_entity_id_encrypted: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
+
+    # ── SMTP / Email ─────────────────────────────────────────────────────────
+    email_is_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
     smtp_host: Mapped[str | None] = mapped_column(String(255), nullable=True)
     smtp_port: Mapped[int | None] = mapped_column(
         Integer, nullable=True, server_default="587"
     )
-    smtp_username: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    smtp_password: Mapped[str | None] = mapped_column(String(255), nullable=True)
     smtp_from_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     smtp_from_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     smtp_use_tls: Mapped[bool] = mapped_column(
@@ -90,6 +99,10 @@ class CompanySettings(Base):
     smtp_use_ssl: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default="false"
     )
+
+    # Encrypted credentials
+    smtp_username_encrypted: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
+    smtp_password_encrypted: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
 
     # ── Audit timestamps ───────────────────────────────────────────────────
     created_at: Mapped[datetime] = mapped_column(

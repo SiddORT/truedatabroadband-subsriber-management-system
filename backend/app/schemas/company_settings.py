@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # ── Validators ────────────────────────────────────────────────────────────────
 
@@ -46,13 +46,13 @@ def _val_phone(v: str | None) -> str | None:
 
 
 class CompanySettingsUpdate(BaseModel):
-    """All fields optional — partial update pattern."""
+    """General company/invoice settings — partial update."""
 
     company_name: Optional[str] = Field(None, min_length=1, max_length=255)
     legal_name: Optional[str] = Field(None, max_length=255)
     gst_number: Optional[str] = Field(None)
     pan_number: Optional[str] = Field(None)
-    support_email: Optional[EmailStr] = None
+    support_email: Optional[str] = None
     support_phone: Optional[str] = None
 
     address_line_1: Optional[str] = Field(None, max_length=255)
@@ -68,23 +68,6 @@ class CompanySettingsUpdate(BaseModel):
     default_gst_percentage: Optional[Decimal] = Field(None, ge=0, le=100)
     invoice_footer_text: Optional[str] = None
     terms_and_conditions: Optional[str] = None
-
-    # SMS provider
-    sms_provider: Optional[str] = Field(None, max_length=20)
-    sms_api_key: Optional[str] = Field(None, max_length=255)
-    sms_sender_id: Optional[str] = Field(None, max_length=50)
-    sms_base_url: Optional[str] = Field(None, max_length=255)
-    sms_entity_id: Optional[str] = Field(None, max_length=100)
-
-    # SMTP / Email
-    smtp_host: Optional[str] = Field(None, max_length=255)
-    smtp_port: Optional[int] = Field(None, ge=1, le=65535)
-    smtp_username: Optional[str] = Field(None, max_length=255)
-    smtp_password: Optional[str] = Field(None, max_length=255)
-    smtp_from_email: Optional[str] = Field(None, max_length=255)
-    smtp_from_name: Optional[str] = Field(None, max_length=255)
-    smtp_use_tls: Optional[bool] = None
-    smtp_use_ssl: Optional[bool] = None
 
     @field_validator("gst_number", mode="before")
     @classmethod
@@ -102,7 +85,76 @@ class CompanySettingsUpdate(BaseModel):
         return _val_phone(v)
 
 
-# ── Response ──────────────────────────────────────────────────────────────────
+# ── SMS Settings ──────────────────────────────────────────────────────────────
+
+
+class SmsSettingsUpdate(BaseModel):
+    is_enabled: bool = False
+    provider: Optional[str] = Field(None, max_length=20)
+    api_base_url: Optional[str] = Field(None, max_length=500)
+    status_api_url: Optional[str] = Field(None, max_length=500)
+    api_key: Optional[str] = Field(None, max_length=500)
+    client_id: Optional[str] = Field(None, max_length=255)
+    sender_id: Optional[str] = Field(None, max_length=50)
+    entity_id: Optional[str] = Field(None, max_length=100)
+    replace_api_key: bool = False
+    replace_client_id: bool = False
+    replace_sender_id: bool = False
+    replace_entity_id: bool = False
+
+
+class SmsSettingsOut(BaseModel):
+    is_enabled: bool = False
+    provider: Optional[str] = None
+    api_base_url: Optional[str] = None
+    status_api_url: Optional[str] = None
+    api_key_configured: bool = False
+    client_id_configured: bool = False
+    sender_id_configured: bool = False
+    entity_id_configured: bool = False
+
+
+# ── Email Settings ────────────────────────────────────────────────────────────
+
+
+class EmailSettingsUpdate(BaseModel):
+    is_enabled: bool = False
+    host: Optional[str] = Field(None, max_length=255)
+    port: Optional[int] = Field(None, ge=1, le=65535)
+    from_email: Optional[str] = Field(None, max_length=255)
+    from_name: Optional[str] = Field(None, max_length=255)
+    use_tls: bool = True
+    use_ssl: bool = False
+    username: Optional[str] = Field(None, max_length=255)
+    password: Optional[str] = Field(None, max_length=500)
+    replace_username: bool = False
+    replace_password: bool = False
+
+
+class EmailSettingsOut(BaseModel):
+    is_enabled: bool = False
+    host: Optional[str] = None
+    port: Optional[int] = 587
+    from_email: Optional[str] = None
+    from_name: Optional[str] = None
+    use_tls: bool = True
+    use_ssl: bool = False
+    username_configured: bool = False
+    password_configured: bool = False
+
+
+# ── Test requests ─────────────────────────────────────────────────────────────
+
+
+class TestSmsRequest(BaseModel):
+    mobile_number: str = Field(..., max_length=20)
+
+
+class TestEmailRequest(BaseModel):
+    email: str = Field(..., max_length=255)
+
+
+# ── General Settings Response ─────────────────────────────────────────────────
 
 
 class CompanySettingsOut(BaseModel):
@@ -133,23 +185,6 @@ class CompanySettingsOut(BaseModel):
     invoice_footer_text: Optional[str] = None
     terms_and_conditions: Optional[str] = None
 
-    # SMS provider (api_key masked — use sms_api_key_configured)
-    sms_provider: Optional[str] = None
-    sms_api_key_configured: bool = False
-    sms_sender_id: Optional[str] = None
-    sms_base_url: Optional[str] = None
-    sms_entity_id: Optional[str] = None
-
-    # SMTP (password masked — use smtp_password_configured)
-    smtp_host: Optional[str] = None
-    smtp_port: Optional[int] = 587
-    smtp_username: Optional[str] = None
-    smtp_password_configured: bool = False
-    smtp_from_email: Optional[str] = None
-    smtp_from_name: Optional[str] = None
-    smtp_use_tls: bool = True
-    smtp_use_ssl: bool = False
-
     created_at: datetime
     updated_at: datetime
 
@@ -158,3 +193,35 @@ class LogoUploadResponse(BaseModel):
     logo_path: str
     logo_url: str
     message: str = "Logo uploaded successfully"
+
+
+# ── Communication Logs ────────────────────────────────────────────────────────
+
+
+class CommunicationLogOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    channel: str
+    template_key: Optional[str] = None
+    recipient_mobile: Optional[str] = None
+    recipient_email: Optional[str] = None
+    provider_name: Optional[str] = None
+    provider_message_id: Optional[str] = None
+    request_payload: Optional[dict] = None
+    response_payload: Optional[dict] = None
+    status: str
+    error_message: Optional[str] = None
+    entity_type: Optional[str] = None
+    entity_id: Optional[str] = None
+    created_at: datetime
+    sent_at: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+
+
+class CommunicationLogPage(BaseModel):
+    items: list[CommunicationLogOut]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int

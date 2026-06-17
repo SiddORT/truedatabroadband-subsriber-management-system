@@ -298,10 +298,11 @@ class NotificationService:
     @staticmethod
     def _extract_smtp(settings: Any) -> dict:
         return {
+            "is_enabled": settings.email_is_enabled,
             "host": settings.smtp_host,
             "port": settings.smtp_port,
-            "username": settings.smtp_username,
-            "password": settings.smtp_password,
+            "username": settings.smtp_username_encrypted,
+            "password": settings.smtp_password_encrypted,
             "from_email": settings.smtp_from_email,
             "from_name": settings.smtp_from_name,
             "use_tls": settings.smtp_use_tls,
@@ -311,9 +312,12 @@ class NotificationService:
     @staticmethod
     def _extract_sms(settings: Any) -> dict:
         return {
+            "is_enabled": settings.sms_is_enabled,
             "provider": settings.sms_provider,
-            "api_key": settings.sms_api_key,
-            "sender_id": settings.sms_sender_id,
-            "base_url": settings.sms_base_url,
-            "entity_id": settings.sms_entity_id,
+            "api_key": settings.sms_api_key_encrypted,
+            "client_id": settings.sms_client_id_encrypted,
+            "sender_id": settings.sms_sender_id_encrypted,
+            "base_url": settings.sms_api_base_url,
+            "status_url": settings.sms_status_api_url,
+            "entity_id": settings.sms_entity_id_encrypted,
         }

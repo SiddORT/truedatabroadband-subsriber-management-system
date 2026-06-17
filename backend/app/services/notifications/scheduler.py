@@ -114,6 +114,55 @@ def _job() -> None:
         db.close()
 
 
+def _status_poll_job() -> None:
+    """Called every 15 minutes — updates SMS delivery status for PENDING logs."""
+    from app.core.database import SessionLocal
+    from app.models.communication_log import CommStatus
+    from app.repositories.communication_log import CommunicationLogRepository
+    from app.repositories.company_settings import CompanySettingsRepository
+    from app.services.notifications.sms_service import SmsService
+
+    db = SessionLocal()
+    try:
+        settings_repo = CompanySettingsRepository(db)
+        record = settings_repo.get()
+        if record is None:
+            return
+
+        sms_settings = settings_repo.get_sms_settings(record)
+        if not sms_settings.get("is_enabled") or not sms_settings.get("provider"):
+            return
+
+        log_repo = CommunicationLogRepository(db)
+        pending = log_repo.list_pending_sms(limit=50)
+
+        if not pending:
+            return
+
+        sms_svc = SmsService()
+        for log in pending:
+            try:
+                result = sms_svc.get_status(log.provider_message_id, sms_settings=sms_settings)
+                if result.success and result.raw_response:
+                    raw = result.raw_response
+                    status_str = str(raw.get("Status", raw.get("status", ""))).upper()
+                    if status_str in ("DELIVERED", "DELIVRD"):
+                        new_status = CommStatus.DELIVERED
+                    elif status_str in ("FAILED", "UNDELIVERED"):
+                        new_status = CommStatus.FAILED
+                    else:
+                        continue  # still in transit — skip
+                    log_repo.update_status(log, new_status, response_payload=raw)
+            except Exception as exc:
+                logger.error("scheduler.status_poll.error", log_id=str(log.id), error=str(exc))
+
+        logger.info("scheduler.status_poll.done", checked=len(pending))
+    except Exception as exc:
+        logger.error("scheduler.status_poll.fatal", error=str(exc))
+    finally:
+        db.close()
+
+
 def create_scheduler() -> BackgroundScheduler:
     """Create and return a configured (not yet started) BackgroundScheduler."""
     scheduler = BackgroundScheduler(timezone="Asia/Kolkata")
@@ -124,5 +173,13 @@ def create_scheduler() -> BackgroundScheduler:
         name="Daily Renewal Reminders",
         replace_existing=True,
         misfire_grace_time=3600,  # allow up to 1h late
+    )
+    scheduler.add_job(
+        _status_poll_job,
+        trigger="interval",
+        minutes=15,
+        id="sms_status_poll",
+        name="SMS Delivery Status Poll",
+        replace_existing=True,
     )
     return scheduler

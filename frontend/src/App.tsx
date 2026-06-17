@@ -36,6 +36,8 @@ import { OutstandingReportPage } from "@/pages/admin/reports/OutstandingReportPa
 import { ActivityPage } from "@/pages/admin/activity/ActivityPage";
 import { NotificationTemplatesPage } from "@/pages/admin/notifications/TemplatesPage";
 import { NotificationLogsPage } from "@/pages/admin/notifications/LogsPage";
+import { CommunicationsPage } from "@/pages/admin/communications/CommunicationsPage";
+import { CommunicationSettingsPage } from "@/pages/admin/settings/CommunicationSettingsPage";
 
 /** Redirect to /change-password if logged in and forced, else to login. */
 function RootRedirect() {
@@ -249,6 +251,16 @@ export default function App() {
         }
       />
 
+      {/* Communication Logs */}
+      <Route
+        path="/admin/communications"
+        element={
+          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+            <CommunicationsPage />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Activity / Audit Center */}
       <Route
         path="/admin/activity"
@@ -265,6 +277,14 @@ export default function App() {
         element={
           <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
             <SettingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/settings/communication"
+        element={
+          <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
+            <CommunicationSettingsPage />
           </ProtectedRoute>
         }
       />

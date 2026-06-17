@@ -42,10 +42,15 @@ class EmailService:
         smtp_settings keys: host, port, username, password, from_email,
                             from_name, use_tls, use_ssl
         """
-        if not smtp_settings or not smtp_settings.get("host"):
+        if not smtp_settings or not smtp_settings.get("is_enabled", False):
             return EmailResult(
                 success=False,
-                error="SMTP not configured — set smtp_host in Company Settings",
+                error="Email is disabled — enable it in Communication Settings",
+            )
+        if not smtp_settings.get("host"):
+            return EmailResult(
+                success=False,
+                error="SMTP not configured — set smtp_host in Communication Settings",
             )
 
         host = smtp_settings["host"]
