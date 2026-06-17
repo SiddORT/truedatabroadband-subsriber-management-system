@@ -41,7 +41,7 @@ const editPlanSchema = z
     name: z.string().min(1, "Required"),
     description: z.string().optional(),
     speed_mbps: z
-      .number({ invalid_type_error: "Enter speed in Mbps" })
+      .number({ error: "Enter speed in Mbps" })
       .int()
       .positive("Must be > 0"),
     data_policy: z.enum(["UNLIMITED", "FUP"]),
@@ -62,8 +62,8 @@ type EditPlanValues = z.infer<typeof editPlanSchema>;
 
 const pricingSchema = z.object({
   billing_cycle: z.enum(["MONTHLY", "QUARTERLY", "HALF_YEARLY", "ANNUALLY"]),
-  base_price: z.number({ invalid_type_error: "Enter a valid price" }).min(0),
-  gst_percentage: z.number({ invalid_type_error: "Enter a valid %" }).min(0),
+  base_price: z.number({ error: "Enter a valid price" }).min(0),
+  gst_percentage: z.number({ error: "Enter a valid %" }).min(0),
   is_active: z.boolean(),
 });
 
@@ -147,7 +147,7 @@ function PricingFormFields({
 // ── Pricing table row ─────────────────────────────────────────────────────────
 
 function PricingTableRow({
-  row, planId, onEdit, onDelete,
+  row, planId: _planId, onEdit, onDelete,
 }: {
   row: PlanPricing;
   planId: string;

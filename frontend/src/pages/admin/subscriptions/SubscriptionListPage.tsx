@@ -54,7 +54,7 @@ export function SubscriptionListPage() {
         page: tableState.page,
         page_size: tableState.pageSize,
         search: tableState.search,
-        sort_by: tableState.sortBy,
+        sort_by: tableState.sortBy ?? undefined,
         sort_order: tableState.sortDir,
         status_filter: statusFilter || undefined,
       }),

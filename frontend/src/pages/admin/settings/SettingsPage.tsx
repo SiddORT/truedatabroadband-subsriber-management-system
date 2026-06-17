@@ -38,16 +38,18 @@ function Field({
   required,
   error,
   hint,
+  className,
   children,
 }: {
   label: string;
   required?: boolean;
   error?: string;
   hint?: string;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={`flex flex-col gap-1.5${className ? ` ${className}` : ""}`}>
       <label className="text-sm font-medium text-foreground">
         {label}
         {required && <span className="ml-0.5 text-destructive">*</span>}

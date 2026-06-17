@@ -563,8 +563,8 @@ function Step4Docs({
   profileRef: React.RefObject<HTMLInputElement>;
   kycRef: React.RefObject<HTMLInputElement>;
   agreementRef: React.RefObject<HTMLInputElement>;
-  fileNames: Record<string, string>;
-  setFileNames: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  fileNames: { profile_photo: string; kyc_document: string; agreement_document: string };
+  setFileNames: React.Dispatch<React.SetStateAction<{ profile_photo: string; kyc_document: string; agreement_document: string }>>;
 }) {
   return (
     <div className="space-y-4">

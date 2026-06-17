@@ -29,10 +29,10 @@ const SELECT_CLS =
 const pricingRowSchema = z.object({
   billing_cycle: z.enum(["MONTHLY", "QUARTERLY", "HALF_YEARLY", "ANNUALLY"]),
   base_price: z
-    .number({ invalid_type_error: "Enter a valid price" })
+    .number({ error: "Enter a valid price" })
     .min(0, "Must be ≥ 0"),
   gst_percentage: z
-    .number({ invalid_type_error: "Enter a valid %" })
+    .number({ error: "Enter a valid %" })
     .min(0, "Must be ≥ 0"),
   is_active: z.boolean(),
 });
@@ -42,7 +42,7 @@ const schema = z
     name: z.string().min(1, "Name is required").max(255),
     description: z.string().optional(),
     speed_mbps: z
-      .number({ invalid_type_error: "Enter speed in Mbps" })
+      .number({ error: "Enter speed in Mbps" })
       .int()
       .positive("Must be greater than 0"),
     data_policy: z.enum(["UNLIMITED", "FUP"]),
@@ -82,23 +82,16 @@ function PricingRow({
   register,
   control,
   errors,
-  usedCycles,
 }: {
   index: number;
   remove: (i: number) => void;
   register: any;
   control: any;
   errors: any;
-  usedCycles: BillingCycle[];
 }) {
   const basePrice = useWatch({ control, name: `pricing.${index}.base_price` }) ?? 0;
   const gstPct = useWatch({ control, name: `pricing.${index}.gst_percentage` }) ?? 0;
   const total = (Number(basePrice) || 0) + (Number(basePrice) || 0) * (Number(gstPct) || 0) / 100;
-  const currentCycle = useWatch({ control, name: `pricing.${index}.billing_cycle` });
-
-  const availableCycles = ALL_CYCLES.filter(
-    (c) => c === currentCycle || !usedCycles.includes(c) || usedCycles.filter((x) => x === c).length <= 1,
-  );
 
   return (
     <div className="grid grid-cols-[1fr_1fr_1fr_auto_auto] items-start gap-3 rounded-xl border border-border/50 bg-muted/10 p-4">
@@ -434,7 +427,6 @@ export function PlanCreatePage() {
                     register={register}
                     control={control}
                     errors={errors}
-                    usedCycles={usedCycles}
                   />
                 ))}
               </div>

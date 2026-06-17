@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/contexts/ToastContext";
 import { subscriptionsService } from "@/services/subscriptions";
+import type { Subscription } from "@/types/subscription";
 import { customersService } from "@/services/customers";
 import { plansService } from "@/services/plans";
 import { getApiErrorMessage } from "@/services/api";
@@ -243,8 +244,8 @@ export function SubscriptionCreatePage() {
   }, [selectedPlanId]);
 
   // ── Submit ─────────────────────────────────────────────────────────────────
-  const createMutation = useMutation({
-    mutationFn: (force = false) =>
+  const createMutation = useMutation<Subscription, unknown, boolean>({
+    mutationFn: (force: boolean) =>
       subscriptionsService.create({
         customer_id: selectedCustomer!.id,
         plan_pricing_id: selectedPricingId,

@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Loader2, ArrowLeft, ArrowRight, Upload, CheckCircle2, Check,
   Users, User, Building2, CreditCard, MapPin, Receipt,
-  UserCheck, Info, FolderUp, FileText, File,
+  UserCheck, Info, FolderUp, FileText,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -530,8 +530,8 @@ function Step4({
   profilePhotoRef: React.RefObject<HTMLInputElement>;
   kycDocRef: React.RefObject<HTMLInputElement>;
   agreementDocRef: React.RefObject<HTMLInputElement>;
-  fileNames: Record<string, string>;
-  setFileNames: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  fileNames: { profile_photo: string; kyc_document: string; agreement_document: string };
+  setFileNames: React.Dispatch<React.SetStateAction<{ profile_photo: string; kyc_document: string; agreement_document: string }>>;
 }) {
   return (
     <div className="space-y-4">

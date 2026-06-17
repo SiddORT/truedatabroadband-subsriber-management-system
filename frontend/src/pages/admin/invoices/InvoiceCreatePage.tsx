@@ -209,7 +209,7 @@ interface SubChargeCardProps {
   onUpdateRow: (rowId: number, patch: Partial<ChargeRow>) => void;
 }
 
-function SubChargeCard({ subState, subIdx, onToggle, onAddRow, onRemoveRow, onUpdateRow }: SubChargeCardProps) {
+function SubChargeCard({ subState, subIdx: _subIdx, onToggle, onAddRow, onRemoveRow, onUpdateRow }: SubChargeCardProps) {
   const { sub, enabled, chargeRows } = subState;
   const baseAmt = Number(sub.base_price_snapshot ?? 0);
   const gstPct  = Number(sub.gst_percentage_snapshot ?? 0);
