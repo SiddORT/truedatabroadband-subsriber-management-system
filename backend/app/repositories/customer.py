@@ -2,7 +2,7 @@ import uuid
 
 from sqlalchemy import func, or_, select
 
-from app.models.customer import Customer, CustomerStatus
+from app.models.customer import Customer, CustomerStatus, CustomerType
 from app.repositories.base import BaseRepository
 
 
@@ -75,6 +75,10 @@ class CustomerRepository(BaseRepository[Customer]):
         sort_by: str = "created_at",
         sort_order: str = "desc",
         status_filter: CustomerStatus | None = None,
+        customer_type_filter: CustomerType | None = None,
+        city_filter: str | None = None,
+        reference_source_filter: str | None = None,
+        sales_person_filter: str | None = None,
     ) -> tuple[list[Customer], int]:
         stmt = select(Customer).where(Customer.deleted_at.is_(None))
 
@@ -91,6 +95,18 @@ class CustomerRepository(BaseRepository[Customer]):
 
         if status_filter is not None:
             stmt = stmt.where(Customer.status == status_filter)
+
+        if customer_type_filter is not None:
+            stmt = stmt.where(Customer.customer_type == customer_type_filter)
+
+        if city_filter:
+            stmt = stmt.where(Customer.city.ilike(f"%{city_filter}%"))
+
+        if reference_source_filter:
+            stmt = stmt.where(Customer.reference_source.ilike(f"%{reference_source_filter}%"))
+
+        if sales_person_filter:
+            stmt = stmt.where(Customer.sales_person.ilike(f"%{sales_person_filter}%"))
 
         _sort_map = {
             "customer_code": Customer.customer_code,

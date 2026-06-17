@@ -1,16 +1,23 @@
 import { api } from "./api";
 import type { Invoice, InvoiceListResponse } from "@/types/invoice";
 
-interface ListParams {
+export interface InvoiceListParams {
   page?: number;
   page_size?: number;
   search?: string;
   sort_by?: string;
   sort_order?: string;
   status?: string;
+  customer_filter?: string;
+  plan_filter?: string;
+  invoice_date_from?: string;
+  invoice_date_to?: string;
+  due_date_from?: string;
+  due_date_to?: string;
+  quick_filter?: string;
 }
 
-interface LineItemPayload {
+export interface LineItemPayload {
   description: string;
   amount: string;
   original_amount?: string;
@@ -28,7 +35,22 @@ interface SubscriptionBillingPayload {
   discount_scope?: "base" | "overall";
 }
 
-async function list(params: ListParams = {}): Promise<InvoiceListResponse> {
+export interface InvoiceUpdatePayload {
+  subscription_id?: string;
+  billing_period_start?: string;
+  billing_period_end?: string;
+  invoice_date?: string;
+  due_date?: string;
+  remarks?: string;
+  change_reason: string;
+  line_items?: LineItemPayload[];
+  discount_type?: "percentage" | "fixed";
+  discount_value?: string;
+  discount_label?: string;
+  discount_scope?: "base" | "overall";
+}
+
+async function list(params: InvoiceListParams = {}): Promise<InvoiceListResponse> {
   const { data } = await api.get("/invoices", { params });
   return data;
 }
@@ -68,17 +90,7 @@ async function createConsolidated(payload: {
   return data;
 }
 
-async function update(
-  id: string,
-  payload: {
-    billing_period_start?: string;
-    billing_period_end?: string;
-    invoice_date?: string;
-    due_date?: string;
-    remarks?: string;
-    change_reason: string;
-  }
-): Promise<Invoice> {
+async function update(id: string, payload: InvoiceUpdatePayload): Promise<Invoice> {
   const { data } = await api.patch(`/invoices/${id}`, payload);
   return data;
 }

@@ -1,8 +1,10 @@
 import uuid
+from datetime import date, timedelta
 
 from sqlalchemy import func, or_, select
 
 from app.models.customer import Customer
+from app.models.plan import Plan
 from app.models.subscription import Subscription, SubscriptionStatus
 from app.repositories.base import BaseRepository
 
@@ -82,9 +84,15 @@ class SubscriptionRepository(BaseRepository[Subscription]):
         page: int = 1,
         page_size: int = 10,
         search: str = "",
-        sort_by: str = "created_at",
-        sort_order: str = "desc",
+        sort_by: str = "expiry_date",
+        sort_order: str = "asc",
         status_filter: str | None = None,
+        plan_id: uuid.UUID | None = None,
+        start_date_from: date | None = None,
+        start_date_to: date | None = None,
+        expiry_date_from: date | None = None,
+        expiry_date_to: date | None = None,
+        quick_filter: str | None = None,
     ) -> tuple[list[Subscription], int]:
         stmt = (
             select(Subscription)
@@ -110,15 +118,46 @@ class SubscriptionRepository(BaseRepository[Subscription]):
             except ValueError:
                 pass
 
+        if plan_id is not None:
+            stmt = stmt.where(Subscription.plan_id == plan_id)
+
+        if start_date_from is not None:
+            stmt = stmt.where(Subscription.start_date >= start_date_from)
+        if start_date_to is not None:
+            stmt = stmt.where(Subscription.start_date <= start_date_to)
+
+        if expiry_date_from is not None:
+            stmt = stmt.where(Subscription.expiry_date >= expiry_date_from)
+        if expiry_date_to is not None:
+            stmt = stmt.where(Subscription.expiry_date <= expiry_date_to)
+
+        if quick_filter:
+            today = date.today()
+            if quick_filter == "expiring_7":
+                stmt = stmt.where(Subscription.expiry_date >= today)
+                stmt = stmt.where(Subscription.expiry_date <= today + timedelta(days=7))
+                stmt = stmt.where(Subscription.status == SubscriptionStatus.ACTIVE)
+            elif quick_filter == "expiring_15":
+                stmt = stmt.where(Subscription.expiry_date >= today)
+                stmt = stmt.where(Subscription.expiry_date <= today + timedelta(days=15))
+                stmt = stmt.where(Subscription.status == SubscriptionStatus.ACTIVE)
+            elif quick_filter == "expiring_30":
+                stmt = stmt.where(Subscription.expiry_date >= today)
+                stmt = stmt.where(Subscription.expiry_date <= today + timedelta(days=30))
+                stmt = stmt.where(Subscription.status == SubscriptionStatus.ACTIVE)
+            elif quick_filter == "expired":
+                stmt = stmt.where(Subscription.status == SubscriptionStatus.EXPIRED)
+
         _sort_map = {
             "subscription_code": Subscription.subscription_code,
             "customer_name": Customer.full_name,
             "renewal_date": Subscription.renewal_date,
             "expiry_date": Subscription.expiry_date,
+            "start_date": Subscription.start_date,
             "status": Subscription.status,
             "created_at": Subscription.created_at,
         }
-        sort_col = _sort_map.get(sort_by, Subscription.created_at)
+        sort_col = _sort_map.get(sort_by, Subscription.expiry_date)
         stmt = stmt.order_by(
             sort_col.desc() if sort_order == "desc" else sort_col.asc()
         )

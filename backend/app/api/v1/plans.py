@@ -29,11 +29,12 @@ router = APIRouter(prefix="/plans", tags=["plans"])
 # ---------------------------------------------------------------------------
 
 
-def _to_out(plan: Plan) -> PlanOut:
+def _to_out(plan: Plan, active_subscription_count: int = 0) -> PlanOut:
     active_pricing = [p for p in plan.pricing if p.deleted_at is None]
     out = PlanOut.model_validate(plan)
     out.pricing = [PricingOut.model_validate(p) for p in active_pricing]
     out.active_pricing_count = sum(1 for p in active_pricing if p.is_active)
+    out.active_subscription_count = active_subscription_count
     return out
 
 
@@ -65,9 +66,20 @@ def list_plans(
     search: str = Query(""),
     sort_by: str = Query("created_at"),
     sort_order: str = Query("desc"),
+    data_policy: str | None = Query(None),
+    speed_min: int | None = Query(None, ge=0),
+    speed_max: int | None = Query(None, ge=0),
+    is_active: bool | None = Query(None),
     _: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ) -> PlanListResponse:
+    from app.models.plan import DataPolicy as DP
+    dp_filter = None
+    if data_policy:
+        try:
+            dp_filter = DP(data_policy)
+        except ValueError:
+            pass
     repo = PlanRepository(db)
     items, total = repo.list_paginated(
         page=page,
@@ -75,10 +87,17 @@ def list_plans(
         search=search,
         sort_by=sort_by,
         sort_order=sort_order,
+        data_policy=dp_filter,
+        speed_min=speed_min,
+        speed_max=speed_max,
+        is_active=is_active,
     )
     total_pages = math.ceil(total / page_size) if total > 0 else 0
+    # Batch fetch active subscription counts
+    plan_ids = [p.id for p in items]
+    counts = repo.get_active_subscription_counts(plan_ids)
     return PlanListResponse(
-        items=[_to_out(p) for p in items],
+        items=[_to_out(p, counts.get(p.id, 0)) for p in items],
         total=total,
         page=page,
         page_size=page_size,

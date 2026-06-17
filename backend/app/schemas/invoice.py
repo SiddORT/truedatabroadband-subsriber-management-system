@@ -67,11 +67,23 @@ class ConsolidatedInvoiceCreate(BaseModel):
 
 
 class InvoiceUpdate(BaseModel):
+    """Full invoice edit — mirrors InvoiceCreate but all fields are optional.
+
+    change_reason is always required.
+    If subscription_id is supplied and differs from the current one, all
+    snapshots are regenerated from the new subscription.
+    """
+    subscription_id: Optional[UUID] = None
     billing_period_start: Optional[date] = None
     billing_period_end: Optional[date] = None
     invoice_date: Optional[date] = None
     due_date: Optional[date] = None
     remarks: Optional[str] = None
+    line_items: Optional[list[LineItemIn]] = None
+    discount_type: Optional[str] = None
+    discount_value: Optional[Decimal] = Field(default=None, ge=0)
+    discount_label: Optional[str] = Field(default=None, max_length=100)
+    discount_scope: Optional[str] = None
     change_reason: str = Field(..., min_length=1)
 
 
@@ -225,8 +237,12 @@ class InvoiceListItem(BaseModel):
     customer_code_snapshot: str
     customer_name_snapshot: str
     connection_name_snapshot: str
+    plan_name_snapshot: str
+    plan_code_snapshot: str
     invoice_date: date
     due_date: date
+    billing_period_start: date
+    billing_period_end: date
     total_amount: Decimal
     balance_amount: Decimal
     paid_amount: Decimal

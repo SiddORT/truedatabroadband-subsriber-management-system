@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
@@ -21,7 +22,12 @@ from app.schemas.invoice import (
     InvoiceStatusUpdate,
     InvoiceUpdate,
 )
-from app.services.invoice import InvoiceError, InvoiceService
+from app.services.invoice import (
+    DuplicateInvoiceError,
+    InvoiceError,
+    InvoiceService,
+    OverlappingBillingPeriodError,
+)
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
@@ -44,9 +50,16 @@ def list_invoices(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     search: str = Query(""),
-    sort_by: str = Query("invoice_date"),
+    sort_by: str = Query("created_at"),
     sort_order: str = Query("desc"),
     status_filter: str | None = Query(None, alias="status"),
+    customer_filter: str | None = Query(None),
+    plan_filter: str | None = Query(None),
+    invoice_date_from: date | None = Query(None),
+    invoice_date_to: date | None = Query(None),
+    due_date_from: date | None = Query(None),
+    due_date_to: date | None = Query(None),
+    quick_filter: str | None = Query(None),
     current_user: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ) -> InvoiceListResponse:
@@ -58,6 +71,13 @@ def list_invoices(
         sort_by=sort_by,
         sort_order=sort_order,
         status_filter=status_filter,
+        customer_filter=customer_filter,
+        plan_filter=plan_filter,
+        invoice_date_from=invoice_date_from,
+        invoice_date_to=invoice_date_to,
+        due_date_from=due_date_from,
+        due_date_to=due_date_to,
+        quick_filter=quick_filter,
     )
     return InvoiceListResponse(
         items=items,
@@ -85,6 +105,10 @@ def create_invoice(
             ip_address=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+    except DuplicateInvoiceError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    except OverlappingBillingPeriodError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     except InvoiceError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return _to_out(invoice)
@@ -143,7 +167,7 @@ def update_invoice(
     try:
         invoice = svc.update(invoice, payload, actor_id=current_user.id)
     except InvoiceError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return _to_out(invoice)
 
 
@@ -211,6 +235,26 @@ def get_invoice_history(
     return [ChangeLogOut.model_validate(log) for log in invoice.change_logs]
 
 
+# ── Admin: delete ─────────────────────────────────────────────────────────────
+
+@router.delete("/{invoice_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_invoice(
+    request: Request,
+    invoice_id: uuid.UUID,
+    current_user: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+) -> None:
+    invoice = InvoiceRepository(db).get(invoice_id)
+    if invoice is None:
+        raise _not_found()
+    InvoiceService(db).delete(
+        invoice,
+        actor_id=current_user.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+
 # ── Client: list own invoices ─────────────────────────────────────────────────
 
 @router.get("/client/my", response_model=InvoiceListResponse)
@@ -246,8 +290,6 @@ def client_get_invoice(
     if invoice is None:
         raise _not_found()
 
-    # For SINGLE invoices, validate via subscription → customer
-    # For CONSOLIDATED invoices, validate via customer_id directly
     if invoice.invoice_type == "CONSOLIDATED":
         from app.models.customer import Customer as Cust
         cust = db.get(Cust, invoice.customer_id)
@@ -263,24 +305,6 @@ def client_get_invoice(
 
 
 # ── Client: PDF download ──────────────────────────────────────────────────────
-
-@router.delete("/{invoice_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_invoice(
-    request: Request,
-    invoice_id: uuid.UUID,
-    current_user: User = Depends(require_superadmin),
-    db: Session = Depends(get_db),
-) -> None:
-    invoice = InvoiceRepository(db).get(invoice_id)
-    if invoice is None:
-        raise _not_found()
-    InvoiceService(db).delete(
-        invoice,
-        actor_id=current_user.id,
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-    )
-
 
 @router.get("/client/{invoice_id}/pdf")
 def client_download_pdf(

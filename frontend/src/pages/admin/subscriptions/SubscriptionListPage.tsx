@@ -48,17 +48,24 @@ export function SubscriptionListPage() {
     page: 1,
     pageSize: DEFAULT_PAGE_SIZE,
     search: "",
-    sortBy: "created_at",
-    sortDir: "desc",
+    sortBy: "expiry_date",
+    sortDir: "asc",
   });
   const [statusFilter, setStatusFilter] = useState("");
+  const [expiryFrom, setExpiryFrom] = useState("");
+  const [expiryTo, setExpiryTo] = useState("");
+  const [startFrom, setStartFrom] = useState("");
+  const [startTo, setStartTo] = useState("");
+  const [quickFilter, setQuickFilter] = useState("");
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean;
     sub: Subscription | null;
   }>({ open: false, sub: null });
 
+  const activeFilterCount = [statusFilter, expiryFrom, expiryTo, startFrom, startTo, quickFilter].filter(Boolean).length;
+
   const { data, isLoading } = useQuery({
-    queryKey: ["subscriptions", tableState, statusFilter],
+    queryKey: ["subscriptions", tableState, statusFilter, expiryFrom, expiryTo, startFrom, startTo, quickFilter],
     queryFn: () =>
       subscriptionsService.list({
         page: tableState.page,
@@ -67,6 +74,11 @@ export function SubscriptionListPage() {
         sort_by: tableState.sortBy ?? undefined,
         sort_order: tableState.sortDir,
         status_filter: statusFilter || undefined,
+        expiry_date_from: expiryFrom || undefined,
+        expiry_date_to: expiryTo || undefined,
+        start_date_from: startFrom || undefined,
+        start_date_to: startTo || undefined,
+        quick_filter: quickFilter || undefined,
       }),
   });
 
@@ -227,22 +239,48 @@ export function SubscriptionListPage() {
               rowKey={(row) => row.id}
               emptyMessage="No subscriptions found. Assign a plan to a customer to get started."
               filtersNode={
-                <select
-                  value={statusFilter}
-                  onChange={(e) => {
-                    setStatusFilter(e.target.value);
-                    setTableState((s) => ({ ...s, page: 1 }));
-                  }}
-                  className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                >
-                  {STATUS_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex flex-wrap gap-2">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => { setStatusFilter(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }}
+                    className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    {STATUS_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                  </select>
+                  <select
+                    value={quickFilter}
+                    onChange={(e) => { setQuickFilter(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }}
+                    className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    <option value="">Quick Filter</option>
+                    <option value="expiring_7">Expiring in 7 days</option>
+                    <option value="expiring_15">Expiring in 15 days</option>
+                    <option value="expiring_30">Expiring in 30 days</option>
+                    <option value="expired">Already Expired</option>
+                  </select>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground">Start:</span>
+                    <input type="date" value={startFrom} onChange={(e) => { setStartFrom(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }} className="h-9 rounded-lg border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                    <span className="text-xs text-muted-foreground">–</span>
+                    <input type="date" value={startTo} onChange={(e) => { setStartTo(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }} className="h-9 rounded-lg border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground">Expiry:</span>
+                    <input type="date" value={expiryFrom} onChange={(e) => { setExpiryFrom(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }} className="h-9 rounded-lg border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                    <span className="text-xs text-muted-foreground">–</span>
+                    <input type="date" value={expiryTo} onChange={(e) => { setExpiryTo(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }} className="h-9 rounded-lg border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                  </div>
+                  {activeFilterCount > 0 && (
+                    <button
+                      onClick={() => { setStatusFilter(""); setExpiryFrom(""); setExpiryTo(""); setStartFrom(""); setStartTo(""); setQuickFilter(""); setTableState((s) => ({ ...s, page: 1 })); }}
+                      className="h-9 rounded-lg border border-border px-3 text-sm text-muted-foreground hover:border-destructive hover:text-destructive"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
               }
-              filterCount={statusFilter ? 1 : 0}
+              filterCount={activeFilterCount}
             />
           </CardContent>
         </Card>

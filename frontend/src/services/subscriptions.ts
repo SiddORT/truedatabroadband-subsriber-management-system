@@ -15,6 +15,12 @@ export interface SubscriptionListParams {
   sort_by?: string;
   sort_order?: string;
   status_filter?: string;
+  plan_id?: string;
+  start_date_from?: string;
+  start_date_to?: string;
+  expiry_date_from?: string;
+  expiry_date_to?: string;
+  quick_filter?: string;
 }
 
 export const subscriptionsService = {

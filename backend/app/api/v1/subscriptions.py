@@ -1,5 +1,6 @@
 import math
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
@@ -57,9 +58,15 @@ def list_subscriptions(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     search: str = Query(""),
-    sort_by: str = Query("created_at"),
-    sort_order: str = Query("desc"),
+    sort_by: str = Query("expiry_date"),
+    sort_order: str = Query("asc"),
     status_filter: str = Query(""),
+    plan_id: uuid.UUID | None = Query(None),
+    start_date_from: date | None = Query(None),
+    start_date_to: date | None = Query(None),
+    expiry_date_from: date | None = Query(None),
+    expiry_date_to: date | None = Query(None),
+    quick_filter: str | None = Query(None),
     _: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ) -> SubscriptionListResponse:
@@ -71,6 +78,12 @@ def list_subscriptions(
         sort_by=sort_by,
         sort_order=sort_order,
         status_filter=status_filter or None,
+        plan_id=plan_id,
+        start_date_from=start_date_from,
+        start_date_to=start_date_to,
+        expiry_date_from=expiry_date_from,
+        expiry_date_to=expiry_date_to,
+        quick_filter=quick_filter,
     )
     total_pages = math.ceil(total / page_size) if total > 0 else 0
     return SubscriptionListResponse(

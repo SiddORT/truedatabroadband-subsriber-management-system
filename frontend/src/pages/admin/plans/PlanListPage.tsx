@@ -77,13 +77,18 @@ export function PlanListPage() {
     sortDir: "desc",
   });
   const [statusFilter, setStatusFilter] = useState("");
+  const [dataPolicyFilter, setDataPolicyFilter] = useState("");
+  const [speedMin, setSpeedMin] = useState("");
+  const [speedMax, setSpeedMax] = useState("");
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean;
     plan: Plan | null;
   }>({ open: false, plan: null });
 
+  const activeFilterCount = [statusFilter, dataPolicyFilter, speedMin, speedMax].filter(Boolean).length;
+
   const { data, isLoading } = useQuery({
-    queryKey: ["plans", tableState, statusFilter],
+    queryKey: ["plans", tableState, statusFilter, dataPolicyFilter, speedMin, speedMax],
     queryFn: () =>
       plansService.list({
         page: tableState.page,
@@ -93,6 +98,9 @@ export function PlanListPage() {
         sort_order: tableState.sortDir,
         ...(statusFilter === "active" ? { is_active: true } : {}),
         ...(statusFilter === "inactive" ? { is_active: false } : {}),
+        data_policy: dataPolicyFilter || undefined,
+        speed_min: speedMin ? Number(speedMin) : undefined,
+        speed_max: speedMax ? Number(speedMax) : undefined,
       }),
   });
 
@@ -183,6 +191,16 @@ export function PlanListPage() {
       ),
     },
     {
+      key: "active_subscription_count",
+      header: "Active Subs",
+      className: "text-right",
+      render: (row) => (
+        <span className="text-sm tabular-nums">
+          {row.active_subscription_count}
+        </span>
+      ),
+    },
+    {
       key: "is_active",
       header: "Status",
       render: (row) => <StatusBadge active={row.is_active} />,
@@ -249,22 +267,50 @@ export function PlanListPage() {
               isLoading={isLoading}
               emptyMessage="No plans found. Create your first broadband plan."
               filtersNode={
-                <select
-                  value={statusFilter}
-                  onChange={(e) => {
-                    setStatusFilter(e.target.value);
-                    setTableState((s) => ({ ...s, page: 1 }));
-                  }}
-                  className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                >
-                  {STATUS_FILTER_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex flex-wrap gap-2">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => { setStatusFilter(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }}
+                    className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    {STATUS_FILTER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                  <select
+                    value={dataPolicyFilter}
+                    onChange={(e) => { setDataPolicyFilter(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }}
+                    className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    <option value="">All Data Policies</option>
+                    <option value="UNLIMITED">Unlimited</option>
+                    <option value="FUP">FUP</option>
+                  </select>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground">Speed:</span>
+                    <input
+                      type="number" min="0" placeholder="Min Mbps"
+                      value={speedMin}
+                      onChange={(e) => { setSpeedMin(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }}
+                      className="h-9 w-24 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                    <span className="text-xs text-muted-foreground">–</span>
+                    <input
+                      type="number" min="0" placeholder="Max Mbps"
+                      value={speedMax}
+                      onChange={(e) => { setSpeedMax(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }}
+                      className="h-9 w-24 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+                  {activeFilterCount > 0 && (
+                    <button
+                      onClick={() => { setStatusFilter(""); setDataPolicyFilter(""); setSpeedMin(""); setSpeedMax(""); setTableState((s) => ({ ...s, page: 1 })); }}
+                      className="h-9 rounded-lg border border-border px-3 text-sm text-muted-foreground hover:border-destructive hover:text-destructive"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
               }
-              filterCount={statusFilter ? 1 : 0}
+              filterCount={activeFilterCount}
             />
           </CardContent>
         </Card>

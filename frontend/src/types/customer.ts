@@ -136,4 +136,8 @@ export interface CustomerListParams {
   sort_by?: string;
   sort_order?: "asc" | "desc";
   status?: CustomerStatus | "";
+  customer_type?: string;
+  city?: string;
+  reference_source?: string;
+  sales_person?: string;
 }

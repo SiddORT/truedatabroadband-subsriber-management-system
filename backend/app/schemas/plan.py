@@ -131,6 +131,7 @@ class PlanOut(BaseModel):
     is_active: bool
     pricing: list[PricingOut] = []
     active_pricing_count: int = 0
+    active_subscription_count: int = 0
     created_at: datetime
     updated_at: datetime
 

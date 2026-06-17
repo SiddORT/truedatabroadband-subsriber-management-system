@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -9,6 +9,8 @@ import {
   IndianRupee,
   Lock,
   Loader2,
+  Plus,
+  X,
 } from "lucide-react";
 
 import { AppLayout } from "@/layouts/AppLayout";
@@ -70,6 +72,104 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 
 const EDITABLE_STATUSES = ["DRAFT", "UNPAID"];
 
+// ── Edit dialog: charge row helpers ────────────────────────────────────────────
+
+type ItemDiscountType = "" | "percentage" | "fixed";
+type DiscountType = "" | "percentage" | "fixed";
+
+interface ChargeRow {
+  id: number;
+  description: string;
+  locked: boolean;
+  amount: string;
+  discountType: ItemDiscountType;
+  discountValue: string;
+}
+
+function rowGross(r: ChargeRow) { return Number(r.amount) || 0; }
+function rowItemDisc(r: ChargeRow) {
+  const g = rowGross(r);
+  if (!r.discountType || !r.discountValue || Number(r.discountValue) <= 0 || g <= 0) return 0;
+  if (r.discountType === "percentage") return Math.round(g * Number(r.discountValue) * 100) / 10000;
+  return Math.min(Number(r.discountValue), g);
+}
+function rowNet(r: ChargeRow) { return Math.max(0, rowGross(r) - rowItemDisc(r)); }
+
+function buildLineItems(rows: ChargeRow[]) {
+  return rows
+    .filter((r) => rowGross(r) > 0 && r.description.trim())
+    .map((r) => {
+      const gross = rowGross(r); const disc = rowItemDisc(r); const net = rowNet(r);
+      if (disc > 0) {
+        return {
+          description: r.description.trim(), amount: net.toFixed(2),
+          original_amount: gross.toFixed(2), discount_type: r.discountType,
+          discount_value: r.discountValue, discount_amount: disc.toFixed(2),
+        };
+      }
+      return { description: r.description.trim(), amount: net.toFixed(2) };
+    });
+}
+
+interface ChargeRowUIProps {
+  row: ChargeRow;
+  onUpdate: (patch: Partial<ChargeRow>) => void;
+  onRemove: () => void;
+}
+
+function EditChargeRowUI({ row, onUpdate, onRemove }: ChargeRowUIProps) {
+  const gross = rowGross(row); const disc = rowItemDisc(row); const net = rowNet(row);
+  const discBtn = (v: ItemDiscountType, label: string) => (
+    <button key={v} type="button"
+      onClick={() => onUpdate({ discountType: v, discountValue: "" })}
+      className={`shrink-0 rounded border px-2 py-1 text-[11px] font-semibold transition-colors ${row.discountType === v ? "border-primary bg-primary text-white" : "border-border bg-muted/40 text-foreground hover:bg-muted"}`}
+    >{label}</button>
+  );
+  return (
+    <div className="rounded-lg border border-border bg-background p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={row.description}
+          onChange={(e) => onUpdate({ description: e.target.value })}
+          placeholder="Description"
+          className="min-w-[120px] flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+        />
+        <div className="relative w-28 shrink-0">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">₹</span>
+          <input type="number" min="0" step="0.01" value={row.amount}
+            onChange={(e) => onUpdate({ amount: e.target.value })} placeholder="0.00"
+            className="w-full rounded-lg border border-input bg-background py-2 pl-7 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+        </div>
+        <div className="flex shrink-0 gap-1">{discBtn("", "None")}{discBtn("percentage", "%")}{discBtn("fixed", "₹")}</div>
+        {row.discountType && (
+          <div className="relative w-20 shrink-0">
+            <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+              {row.discountType === "percentage" ? "%" : "₹"}
+            </span>
+            <input type="number" min="0" max={row.discountType === "percentage" ? "100" : undefined} step="0.01"
+              value={row.discountValue} onChange={(e) => onUpdate({ discountValue: e.target.value })}
+              placeholder="0"
+              className="w-full rounded-lg border border-input bg-background py-2 pl-5 pr-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+        )}
+        <button type="button" onClick={onRemove}
+          className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      {disc > 0 && gross > 0 && (
+        <div className="mt-2 flex items-center gap-2 pl-1 text-xs">
+          <span className="text-muted-foreground line-through">₹{gross.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+          <span className="font-medium text-red-500">−₹{disc.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+          <span className="font-semibold text-foreground">= ₹{net.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -90,6 +190,12 @@ export function InvoiceDetailPage() {
   const [editDueDate, setEditDueDate] = useState("");
   const [editRemarks, setEditRemarks] = useState("");
   const [editReason, setEditReason] = useState("");
+  const [editChargeRows, setEditChargeRows] = useState<ChargeRow[]>([]);
+  const editChargeIdRef = useRef(100);
+  const [editDiscountType, setEditDiscountType] = useState<DiscountType>("");
+  const [editDiscountScope, setEditDiscountScope] = useState<"base" | "overall">("base");
+  const [editDiscountValue, setEditDiscountValue] = useState("");
+  const [editDiscountLabel, setEditDiscountLabel] = useState("");
 
   function openEditDialog() {
     if (!inv) return;
@@ -99,7 +205,30 @@ export function InvoiceDetailPage() {
     setEditDueDate(inv.due_date);
     setEditRemarks(inv.remarks ?? "");
     setEditReason("");
+    const rows: ChargeRow[] = (inv.line_items ?? []).map((li, idx) => ({
+      id: idx + 1,
+      description: li.description,
+      locked: false,
+      amount: li.original_amount ?? li.amount,
+      discountType: (li.discount_type as ItemDiscountType) ?? "",
+      discountValue: li.discount_value ?? "",
+    }));
+    setEditChargeRows(rows);
+    editChargeIdRef.current = rows.length + 1;
+    setEditDiscountType((inv.discount_type as DiscountType) ?? "");
+    setEditDiscountScope(inv.discount_scope ?? "base");
+    setEditDiscountValue(inv.discount_value ?? "");
+    setEditDiscountLabel(inv.discount_label ?? "");
     setEditDialog(true);
+  }
+
+  function addEditChargeRow() {
+    const id = editChargeIdRef.current++;
+    setEditChargeRows((prev) => [...prev, { id, description: "", locked: false, amount: "", discountType: "", discountValue: "" }]);
+  }
+  function removeEditChargeRow(id: number) { setEditChargeRows((prev) => prev.filter((r) => r.id !== id)); }
+  function updateEditChargeRow(id: number, patch: Partial<ChargeRow>) {
+    setEditChargeRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   }
 
   const editMutation = useMutation({
@@ -111,6 +240,11 @@ export function InvoiceDetailPage() {
         due_date: editDueDate || undefined,
         remarks: editRemarks || undefined,
         change_reason: editReason,
+        line_items: buildLineItems(editChargeRows),
+        discount_type: editDiscountType || undefined,
+        discount_value: editDiscountType && editDiscountValue ? editDiscountValue : undefined,
+        discount_label: editDiscountLabel || undefined,
+        discount_scope: editDiscountType ? editDiscountScope : undefined,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["invoices", id] });
@@ -687,85 +821,140 @@ export function InvoiceDetailPage() {
 
       {/* ── Edit Dialog ────────────────────────────────────────────────── */}
       <Dialog open={editDialog} onClose={() => setEditDialog(false)} title="Edit Invoice">
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            You can only edit dates and remarks before any payment is recorded.
-            A reason is required.
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium">Billing Period Start</label>
-              <input
-                type="date"
-                value={editBillingStart}
-                onChange={(e) => setEditBillingStart(e.target.value)}
-                className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium">Billing Period End</label>
-              <input
-                type="date"
-                value={editBillingEnd}
-                onChange={(e) => setEditBillingEnd(e.target.value)}
-                className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium">Invoice Date</label>
-              <input
-                type="date"
-                value={editInvoiceDate}
-                onChange={(e) => setEditInvoiceDate(e.target.value)}
-                className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium">Due Date</label>
-              <input
-                type="date"
-                value={editDueDate}
-                onChange={(e) => setEditDueDate(e.target.value)}
-                className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
+        <div className="max-h-[80vh] space-y-5 overflow-y-auto pr-1">
+
+          {/* Dates */}
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Billing Period & Dates</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium">Billing Period Start</label>
+                <input type="date" value={editBillingStart}
+                  onChange={(e) => setEditBillingStart(e.target.value)}
+                  className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium">Billing Period End</label>
+                <input type="date" value={editBillingEnd}
+                  onChange={(e) => setEditBillingEnd(e.target.value)}
+                  className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium">Invoice Date</label>
+                <input type="date" value={editInvoiceDate}
+                  onChange={(e) => setEditInvoiceDate(e.target.value)}
+                  className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium">Due Date</label>
+                <input type="date" value={editDueDate}
+                  onChange={(e) => setEditDueDate(e.target.value)}
+                  className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
             </div>
           </div>
+
+          {/* Additional charges */}
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Additional Charges</p>
+              <Button variant="outline" size="sm" type="button" onClick={addEditChargeRow}>
+                <Plus className="mr-1.5 h-3.5 w-3.5" />Add Row
+              </Button>
+            </div>
+            {editChargeRows.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-border py-4 text-center text-sm text-muted-foreground">
+                No additional charges. Click "Add Row" to add one.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {editChargeRows.map((row) => (
+                  <EditChargeRowUI key={row.id} row={row}
+                    onUpdate={(patch) => updateEditChargeRow(row.id, patch)}
+                    onRemove={() => removeEditChargeRow(row.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Invoice-level discount */}
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Invoice Discount</p>
+            <div className="flex flex-wrap items-center gap-2">
+              {(["", "percentage", "fixed"] as DiscountType[]).map((v) => (
+                <button key={v} type="button"
+                  onClick={() => { setEditDiscountType(v); setEditDiscountValue(""); }}
+                  className={`rounded border px-3 py-1.5 text-xs font-semibold transition-colors ${editDiscountType === v ? "border-primary bg-primary text-white" : "border-border bg-muted/40 text-foreground hover:bg-muted"}`}
+                >
+                  {v === "" ? "None" : v === "percentage" ? "% Percentage" : "₹ Fixed"}
+                </button>
+              ))}
+            </div>
+            {editDiscountType && (
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium">Discount Scope</label>
+                  <select value={editDiscountScope} onChange={(e) => setEditDiscountScope(e.target.value as "base" | "overall")}
+                    className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+                    <option value="base">On base plan price only</option>
+                    <option value="overall">On overall total</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium">Discount Value</label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                      {editDiscountType === "percentage" ? "%" : "₹"}
+                    </span>
+                    <input type="number" min="0" max={editDiscountType === "percentage" ? "100" : undefined} step="0.01"
+                      value={editDiscountValue} onChange={(e) => setEditDiscountValue(e.target.value)}
+                      placeholder="0"
+                      className="w-full rounded-lg border border-input bg-background py-2 pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+                </div>
+                <div className="col-span-2 flex flex-col gap-1">
+                  <label className="text-xs font-medium">Discount Label (optional)</label>
+                  <input type="text" value={editDiscountLabel} onChange={(e) => setEditDiscountLabel(e.target.value)}
+                    placeholder="e.g. Loyalty discount, Promo"
+                    className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Remarks */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium">Remarks</label>
-            <textarea
-              value={editRemarks}
-              onChange={(e) => setEditRemarks(e.target.value)}
+            <textarea value={editRemarks} onChange={(e) => setEditRemarks(e.target.value)}
               rows={2}
               className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </div>
+
+          {/* Reason */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium">
               Reason for Edit <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
-              value={editReason}
-              onChange={(e) => setEditReason(e.target.value)}
+            <input type="text" value={editReason} onChange={(e) => setEditReason(e.target.value)}
               placeholder="e.g. Correcting billing period dates"
               className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </div>
-          <div className="flex justify-end gap-3">
-            <Button
-              variant="outline"
-              onClick={() => setEditDialog(false)}
-              disabled={editMutation.isPending}
-            >
+
+          <div className="flex justify-end gap-3 border-t border-border pt-3">
+            <Button variant="outline" onClick={() => setEditDialog(false)} disabled={editMutation.isPending}>
               Cancel
             </Button>
-            <Button
-              onClick={() => editMutation.mutate()}
-              disabled={!editReason.trim() || editMutation.isPending}
-            >
-              {editMutation.isPending && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
+            <Button onClick={() => editMutation.mutate()} disabled={!editReason.trim() || editMutation.isPending}>
+              {editMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Changes
             </Button>
           </div>

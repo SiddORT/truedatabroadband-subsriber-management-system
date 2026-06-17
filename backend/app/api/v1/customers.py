@@ -75,9 +75,20 @@ def list_customers(
     sort_by: str = Query("created_at"),
     sort_order: str = Query("desc"),
     status: CustomerStatus | None = Query(None),
+    customer_type: str | None = Query(None),
+    city: str | None = Query(None),
+    reference_source: str | None = Query(None),
+    sales_person: str | None = Query(None),
     _: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ) -> CustomerListResponse:
+    from app.models.customer import CustomerType as CType
+    customer_type_filter = None
+    if customer_type:
+        try:
+            customer_type_filter = CType(customer_type)
+        except ValueError:
+            pass
     repo = CustomerRepository(db)
     items, total = repo.list_paginated(
         page=page,
@@ -86,6 +97,10 @@ def list_customers(
         sort_by=sort_by,
         sort_order=sort_order,
         status_filter=status,
+        customer_type_filter=customer_type_filter,
+        city_filter=city,
+        reference_source_filter=reference_source,
+        sales_person_filter=sales_person,
     )
     total_pages = math.ceil(total / page_size) if total > 0 else 0
     return CustomerListResponse(

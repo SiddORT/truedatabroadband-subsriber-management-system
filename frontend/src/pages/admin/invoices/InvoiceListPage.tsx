@@ -56,10 +56,17 @@ export function InvoiceListPage() {
     page: 1,
     pageSize: DEFAULT_PAGE_SIZE,
     search: "",
-    sortBy: "invoice_date",
+    sortBy: "created_at",
     sortDir: "desc",
   });
   const [statusFilter, setStatusFilter] = useState("");
+  const [customerFilter, setCustomerFilter] = useState("");
+  const [planFilter, setPlanFilter] = useState("");
+  const [invoiceDateFrom, setInvoiceDateFrom] = useState("");
+  const [invoiceDateTo, setInvoiceDateTo] = useState("");
+  const [dueDateFrom, setDueDateFrom] = useState("");
+  const [dueDateTo, setDueDateTo] = useState("");
+  const [quickFilter, setQuickFilter] = useState("");
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean;
     invoice: InvoiceListItem | null;
@@ -82,8 +89,10 @@ export function InvoiceListPage() {
     }
   }
 
+  const activeFilterCount = [statusFilter, customerFilter, planFilter, invoiceDateFrom, invoiceDateTo, dueDateFrom, dueDateTo, quickFilter].filter(Boolean).length;
+
   const { data, isLoading } = useQuery({
-    queryKey: ["invoices", tableState, statusFilter],
+    queryKey: ["invoices", tableState, statusFilter, customerFilter, planFilter, invoiceDateFrom, invoiceDateTo, dueDateFrom, dueDateTo, quickFilter],
     queryFn: () =>
       invoicesService.list({
         page: tableState.page,
@@ -92,6 +101,13 @@ export function InvoiceListPage() {
         sort_by: tableState.sortBy ?? undefined,
         sort_order: tableState.sortDir,
         status: statusFilter || undefined,
+        customer_filter: customerFilter || undefined,
+        plan_filter: planFilter || undefined,
+        invoice_date_from: invoiceDateFrom || undefined,
+        invoice_date_to: invoiceDateTo || undefined,
+        due_date_from: dueDateFrom || undefined,
+        due_date_to: dueDateTo || undefined,
+        quick_filter: quickFilter || undefined,
       }),
   });
 
@@ -273,22 +289,65 @@ export function InvoiceListPage() {
               rowKey={(row) => row.id}
               emptyMessage="No invoices found. Generate an invoice from an active subscription."
               filtersNode={
-                <select
-                  value={statusFilter}
-                  onChange={(e) => {
-                    setStatusFilter(e.target.value);
-                    setTableState((s) => ({ ...s, page: 1 }));
-                  }}
-                  className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                >
-                  {STATUS_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex flex-wrap gap-2">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => { setStatusFilter(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }}
+                    className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    {STATUS_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={quickFilter}
+                    onChange={(e) => { setQuickFilter(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }}
+                    className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    <option value="">All Due Dates</option>
+                    <option value="due_today">Due Today</option>
+                    <option value="due_7d">Due in 7 days</option>
+                    <option value="due_15d">Due in 15 days</option>
+                    <option value="due_30d">Due in 30 days</option>
+                    <option value="overdue">Overdue</option>
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="Customer name / code"
+                    value={customerFilter}
+                    onChange={(e) => { setCustomerFilter(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }}
+                    className="h-9 w-44 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Plan name / code"
+                    value={planFilter}
+                    onChange={(e) => { setPlanFilter(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }}
+                    className="h-9 w-40 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground">Invoice:</span>
+                    <input type="date" value={invoiceDateFrom} onChange={(e) => { setInvoiceDateFrom(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }} className="h-9 rounded-lg border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                    <span className="text-xs text-muted-foreground">–</span>
+                    <input type="date" value={invoiceDateTo} onChange={(e) => { setInvoiceDateTo(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }} className="h-9 rounded-lg border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground">Due:</span>
+                    <input type="date" value={dueDateFrom} onChange={(e) => { setDueDateFrom(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }} className="h-9 rounded-lg border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                    <span className="text-xs text-muted-foreground">–</span>
+                    <input type="date" value={dueDateTo} onChange={(e) => { setDueDateTo(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }} className="h-9 rounded-lg border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                  </div>
+                  {activeFilterCount > 0 && (
+                    <button
+                      onClick={() => { setStatusFilter(""); setCustomerFilter(""); setPlanFilter(""); setInvoiceDateFrom(""); setInvoiceDateTo(""); setDueDateFrom(""); setDueDateTo(""); setQuickFilter(""); setTableState((s) => ({ ...s, page: 1 })); }}
+                      className="h-9 rounded-lg border border-border px-3 text-sm text-muted-foreground hover:border-destructive hover:text-destructive"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
               }
-              filterCount={statusFilter ? 1 : 0}
+              filterCount={activeFilterCount}
             />
           </CardContent>
         </Card>

@@ -2,7 +2,7 @@ import uuid
 
 from sqlalchemy import func, or_, select
 
-from app.models.plan import BillingCycle, Plan, PlanPricing
+from app.models.plan import BillingCycle, DataPolicy, Plan, PlanPricing
 from app.repositories.base import BaseRepository
 
 
@@ -59,6 +59,24 @@ class PlanRepository(BaseRepository[Plan]):
         return self.db.scalars(stmt).first()
 
     # ------------------------------------------------------------------
+    # Active subscription count helpers
+    # ------------------------------------------------------------------
+
+    def get_active_subscription_counts(self, plan_ids: list[uuid.UUID]) -> dict[uuid.UUID, int]:
+        """Return {plan_id: active_subscription_count} for the given plan IDs."""
+        if not plan_ids:
+            return {}
+        from app.models.subscription import Subscription, SubscriptionStatus
+        rows = self.db.execute(
+            select(Subscription.plan_id, func.count(Subscription.id))
+            .where(Subscription.plan_id.in_(plan_ids))
+            .where(Subscription.status == SubscriptionStatus.ACTIVE)
+            .where(Subscription.deleted_at.is_(None))
+            .group_by(Subscription.plan_id)
+        ).all()
+        return {row[0]: row[1] for row in rows}
+
+    # ------------------------------------------------------------------
     # Paginated list
     # ------------------------------------------------------------------
 
@@ -70,7 +88,13 @@ class PlanRepository(BaseRepository[Plan]):
         search: str = "",
         sort_by: str = "created_at",
         sort_order: str = "desc",
+        data_policy: DataPolicy | None = None,
+        speed_min: int | None = None,
+        speed_max: int | None = None,
+        is_active: bool | None = None,
     ) -> tuple[list[Plan], int]:
+        from app.models.subscription import Subscription, SubscriptionStatus
+
         stmt = select(Plan).where(Plan.deleted_at.is_(None))
 
         if search:
@@ -83,15 +107,49 @@ class PlanRepository(BaseRepository[Plan]):
                 )
             )
 
-        _sort_map = {
-            "plan_code": Plan.plan_code,
-            "name": Plan.name,
-            "speed_mbps": Plan.speed_mbps,
-            "created_at": Plan.created_at,
-        }
-        sort_col = _sort_map.get(sort_by, Plan.created_at)
+        if data_policy is not None:
+            stmt = stmt.where(Plan.data_policy == data_policy)
+
+        if speed_min is not None:
+            stmt = stmt.where(Plan.speed_mbps >= speed_min)
+
+        if speed_max is not None:
+            stmt = stmt.where(Plan.speed_mbps <= speed_max)
+
+        if is_active is not None:
+            stmt = stmt.where(Plan.is_active == is_active)
+
+        if sort_by == "active_subscription_count":
+            active_count_sq = (
+                select(func.count(Subscription.id))
+                .where(Subscription.plan_id == Plan.id)
+                .where(Subscription.status == SubscriptionStatus.ACTIVE)
+                .where(Subscription.deleted_at.is_(None))
+                .correlate(Plan)
+                .scalar_subquery()
+            )
+            order_col = active_count_sq
+        elif sort_by == "total_price":
+            total_price_sq = (
+                select(func.min(PlanPricing.total_price))
+                .where(PlanPricing.plan_id == Plan.id)
+                .where(PlanPricing.is_active == True)  # noqa: E712
+                .where(PlanPricing.deleted_at.is_(None))
+                .correlate(Plan)
+                .scalar_subquery()
+            )
+            order_col = total_price_sq
+        else:
+            _sort_map = {
+                "plan_code": Plan.plan_code,
+                "name": Plan.name,
+                "speed_mbps": Plan.speed_mbps,
+                "created_at": Plan.created_at,
+            }
+            order_col = _sort_map.get(sort_by, Plan.created_at)
+
         stmt = stmt.order_by(
-            sort_col.desc() if sort_order == "desc" else sort_col.asc()
+            order_col.desc() if sort_order == "desc" else order_col.asc()
         )
 
         total: int = (

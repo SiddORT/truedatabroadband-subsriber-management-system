@@ -39,6 +39,10 @@ export function CustomerListPage() {
     sortDir: "desc",
   });
   const [statusFilter, setStatusFilter] = useState<CustomerStatus | "">("");
+  const [customerTypeFilter, setCustomerTypeFilter] = useState("");
+  const [cityFilter, setCityFilter] = useState("");
+  const [refSourceFilter, setRefSourceFilter] = useState("");
+  const [salesPersonFilter, setSalesPersonFilter] = useState("");
 
   const [statusDialog, setStatusDialog] = useState<{
     open: boolean;
@@ -57,6 +61,8 @@ export function CustomerListPage() {
     customer: Customer | null;
   }>({ open: false, customer: null });
 
+  const activeFilterCount = [statusFilter, customerTypeFilter, cityFilter, refSourceFilter, salesPersonFilter].filter(Boolean).length;
+
   const { data, isLoading } = useQuery({
     queryKey: [
       "customers",
@@ -66,6 +72,10 @@ export function CustomerListPage() {
       tableState.sortBy,
       tableState.sortDir,
       statusFilter,
+      customerTypeFilter,
+      cityFilter,
+      refSourceFilter,
+      salesPersonFilter,
     ],
     queryFn: () =>
       customersService.list({
@@ -75,6 +85,10 @@ export function CustomerListPage() {
         sort_by: tableState.sortBy ?? "created_at",
         sort_order: tableState.sortDir,
         status: statusFilter || undefined,
+        customer_type: customerTypeFilter || undefined,
+        city: cityFilter || undefined,
+        reference_source: refSourceFilter || undefined,
+        sales_person: salesPersonFilter || undefined,
       }),
   });
 
@@ -242,23 +256,57 @@ export function CustomerListPage() {
               isLoading={isLoading}
               emptyMessage="No customers found. Create your first customer."
               filtersNode={
-                <select
-                  value={statusFilter}
-                  onChange={(e) => {
-                    setStatusFilter(e.target.value as CustomerStatus | "");
-                    setTableState((s) => ({ ...s, page: 1 }));
-                  }}
-                  className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                >
-                  <option value="">All Statuses</option>
-                  {ALL_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex flex-wrap gap-2">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => { setStatusFilter(e.target.value as CustomerStatus | ""); setTableState((s) => ({ ...s, page: 1 })); }}
+                    className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    <option value="">All Statuses</option>
+                    {ALL_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <select
+                    value={customerTypeFilter}
+                    onChange={(e) => { setCustomerTypeFilter(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }}
+                    className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    <option value="">All Types</option>
+                    <option value="INDIVIDUAL">Individual</option>
+                    <option value="BUSINESS">Business</option>
+                    <option value="GOVERNMENT">Government</option>
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="City"
+                    value={cityFilter}
+                    onChange={(e) => { setCityFilter(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }}
+                    className="h-9 w-32 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Reference source"
+                    value={refSourceFilter}
+                    onChange={(e) => { setRefSourceFilter(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }}
+                    className="h-9 w-40 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Sales person"
+                    value={salesPersonFilter}
+                    onChange={(e) => { setSalesPersonFilter(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }}
+                    className="h-9 w-36 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                  {activeFilterCount > 0 && (
+                    <button
+                      onClick={() => { setStatusFilter(""); setCustomerTypeFilter(""); setCityFilter(""); setRefSourceFilter(""); setSalesPersonFilter(""); setTableState((s) => ({ ...s, page: 1 })); }}
+                      className="h-9 rounded-lg border border-border px-3 text-sm text-muted-foreground hover:border-destructive hover:text-destructive"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
               }
-              filterCount={statusFilter ? 1 : 0}
+              filterCount={activeFilterCount}
             />
           </CardContent>
         </Card>

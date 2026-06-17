@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from sqlalchemy import func, or_, select
@@ -57,14 +57,12 @@ class InvoiceRepository:
             .where(Invoice.deleted_at.is_(None))
             .where(
                 or_(
-                    # SINGLE: subscription belongs to user's customer
                     Invoice.subscription_id.in_(
                         select(Subscription.id)
                         .join(Customer, Subscription.customer_id == Customer.id)
                         .where(Customer.user_id == user_id)
                         .where(Subscription.deleted_at.is_(None))
                     ),
-                    # CONSOLIDATED: directly linked to user's customer
                     Invoice.customer_id.in_(
                         select(Customer.id)
                         .where(Customer.user_id == user_id)
@@ -88,9 +86,16 @@ class InvoiceRepository:
         page: int = 1,
         page_size: int = 10,
         search: str = "",
-        sort_by: str = "invoice_date",
+        sort_by: str = "created_at",
         sort_order: str = "desc",
         status_filter: str | None = None,
+        customer_filter: str | None = None,
+        plan_filter: str | None = None,
+        invoice_date_from: date | None = None,
+        invoice_date_to: date | None = None,
+        due_date_from: date | None = None,
+        due_date_to: date | None = None,
+        quick_filter: str | None = None,
     ) -> tuple[list[Invoice], int]:
         stmt = select(Invoice).where(Invoice.deleted_at.is_(None))
 
@@ -112,6 +117,55 @@ class InvoiceRepository:
             except ValueError:
                 pass
 
+        if customer_filter:
+            term = f"%{customer_filter}%"
+            stmt = stmt.where(
+                or_(
+                    Invoice.customer_name_snapshot.ilike(term),
+                    Invoice.customer_code_snapshot.ilike(term),
+                )
+            )
+
+        if plan_filter:
+            term = f"%{plan_filter}%"
+            stmt = stmt.where(
+                or_(
+                    Invoice.plan_name_snapshot.ilike(term),
+                    Invoice.plan_code_snapshot.ilike(term),
+                )
+            )
+
+        if invoice_date_from:
+            stmt = stmt.where(Invoice.invoice_date >= invoice_date_from)
+        if invoice_date_to:
+            stmt = stmt.where(Invoice.invoice_date <= invoice_date_to)
+
+        if due_date_from:
+            stmt = stmt.where(Invoice.due_date >= due_date_from)
+        if due_date_to:
+            stmt = stmt.where(Invoice.due_date <= due_date_to)
+
+        if quick_filter:
+            today = date.today()
+            if quick_filter == "due_today":
+                stmt = stmt.where(Invoice.due_date == today)
+                stmt = stmt.where(Invoice.balance_amount > 0)
+            elif quick_filter == "due_7d":
+                stmt = stmt.where(Invoice.due_date >= today)
+                stmt = stmt.where(Invoice.due_date <= today + timedelta(days=7))
+                stmt = stmt.where(Invoice.balance_amount > 0)
+            elif quick_filter == "due_15d":
+                stmt = stmt.where(Invoice.due_date >= today)
+                stmt = stmt.where(Invoice.due_date <= today + timedelta(days=15))
+                stmt = stmt.where(Invoice.balance_amount > 0)
+            elif quick_filter == "due_30d":
+                stmt = stmt.where(Invoice.due_date >= today)
+                stmt = stmt.where(Invoice.due_date <= today + timedelta(days=30))
+                stmt = stmt.where(Invoice.balance_amount > 0)
+            elif quick_filter == "overdue":
+                stmt = stmt.where(Invoice.due_date < today)
+                stmt = stmt.where(Invoice.balance_amount > 0)
+
         _sort_map = {
             "invoice_date": Invoice.invoice_date,
             "due_date": Invoice.due_date,
@@ -120,7 +174,7 @@ class InvoiceRepository:
             "status": Invoice.status,
             "created_at": Invoice.created_at,
         }
-        col = _sort_map.get(sort_by, Invoice.invoice_date)
+        col = _sort_map.get(sort_by, Invoice.created_at)
         stmt = stmt.order_by(col.desc() if sort_order == "desc" else col.asc())
 
         total: int = (
@@ -130,6 +184,48 @@ class InvoiceRepository:
             self.db.scalars(stmt.offset((page - 1) * page_size).limit(page_size)).all()
         )
         return items, total
+
+    # ── Duplicate / overlap checks ─────────────────────────────────────────
+
+    def check_duplicate(
+        self,
+        subscription_id: uuid.UUID,
+        billing_period_start: date,
+        billing_period_end: date,
+        exclude_id: uuid.UUID | None = None,
+    ) -> bool:
+        """Return True if a non-cancelled invoice exists for the same subscription + billing period."""
+        stmt = (
+            select(Invoice.id)
+            .where(Invoice.subscription_id == subscription_id)
+            .where(Invoice.billing_period_start == billing_period_start)
+            .where(Invoice.billing_period_end == billing_period_end)
+            .where(Invoice.status != InvoiceStatus.CANCELLED)
+            .where(Invoice.deleted_at.is_(None))
+        )
+        if exclude_id is not None:
+            stmt = stmt.where(Invoice.id != exclude_id)
+        return self.db.scalars(stmt).first() is not None
+
+    def check_overlapping_billing_period(
+        self,
+        subscription_id: uuid.UUID,
+        billing_period_start: date,
+        billing_period_end: date,
+        exclude_id: uuid.UUID | None = None,
+    ) -> bool:
+        """Return True if an existing non-cancelled invoice overlaps the given billing period."""
+        stmt = (
+            select(Invoice.id)
+            .where(Invoice.subscription_id == subscription_id)
+            .where(Invoice.status != InvoiceStatus.CANCELLED)
+            .where(Invoice.deleted_at.is_(None))
+            .where(Invoice.billing_period_start < billing_period_end)
+            .where(Invoice.billing_period_end > billing_period_start)
+        )
+        if exclude_id is not None:
+            stmt = stmt.where(Invoice.id != exclude_id)
+        return self.db.scalars(stmt).first() is not None
 
     # ── Invoice number generation ──────────────────────────────────────────
 

@@ -38,6 +38,7 @@ export interface Plan {
   is_active: boolean;
   pricing: PlanPricing[];
   active_pricing_count: number;
+  active_subscription_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -87,4 +88,8 @@ export interface PlanListParams {
   search?: string;
   sort_by?: string;
   sort_order?: "asc" | "desc";
+  is_active?: boolean;
+  data_policy?: string;
+  speed_min?: number;
+  speed_max?: number;
 }

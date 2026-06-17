@@ -36,6 +36,7 @@ class InvoiceStatus(str, enum.Enum):
 class ChangeType(str, enum.Enum):
     CREATED = "CREATED"
     UPDATED = "UPDATED"
+    EDITED = "EDITED"
     STATUS_CHANGED = "STATUS_CHANGED"
     LOCKED = "LOCKED"
     CANCELLED = "CANCELLED"
