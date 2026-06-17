@@ -244,7 +244,7 @@ def delete_invoice(
     invoice_id: uuid.UUID,
     current_user: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
-) -> None:
+) -> Response:
     invoice = InvoiceRepository(db).get(invoice_id)
     if invoice is None:
         raise _not_found()
