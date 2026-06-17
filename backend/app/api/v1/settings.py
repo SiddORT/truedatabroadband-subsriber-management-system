@@ -171,6 +171,7 @@ def test_sms(
         mobile_number=payload.mobile_number,
         template_key="TEST",
         rendered_body="This is a test SMS from True Data Broadband Pvt. Ltd.",
+        dlt_entity_id=sms_settings.get("entity_id"),
         sms_settings=sms_settings,
     )
 

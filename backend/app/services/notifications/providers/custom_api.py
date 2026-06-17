@@ -46,6 +46,10 @@ class CustomApiProvider(BaseSmsProvider):
             "Message": message,
             "MobileNumbers": mobile,
         }
+        if dlt_entity_id:
+            params["EntityId"] = dlt_entity_id
+        if dlt_template_id:
+            params["DLTTemplateId"] = dlt_template_id
 
         for attempt in range(_MAX_RETRIES):
             try:
