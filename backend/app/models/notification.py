@@ -32,6 +32,9 @@ class TemplateKey(str, Enum):
     SUBSCRIPTION_EXPIRED = "SUBSCRIPTION_EXPIRED"
     PLAN_CHANGED = "PLAN_CHANGED"
     SUPPORT_TICKET_CREATED = "SUPPORT_TICKET_CREATED"
+    SUPPORT_TICKET_REPLY = "SUPPORT_TICKET_REPLY"
+    SUPPORT_TICKET_UPDATED = "SUPPORT_TICKET_UPDATED"
+    SUPPORT_TICKET_RESOLVED = "SUPPORT_TICKET_RESOLVED"
 
 
 class NotificationStatus(str, Enum):
@@ -63,6 +66,9 @@ TEMPLATE_CHANNELS: dict[str, list[str]] = {
     TemplateKey.PAYMENT_RECEIVED: [NotificationChannel.EMAIL],
     TemplateKey.PLAN_CHANGED: [NotificationChannel.EMAIL],
     TemplateKey.SUPPORT_TICKET_CREATED: [NotificationChannel.EMAIL],
+    TemplateKey.SUPPORT_TICKET_REPLY: [NotificationChannel.EMAIL],
+    TemplateKey.SUPPORT_TICKET_UPDATED: [NotificationChannel.EMAIL],
+    TemplateKey.SUPPORT_TICKET_RESOLVED: [NotificationChannel.EMAIL],
 }
 
 

@@ -2,6 +2,7 @@ import {
   BarChart3,
   Bell,
   CalendarClock,
+  Headphones,
   IndianRupee,
   LayoutDashboard,
   LogOut,
@@ -18,6 +19,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
+import { AdminNotificationBell } from "@/components/AdminNotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
@@ -103,6 +105,13 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["SUPERADMIN"],
   },
   {
+    label: "Support",
+    icon: Headphones,
+    href: "/admin/support",
+    matchPrefix: "/admin/support",
+    roles: ["SUPERADMIN"],
+  },
+  {
     label: "Scheduled Jobs",
     icon: CalendarClock,
     href: "/admin/jobs",
@@ -143,6 +152,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: IndianRupee,
     href: "/client/payments",
     matchPrefix: "/client/payments",
+    roles: ["CLIENT"],
+  },
+  {
+    label: "Support",
+    icon: Headphones,
+    href: "/client/support",
+    matchPrefix: "/client/support",
     roles: ["CLIENT"],
   },
 ];
@@ -249,7 +265,8 @@ export function AppLayout({ title, portalLabel, children }: AppLayoutProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {user?.role === "SUPERADMIN" && <AdminNotificationBell />}
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium text-foreground">
                 {user?.email}

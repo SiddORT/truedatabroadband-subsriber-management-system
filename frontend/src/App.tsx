@@ -48,6 +48,11 @@ import { NotificationTemplatesPage } from "@/pages/admin/notifications/Templates
 import { NotificationLogsPage } from "@/pages/admin/notifications/LogsPage";
 import { CommunicationsPage } from "@/pages/admin/communications/CommunicationsPage";
 import { CommunicationSettingsPage } from "@/pages/admin/settings/CommunicationSettingsPage";
+import { AdminSupportListPage } from "@/pages/admin/support/SupportListPage";
+import { AdminSupportDetailPage } from "@/pages/admin/support/SupportDetailPage";
+import { ClientSupportListPage } from "@/pages/client/support/SupportListPage";
+import { ClientSupportNewPage } from "@/pages/client/support/SupportNewPage";
+import { ClientSupportDetailPage } from "@/pages/client/support/SupportDetailPage";
 
 /** Redirect to /change-password if logged in and forced, else to login. */
 function RootRedirect() {
@@ -165,6 +170,10 @@ export default function App() {
       <Route path="/admin/jobs" element={<AdminRoute><JobListPage /></AdminRoute>} />
       <Route path="/admin/jobs/:id" element={<AdminRoute><JobDetailPage /></AdminRoute>} />
 
+      {/* Support */}
+      <Route path="/admin/support" element={<AdminRoute><AdminSupportListPage /></AdminRoute>} />
+      <Route path="/admin/support/:id" element={<AdminRoute><AdminSupportDetailPage /></AdminRoute>} />
+
       {/* Settings */}
       <Route path="/admin/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
       <Route path="/admin/settings/communication" element={<AdminRoute><CommunicationSettingsPage /></AdminRoute>} />
@@ -194,6 +203,11 @@ export default function App() {
       {/* Legacy paths */}
       <Route path="/client/invoices" element={<Navigate to="/client/billing/invoices" replace />} />
       <Route path="/client/payments" element={<Navigate to="/client/billing/payments" replace />} />
+
+      {/* Support */}
+      <Route path="/client/support" element={<ClientRoute><ClientSupportListPage /></ClientRoute>} />
+      <Route path="/client/support/new" element={<ClientRoute><ClientSupportNewPage /></ClientRoute>} />
+      <Route path="/client/support/:id" element={<ClientRoute><ClientSupportDetailPage /></ClientRoute>} />
 
       {/* Profile */}
       <Route path="/client/profile" element={<ClientRoute><ProfilePage /></ClientRoute>} />

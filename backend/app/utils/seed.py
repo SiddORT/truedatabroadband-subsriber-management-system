@@ -209,6 +209,118 @@ _DEFAULT_TEMPLATES: list[dict] = [
         ),
         "approved_variables": [],
     },
+    # ── SUPPORT_TICKET_CREATED ────────────────────────────────────────────
+    {
+        "template_key": TemplateKey.SUPPORT_TICKET_CREATED,
+        "channel": NotificationChannel.EMAIL,
+        "subject": "[New Support Ticket] {ticket_number} - {subject}",
+        "body": (
+            "<p>A new support ticket has been raised.</p>"
+            "<table style='border-collapse:collapse;margin:12px 0;'>"
+            "<tr><td style='padding:4px 16px 4px 0;color:#555;'>Ticket #</td>"
+            "<td style='padding:4px 0;font-weight:600;'>{ticket_number}</td></tr>"
+            "<tr><td style='padding:4px 16px 4px 0;color:#555;'>Customer</td>"
+            "<td style='padding:4px 0;'>{customer_name} ({customer_code})</td></tr>"
+            "<tr><td style='padding:4px 16px 4px 0;color:#555;'>Mobile</td>"
+            "<td style='padding:4px 0;'>{customer_mobile}</td></tr>"
+            "<tr><td style='padding:4px 16px 4px 0;color:#555;'>Email</td>"
+            "<td style='padding:4px 0;'>{customer_email}</td></tr>"
+            "<tr><td style='padding:4px 16px 4px 0;color:#555;'>Connection</td>"
+            "<td style='padding:4px 0;'>{subscription_name}</td></tr>"
+            "<tr><td style='padding:4px 16px 4px 0;color:#555;'>Category</td>"
+            "<td style='padding:4px 0;'>{category}</td></tr>"
+            "<tr><td style='padding:4px 16px 4px 0;color:#555;'>Priority</td>"
+            "<td style='padding:4px 0;'>{priority}</td></tr>"
+            "</table>"
+            "<p><strong>Subject:</strong> {subject}</p>"
+            "<p><strong>Description:</strong></p><p>{description}</p>"
+            "<p><a href='{portal_url}' style='background:#1F4959;color:#fff;"
+            "padding:8px 20px;border-radius:8px;text-decoration:none;"
+            "font-weight:600;display:inline-block;'>View Ticket &rarr;</a></p>"
+            "<p>Regards,<br>True Data Broadband Support System</p>"
+        ),
+        "approved_variables": [
+            "ticket_number", "customer_name", "customer_code", "customer_mobile",
+            "customer_email", "subscription_name", "category", "priority",
+            "subject", "description", "portal_url",
+        ],
+    },
+    # ── SUPPORT_TICKET_REPLY (client → admin) ─────────────────────────────
+    {
+        "template_key": TemplateKey.SUPPORT_TICKET_REPLY,
+        "channel": NotificationChannel.EMAIL,
+        "subject": "[Customer Reply] {ticket_number} - {subject}",
+        "body": (
+            "<p>A customer has replied to ticket <strong>{ticket_number}</strong>.</p>"
+            "<table style='border-collapse:collapse;margin:12px 0;'>"
+            "<tr><td style='padding:4px 16px 4px 0;color:#555;'>Customer</td>"
+            "<td style='padding:4px 0;font-weight:600;'>{customer_name}</td></tr>"
+            "<tr><td style='padding:4px 16px 4px 0;color:#555;'>Ticket #</td>"
+            "<td style='padding:4px 0;'>{ticket_number}</td></tr>"
+            "<tr><td style='padding:4px 16px 4px 0;color:#555;'>Subject</td>"
+            "<td style='padding:4px 0;'>{subject}</td></tr>"
+            "</table>"
+            "<p><strong>Message:</strong></p>"
+            "<blockquote style='border-left:3px solid #1F4959;padding-left:12px;"
+            "margin:8px 0;color:#333;'>{latest_message}</blockquote>"
+            "<p><a href='{portal_url}' style='background:#1F4959;color:#fff;"
+            "padding:8px 20px;border-radius:8px;text-decoration:none;"
+            "font-weight:600;display:inline-block;'>View Ticket &rarr;</a></p>"
+        ),
+        "approved_variables": [
+            "ticket_number", "customer_name", "subject", "latest_message", "portal_url",
+        ],
+    },
+    # ── SUPPORT_TICKET_UPDATED (admin → customer) ─────────────────────────
+    {
+        "template_key": TemplateKey.SUPPORT_TICKET_UPDATED,
+        "channel": NotificationChannel.EMAIL,
+        "subject": "[Ticket Update] {ticket_number}",
+        "body": (
+            "<p>Dear Customer,</p>"
+            "<p>Your support ticket <strong>{ticket_number}</strong> has been updated.</p>"
+            "<table style='border-collapse:collapse;margin:12px 0;'>"
+            "<tr><td style='padding:4px 16px 4px 0;color:#555;'>Status</td>"
+            "<td style='padding:4px 0;font-weight:600;'>{status}</td></tr>"
+            "<tr><td style='padding:4px 16px 4px 0;color:#555;'>Priority</td>"
+            "<td style='padding:4px 0;'>{priority}</td></tr>"
+            "</table>"
+            "<p><strong>Message from our team:</strong></p>"
+            "<blockquote style='border-left:3px solid #1F4959;padding-left:12px;"
+            "margin:8px 0;color:#333;'>{latest_message}</blockquote>"
+            "<p><a href='{portal_url}' style='background:#1F4959;color:#fff;"
+            "padding:8px 20px;border-radius:8px;text-decoration:none;"
+            "font-weight:600;display:inline-block;'>View Ticket &rarr;</a></p>"
+            "<p>Regards,<br>True Data Broadband Support Team</p>"
+        ),
+        "approved_variables": [
+            "ticket_number", "status", "priority", "latest_message", "portal_url",
+        ],
+    },
+    # ── SUPPORT_TICKET_RESOLVED (admin → customer) ────────────────────────
+    {
+        "template_key": TemplateKey.SUPPORT_TICKET_RESOLVED,
+        "channel": NotificationChannel.EMAIL,
+        "subject": "[Ticket Resolved] {ticket_number}",
+        "body": (
+            "<p>Dear Customer,</p>"
+            "<p>We are happy to inform you that your support ticket "
+            "<strong>{ticket_number}</strong> has been resolved.</p>"
+            "<p><strong>Resolution Notes:</strong></p>"
+            "<blockquote style='border-left:3px solid #27ae60;padding-left:12px;"
+            "margin:8px 0;color:#333;'>{resolution_notes}</blockquote>"
+            "<p>If you feel this issue is not resolved, you can reopen the ticket "
+            "from your client portal.</p>"
+            "<p><a href='{portal_url}' style='background:#1F4959;color:#fff;"
+            "padding:8px 20px;border-radius:8px;text-decoration:none;"
+            "font-weight:600;display:inline-block;'>View Ticket &rarr;</a></p>"
+            "<p>Thank you for choosing True Data Broadband.</p>"
+            "<p>Regards,<br>True Data Broadband Support Team</p>"
+        ),
+        "approved_variables": [
+            "ticket_number", "resolution_notes", "portal_url",
+        ],
+    },
 ]
 
 

@@ -9,7 +9,7 @@ import math
 import uuid
 from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
@@ -1608,3 +1608,217 @@ def get_payment_detail(
         payment_method=pay.payment_method.value,
         transaction_reference=pay.transaction_reference,
     )
+
+
+# ===========================================================================
+# Support Tickets (client)
+# ===========================================================================
+
+from app.models.support_ticket import SupportTicket, TicketMessage, TicketAttachment  # noqa: E402
+from app.repositories.support_ticket import (  # noqa: E402
+    SupportTicketRepository,
+    TicketMessageRepository,
+    TicketAttachmentRepository,
+)
+from app.schemas.support_ticket import (  # noqa: E402
+    ClientTicketCreate,
+    ClientTicketListItem,
+    ClientTicketOut,
+    ClientTicketsPage,
+    ClientTicketReply,
+    TicketAttachmentOut,
+    TicketMessageOut,
+)
+from app.services.support_ticket import SupportError, SupportTicketService  # noqa: E402
+from app.models.audit_log import ACTION_SUPPORT_UNAUTHORIZED, ACTION_SUPPORT_TICKET_CREATED  # noqa: E402
+from app.storage import get_storage_service  # noqa: E402
+
+_SUPPORT_ALLOWED_MIME = {
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
+_SUPPORT_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+def _support_msg_out(msg: TicketMessage, db: Session) -> TicketMessageOut:
+    from app.models.user import User as _User
+    user = db.get(_User, msg.sender_user_id) if msg.sender_user_id else None
+    return TicketMessageOut(
+        id=msg.id,
+        ticket_id=msg.ticket_id,
+        sender_user_id=msg.sender_user_id,
+        sender_name=user.email.split("@")[0] if user else "",
+        sender_role=user.role.value if user else "",
+        message=msg.message,
+        is_internal_note=msg.is_internal_note,
+        created_at=msg.created_at,
+        attachments=[TicketAttachmentOut.model_validate(a) for a in msg.attachments],
+    )
+
+
+def _client_ticket_out(ticket: SupportTicket, db: Session) -> ClientTicketOut:
+    msg_repo = TicketMessageRepository(db)
+    raw_msgs = msg_repo.list_for_ticket(ticket.id, include_internal=False)
+    return ClientTicketOut(
+        id=ticket.id,
+        ticket_number=ticket.ticket_number,
+        subject=ticket.subject,
+        description=ticket.description,
+        category=ticket.category,
+        status=ticket.status,
+        priority=ticket.priority,
+        subscription_id=ticket.subscription_id,
+        created_at=ticket.created_at,
+        updated_at=ticket.updated_at,
+        messages=[_support_msg_out(m, db) for m in raw_msgs],
+    )
+
+
+def _get_owned_ticket_or_404(
+    ticket_id: uuid.UUID, customer_id: uuid.UUID, db: Session, request: Request, user_id: uuid.UUID
+) -> SupportTicket:
+    repo = SupportTicketRepository(db)
+    ticket = repo.get_by_id(ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found.")
+    if ticket.customer_id != customer_id:
+        _audit(db, ACTION_SUPPORT_UNAUTHORIZED, request, user_id=user_id)
+        raise HTTPException(status_code=403, detail="Access denied.")
+    return ticket
+
+
+@router.get("/support", response_model=ClientTicketsPage)
+def client_list_tickets(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=10, le=100),
+    status: str | None = Query(None),
+    category: str | None = Query(None),
+    search: str | None = Query(None),
+    request: Request = None,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> ClientTicketsPage:
+    customer = _get_customer_or_403(current_user, db, request)
+    repo = SupportTicketRepository(db)
+    skip = (page - 1) * page_size
+    tickets, total = repo.list_for_customer(
+        customer.id,
+        status=status,
+        category=category,
+        search=search,
+        skip=skip,
+        limit=page_size,
+    )
+    import math
+    return ClientTicketsPage(
+        items=[ClientTicketListItem.model_validate(t) for t in tickets],
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=math.ceil(total / page_size) if total else 1,
+    )
+
+
+@router.post("/support", response_model=ClientTicketOut, status_code=status.HTTP_201_CREATED)
+def client_create_ticket(
+    payload: ClientTicketCreate,
+    request: Request,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> ClientTicketOut:
+    customer = _get_customer_or_403(current_user, db, request)
+    svc = SupportTicketService(db)
+    try:
+        ticket = svc.create_ticket(
+            payload,
+            customer.id,
+            current_user.id,
+            actor_ip=request.client.host if request.client else None,
+            actor_ua=request.headers.get("user-agent"),
+        )
+    except SupportError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    return _client_ticket_out(ticket, db)
+
+
+@router.get("/support/{ticket_id}", response_model=ClientTicketOut)
+def client_get_ticket(
+    ticket_id: uuid.UUID,
+    request: Request,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> ClientTicketOut:
+    customer = _get_customer_or_403(current_user, db, request)
+    ticket = _get_owned_ticket_or_404(ticket_id, customer.id, db, request, current_user.id)
+    return _client_ticket_out(ticket, db)
+
+
+@router.post("/support/{ticket_id}/reply", response_model=TicketMessageOut)
+def client_reply_ticket(
+    ticket_id: uuid.UUID,
+    payload: ClientTicketReply,
+    request: Request,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> TicketMessageOut:
+    customer = _get_customer_or_403(current_user, db, request)
+    ticket = _get_owned_ticket_or_404(ticket_id, customer.id, db, request, current_user.id)
+    svc = SupportTicketService(db)
+    try:
+        msg = svc.client_reply(
+            ticket,
+            current_user.id,
+            payload.message,
+            actor_ip=request.client.host if request.client else None,
+            actor_ua=request.headers.get("user-agent"),
+        )
+    except SupportError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    return _support_msg_out(msg, db)
+
+
+@router.post(
+    "/support/{ticket_id}/attachments",
+    response_model=TicketAttachmentOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def client_upload_attachment(
+    ticket_id: uuid.UUID,
+    file: UploadFile = File(...),
+    request: Request = None,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+    storage=Depends(get_storage_service),
+) -> TicketAttachmentOut:
+    customer = _get_customer_or_403(current_user, db, request)
+    ticket = _get_owned_ticket_or_404(ticket_id, customer.id, db, request, current_user.id)
+
+    if file.content_type not in _SUPPORT_ALLOWED_MIME:
+        raise HTTPException(status_code=400, detail=f"File type '{file.content_type}' not allowed.")
+
+    content = await file.read()
+    if len(content) > _SUPPORT_MAX_BYTES:
+        raise HTTPException(status_code=400, detail="File exceeds 10 MB limit.")
+
+    msg_repo = TicketMessageRepository(db)
+    att_msg = TicketMessage(
+        ticket_id=ticket.id,
+        sender_user_id=current_user.id,
+        message=f"[Attachment: {file.filename}]",
+        is_internal_note=False,
+    )
+    msg_repo.create(att_msg)
+
+    svc = SupportTicketService(db)
+    att = svc.save_attachment(
+        att_msg,
+        ticket.ticket_number,
+        file.filename or "file",
+        content,
+        file.content_type or "application/octet-stream",
+        storage,
+    )
+    return TicketAttachmentOut.model_validate(att)

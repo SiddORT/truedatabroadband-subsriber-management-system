@@ -1,0 +1,971 @@
+You are continuing development of the existing project.
+
+IMPORTANT:
+
+Follow existing architecture, coding standards, folder structure, reusable components, API conventions, authentication flow, notification services, file storage standards, and audit logging patterns.
+
+Implement ONLY the Support Module.
+
+This module must support both:
+
+* Client Portal
+* Admin Portal
+
+Do NOT implement:
+
+* Live chat
+* WhatsApp integration
+* AI-generated responses
+* Voice calls
+* SLA automation
+
+Prerequisites already exist:
+
+* Client Portal Foundation
+* Customers
+* Subscriptions
+* Invoices
+* Notifications
+* Communication Logs
+* OTP Login
+* Audit Logs
+
+==================================================
+OBJECTIVE
+=========
+
+Build a complete ticket-based support system.
+
+Clients must be able to:
+
+* Create tickets
+* View their tickets
+* Reply to tickets
+* Upload attachments
+
+SuperAdmin must be able to:
+
+* View all tickets
+* Search and filter tickets
+* Assign priority
+* Change status
+* Reply to tickets
+* Add internal notes
+* View customer context
+* Receive in-app notifications
+* Receive email alerts
+
+==================================================
+DATABASE DESIGN
+===============
+
+Create:
+
+support_tickets
+
+Fields:
+
+* id (UUID)
+
+* ticket_number (unique)
+
+Format:
+
+TDB-SUP-00001
+
+Relationships:
+
+* customer_id (FK)
+
+* subscription_id (nullable FK)
+
+* created_by_user_id (FK)
+
+Basic Information:
+
+* subject
+
+* description
+
+Category:
+
+Values:
+
+* NO_INTERNET
+* SLOW_SPEED
+* BILLING_ISSUE
+* PLAN_CHANGE
+* TECHNICAL_ISSUE
+* OTHER
+
+Priority:
+
+Values:
+
+* LOW
+* MEDIUM
+* HIGH
+* CRITICAL
+
+Default:
+
+MEDIUM
+
+Status:
+
+Values:
+
+* OPEN
+* IN_PROGRESS
+* WAITING_FOR_CUSTOMER
+* RESOLVED
+* CLOSED
+
+Default:
+
+OPEN
+
+Assignment:
+
+* assigned_to_user_id (nullable FK)
+
+Dates:
+
+* first_response_at
+
+* resolved_at
+
+* closed_at
+
+Audit:
+
+* created_at
+* updated_at
+
+Indexes:
+
+* ticket_number
+* customer_id
+* subscription_id
+* status
+* priority
+* assigned_to_user_id
+* created_at
+
+==================================================
+TICKET MESSAGES
+===============
+
+Create:
+
+ticket_messages
+
+Fields:
+
+* id (UUID)
+
+* ticket_id (FK)
+
+* sender_user_id (FK)
+
+* message
+
+* is_internal_note
+
+Default:
+
+false
+
+Audit:
+
+* created_at
+
+Indexes:
+
+* ticket_id
+* sender_user_id
+* created_at
+
+==================================================
+ATTACHMENTS
+===========
+
+Create:
+
+ticket_attachments
+
+Fields:
+
+* id (UUID)
+
+* ticket_message_id (FK)
+
+* original_filename
+
+* file_name
+
+* file_path
+
+* file_size
+
+* mime_type
+
+Audit:
+
+* created_at
+
+Store files locally.
+
+Folder structure:
+
+storage/support/{ticket_number}/
+
+Do not store files in database blobs.
+
+==================================================
+ADMIN NOTIFICATIONS
+===================
+
+Create:
+
+admin_notifications
+
+Fields:
+
+* id (UUID)
+
+* user_id
+
+* notification_type
+
+Values:
+
+* SUPPORT
+
+* BILLING
+
+* SYSTEM
+
+* title
+
+* message
+
+* entity_type
+
+* entity_id
+
+* action_url
+
+* is_read
+
+Default:
+
+false
+
+Audit:
+
+* created_at
+* read_at
+
+Indexes:
+
+* user_id
+* is_read
+* created_at
+
+==================================================
+SUPPORT EMAIL SETTINGS
+======================
+
+Extend company_settings.
+
+Add:
+
+* support_email
+
+Default:
+
+[admin@truedatabroadband.com](mailto:admin@truedatabroadband.com)
+
+Do not hardcode support email addresses.
+
+Always load from company_settings.
+
+==================================================
+TICKET NUMBER GENERATION
+========================
+
+Format:
+
+TDB-SUP-00001
+
+Requirements:
+
+* Sequential
+* Unique
+* Never reused
+
+==================================================
+CLIENT ROUTES
+=============
+
+Create:
+
+/client/support
+
+/client/support/new
+
+/client/support/{ticket_id}
+
+==================================================
+ADMIN ROUTES
+============
+
+Create:
+
+/admin/support
+
+/admin/support/{ticket_id}
+
+==================================================
+CLIENT API ROUTES
+=================
+
+GET /api/v1/client/support
+
+POST /api/v1/client/support
+
+GET /api/v1/client/support/{id}
+
+POST /api/v1/client/support/{id}/reply
+
+POST /api/v1/client/support/{id}/attachments
+
+==================================================
+ADMIN API ROUTES
+================
+
+GET /api/v1/admin/support
+
+GET /api/v1/admin/support/{id}
+
+PATCH /api/v1/admin/support/{id}
+
+POST /api/v1/admin/support/{id}/reply
+
+POST /api/v1/admin/support/{id}/internal-note
+
+POST /api/v1/admin/support/{id}/attachments
+
+==================================================
+ADMIN NOTIFICATION API ROUTES
+=============================
+
+GET /api/v1/admin/notifications
+
+PATCH /api/v1/admin/notifications/{id}/read
+
+PATCH /api/v1/admin/notifications/read-all
+
+==================================================
+OWNERSHIP RULES
+===============
+
+Clients can access only:
+
+support_tickets.customer_id ==
+logged_in_user.customer_id
+
+Never trust frontend filtering.
+
+Enforce ownership validation in backend queries.
+
+Clients cannot:
+
+* View internal notes
+* Change status
+* Change priority
+* Assign tickets
+
+==================================================
+CLIENT TICKET CREATION
+======================
+
+Required fields:
+
+* subject
+
+* description
+
+* category
+
+Optional:
+
+* subscription_id
+
+Allow attachments.
+
+Maximum attachment size:
+
+10 MB
+
+Allowed file types:
+
+* PDF
+* JPG
+* JPEG
+* PNG
+* DOCX
+* XLSX
+
+==================================================
+CLIENT TICKET LIST
+==================
+
+Default sorting:
+
+created_at DESC
+
+Columns:
+
+* Ticket Number
+* Subject
+* Category
+* Status
+* Priority
+* Last Updated
+
+Filters:
+
+* Status
+* Category
+
+Search:
+
+* Ticket Number
+* Subject
+
+==================================================
+ADMIN TICKET LIST
+=================
+
+Default sorting:
+
+created_at DESC
+
+Columns:
+
+* Ticket Number
+* Customer
+* Connection
+* Subject
+* Category
+* Priority
+* Status
+* Assigned To
+* Last Updated
+
+Filters:
+
+* Status
+* Category
+* Priority
+* Assigned User
+* Customer
+
+Search:
+
+* Ticket Number
+* Customer Name
+* Subject
+
+==================================================
+ADMIN TICKET DETAILS
+====================
+
+Display:
+
+Customer Information:
+
+* Customer Name
+* Mobile Number
+* Email
+
+Subscription Information:
+
+* Connection Name
+* Plan Name
+* Expiry Date
+
+Billing Information:
+
+* Outstanding Amount
+
+Ticket Information:
+
+* Category
+* Priority
+* Status
+* Created At
+
+Conversation Timeline:
+
+* Messages
+* Attachments
+* Internal Notes
+
+Actions:
+
+* Assign Ticket
+* Change Priority
+* Change Status
+* Add Reply
+* Add Internal Note
+
+==================================================
+STATUS WORKFLOW
+===============
+
+Allowed transitions:
+
+OPEN
+↓
+IN_PROGRESS
+↓
+WAITING_FOR_CUSTOMER
+↓
+RESOLVED
+↓
+CLOSED
+
+Allow reopening:
+
+RESOLVED → IN_PROGRESS
+
+CLOSED tickets are read-only.
+
+==================================================
+NOTIFICATION TEMPLATES
+======================
+
+Create templates:
+
+* SUPPORT_TICKET_CREATED
+
+* SUPPORT_TICKET_REPLY
+
+* SUPPORT_TICKET_UPDATED
+
+* SUPPORT_TICKET_RESOLVED
+
+Channel:
+
+* EMAIL
+
+Future:
+
+* SMS
+* WhatsApp
+
+==================================================
+EMAIL FLOWS
+===========
+
+Client creates ticket:
+
+Send email to:
+
+support_email
+
+Subject:
+
+[New Support Ticket] {{ticket_number}} - {{subject}}
+
+Variables:
+
+* ticket_number
+* customer_name
+* customer_code
+* customer_mobile
+* customer_email
+* subscription_name
+* category
+* priority
+* subject
+* description
+* portal_url
+
+==================================================
+
+Client replies:
+
+Send email to:
+
+support_email
+
+Subject:
+
+[Customer Reply] {{ticket_number}} - {{subject}}
+
+Variables:
+
+* ticket_number
+* customer_name
+* subject
+* latest_message
+* portal_url
+
+==================================================
+
+Admin replies or updates ticket:
+
+Send email to:
+
+customer.email
+
+Subject:
+
+[Ticket Update] {{ticket_number}}
+
+Variables:
+
+* ticket_number
+* status
+* priority
+* latest_message
+* portal_url
+
+==================================================
+
+Ticket resolved:
+
+Send email to:
+
+customer.email
+
+Subject:
+
+[Ticket Resolved] {{ticket_number}}
+
+Variables:
+
+* ticket_number
+* resolution_notes
+* portal_url
+
+==================================================
+ADMIN NOTIFICATION FLOWS
+========================
+
+Client creates ticket:
+
+1. Create support ticket
+
+2. Save initial message
+
+3. Create admin notifications for all active SUPERADMIN users
+
+4. Send email to support_email
+
+5. Create communication log
+
+6. Create audit log
+
+Client replies:
+
+1. Save reply
+
+2. Create admin notifications for all active SUPERADMIN users
+
+3. Send email to support_email
+
+4. Create communication log
+
+5. Create audit log
+
+Notification payload:
+
+* ticket_id
+* ticket_number
+* customer_name
+* subject
+* category
+* priority
+* action_url
+
+Action URL:
+
+/admin/support/{ticket_id}
+
+==================================================
+ADMIN HEADER NOTIFICATIONS
+==========================
+
+Add support notifications to the existing admin notification center.
+
+Display:
+
+* unread count badge
+
+* latest 10 notifications
+
+Notification refresh:
+
+* WebSockets if available
+
+Otherwise:
+
+* Poll every 60 seconds
+
+==================================================
+ADMIN DASHBOARD WIDGET
+======================
+
+Add support summary widget.
+
+Display:
+
+* Open Tickets
+
+* High Priority Tickets
+
+* Waiting for Customer
+
+* Resolved Today
+
+Show latest:
+
+10 tickets
+
+Actions:
+
+* View Ticket
+
+* Assign Ticket
+
+* Change Status
+
+==================================================
+AUTOMATION RULES
+================
+
+Set:
+
+first_response_at
+
+When:
+
+First admin reply is added.
+
+Set:
+
+resolved_at
+
+When:
+
+Status changes to RESOLVED.
+
+Set:
+
+closed_at
+
+When:
+
+Status changes to CLOSED.
+
+==================================================
+PAGINATION STANDARD
+===================
+
+Support:
+
+* page
+* page_size
+* search
+* sort_by
+* sort_order
+
+Default:
+
+page_size = 25
+
+Allowed:
+
+10, 25, 50, 100
+
+==================================================
+UI REQUIREMENTS
+===============
+
+Reuse existing theme.
+
+Primary:
+
+#1F4959
+
+Secondary:
+
+#5C7C89
+
+Requirements:
+
+* Fully responsive
+* Loading states
+* Empty states
+* Error states
+
+Priority badges:
+
+LOW → Gray
+
+MEDIUM → Blue
+
+HIGH → Orange
+
+CRITICAL → Red
+
+Status badges:
+
+OPEN → Blue
+
+IN_PROGRESS → Orange
+
+WAITING_FOR_CUSTOMER → Purple
+
+RESOLVED → Green
+
+CLOSED → Gray
+
+==================================================
+SECURITY REQUIREMENTS
+=====================
+
+Prevent:
+
+* ID enumeration
+
+* Unauthorized ticket access
+
+Use UUIDs only.
+
+Validate attachment MIME types.
+
+Scan uploaded files if antivirus integration exists.
+
+Never expose internal notes to clients.
+
+==================================================
+COMMUNICATION LOGGING
+=====================
+
+Every support email must create records in:
+
+communication_logs
+
+Track:
+
+* template_key
+
+* recipient_email
+
+* provider_message_id
+
+* status
+
+* entity_type = support_ticket
+
+* entity_id = ticket_id
+
+==================================================
+AUDIT LOGGING
+=============
+
+Track:
+
+* support_ticket_created
+
+* support_ticket_updated
+
+* support_ticket_assigned
+
+* support_ticket_replied
+
+* support_ticket_internal_note_added
+
+* support_ticket_resolved
+
+* support_ticket_closed
+
+* support_notification_created
+
+* support_notification_read
+
+* support_email_sent
+
+* support_email_failed
+
+* unauthorized_support_access_attempt
+
+==================================================
+TESTING
+=======
+
+Create tests for:
+
+* Client ownership validation
+
+* Ticket creation
+
+* Attachment uploads
+
+* Internal note visibility
+
+* Status transitions
+
+* Email notifications
+
+* Admin notifications
+
+* Assignment
+
+* Search and filters
+
+* Unauthorized access
+
+==================================================
+ACCEPTANCE CRITERIA
+===================
+
+Success means:
+
+1. Clients can create tickets
+
+2. Clients can view only their tickets
+
+3. Clients cannot see internal notes
+
+4. Admin can manage all tickets
+
+5. New tickets create admin portal notifications
+
+6. New tickets send email to support_email
+
+7. Client replies send email to support_email
+
+8. Admin replies send email to customers
+
+9. Support notification badge works
+
+10. Dashboard support widget displays correctly
+
+11. Attachments upload correctly
+
+12. Status workflow is enforced
+
+13. Search and filters work
+
+14. Unauthorized access is blocked
+
+15. Communication logs are created
+
+16. Audit logs are created

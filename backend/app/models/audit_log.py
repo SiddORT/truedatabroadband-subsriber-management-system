@@ -86,6 +86,20 @@ ACTION_CLIENT_SUBSCRIPTION_VIEWED = "client_subscription_viewed"
 ACTION_CLIENT_RENEWAL_REQUEST_CREATED = "renewal_request_created"
 ACTION_CLIENT_PLAN_CHANGE_REQUEST_CREATED = "plan_change_request_created"
 
+# Support domain
+ACTION_SUPPORT_TICKET_CREATED = "support_ticket_created"
+ACTION_SUPPORT_TICKET_UPDATED = "support_ticket_updated"
+ACTION_SUPPORT_TICKET_ASSIGNED = "support_ticket_assigned"
+ACTION_SUPPORT_TICKET_REPLIED = "support_ticket_replied"
+ACTION_SUPPORT_TICKET_INTERNAL_NOTE = "support_ticket_internal_note_added"
+ACTION_SUPPORT_TICKET_RESOLVED = "support_ticket_resolved"
+ACTION_SUPPORT_TICKET_CLOSED = "support_ticket_closed"
+ACTION_SUPPORT_NOTIFICATION_CREATED = "support_notification_created"
+ACTION_SUPPORT_NOTIFICATION_READ = "support_notification_read"
+ACTION_SUPPORT_EMAIL_SENT = "support_email_sent"
+ACTION_SUPPORT_EMAIL_FAILED = "support_email_failed"
+ACTION_SUPPORT_UNAUTHORIZED = "unauthorized_support_access_attempt"
+
 # Scheduled jobs domain
 ACTION_SCHEDULED_JOB_UPDATED = "scheduled_job_updated"
 ACTION_SCHEDULED_JOB_ENABLED = "scheduled_job_enabled"
@@ -135,6 +149,8 @@ def derive_module(action: str) -> str:
         return "NOTIFICATIONS"
     if action.startswith("scheduled_job"):
         return "JOBS"
+    if action.startswith("support_") or action == "unauthorized_support_access_attempt":
+        return "SUPPORT"
     return "SYSTEM"
 
 
