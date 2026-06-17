@@ -17,7 +17,7 @@ from app.schemas.subscription import (
     SubscriptionStatusUpdate,
     SubscriptionUpdate,
 )
-from app.services.subscription import SubscriptionError, SubscriptionService
+from app.services.subscription import DuplicateAddressWarning, SubscriptionError, SubscriptionService
 
 router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 
@@ -86,6 +86,7 @@ def list_subscriptions(
 def create_subscription(
     request: Request,
     payload: SubscriptionCreate,
+    force: bool = Query(False, description="Skip duplicate-address warning and create anyway"),
     current_user: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ) -> SubscriptionOut:
@@ -96,6 +97,12 @@ def create_subscription(
             actor_id=current_user.id,
             ip_address=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
+            force=force,
+        )
+    except DuplicateAddressWarning as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"warning": str(exc), "existing_code": exc.existing_code},
         )
     except SubscriptionError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
@@ -149,6 +156,8 @@ def update_subscription(
     sub = _get_sub_or_404(sub_id, db)
     updated = SubscriptionService(db).update(
         sub,
+        connection_name=payload.connection_name,
+        installation_address=payload.installation_address,
         remarks=payload.remarks,
         actor_id=current_user.id,
         ip_address=request.client.host if request.client else None,

@@ -213,8 +213,8 @@ class InvoiceService:
             customer_email_snapshot=getattr(customer, "email", None),
             customer_mobile_snapshot=getattr(customer, "mobile_number", None),
             # Connection snapshots
-            connection_name_snapshot=sub.subscription_code,
-            installation_address_snapshot=self._build_installation_address(customer),
+            connection_name_snapshot=sub.connection_name or sub.subscription_code,
+            installation_address_snapshot=sub.installation_address or self._build_installation_address(customer),
             # Plan snapshots
             plan_code_snapshot=plan.plan_code,
             plan_name_snapshot=plan.name,
@@ -600,8 +600,8 @@ class InvoiceService:
                 invoice_id=invoice.id,
                 subscription_id=sub.id,
                 sort_order=comp["sort_order"],
-                connection_name_snapshot=sub.subscription_code,
-                installation_address_snapshot=self._build_installation_address(sub.customer),
+                connection_name_snapshot=sub.connection_name or sub.subscription_code,
+                installation_address_snapshot=sub.installation_address or self._build_installation_address(sub.customer),
                 plan_code_snapshot=plan.plan_code,
                 plan_name_snapshot=plan.name,
                 speed_mbps_snapshot=plan.speed_mbps,

@@ -69,6 +69,9 @@ class Subscription(Base, BaseModelMixin):
         default=SubscriptionStatus.ACTIVE,
     )
 
+    connection_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    installation_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # ── Relationships ────────────────────────────────────────────────────────

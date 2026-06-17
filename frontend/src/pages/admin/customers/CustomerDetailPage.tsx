@@ -438,6 +438,22 @@ function AccountTab({ customerId }: { customerId: string }) {
                 </p>
               </div>
             </div>
+            {(active.connection_name || active.installation_address) && (
+              <div className="mt-3 grid grid-cols-1 gap-2 border-t border-border pt-3 sm:grid-cols-2">
+                {active.connection_name && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Connection Label</p>
+                    <p className="text-sm font-medium">{active.connection_name}</p>
+                  </div>
+                )}
+                {active.installation_address && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Installation Address</p>
+                    <p className="whitespace-pre-line text-sm font-medium">{active.installation_address}</p>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="mt-3 flex justify-end">
               <Link
                 to={`/admin/subscriptions/${active.id}`}

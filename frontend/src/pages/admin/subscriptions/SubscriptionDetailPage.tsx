@@ -325,6 +325,30 @@ export function SubscriptionDetailPage() {
             </CardContent>
           </Card>
 
+          {/* Connection Details */}
+          {(sub.connection_name || sub.installation_address) && (
+            <Card>
+              <CardContent className="space-y-4 pt-6">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Connection Details
+                </p>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {sub.connection_name && (
+                    <InfoRow label="Connection Label" value={sub.connection_name} />
+                  )}
+                  {sub.installation_address && (
+                    <div className="flex flex-col gap-0.5 sm:col-span-2">
+                      <span className="text-xs text-muted-foreground">Installation Address</span>
+                      <span className="whitespace-pre-line text-sm font-medium text-foreground">
+                        {sub.installation_address}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Pricing Snapshot */}
           <Card>
             <CardContent className="space-y-4 pt-6">

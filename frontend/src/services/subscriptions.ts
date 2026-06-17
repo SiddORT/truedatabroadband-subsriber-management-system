@@ -38,13 +38,16 @@ export const subscriptionsService = {
     return data;
   },
 
-  async create(payload: SubscriptionCreatePayload): Promise<Subscription> {
-    const { data } = await api.post<Subscription>(BASE, payload);
+  async create(payload: SubscriptionCreatePayload, force = false): Promise<Subscription> {
+    const { data } = await api.post<Subscription>(BASE, payload, { params: force ? { force: true } : {} });
     return data;
   },
 
-  async update(id: string, remarks: string | null): Promise<Subscription> {
-    const { data } = await api.put<Subscription>(`${BASE}/${id}`, { remarks });
+  async update(
+    id: string,
+    fields: { connection_name?: string | null; installation_address?: string | null; remarks?: string | null },
+  ): Promise<Subscription> {
+    const { data } = await api.put<Subscription>(`${BASE}/${id}`, fields);
     return data;
   },
 

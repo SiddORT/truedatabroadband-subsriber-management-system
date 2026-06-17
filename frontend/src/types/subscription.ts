@@ -21,6 +21,9 @@ export interface Subscription {
   renewal_date: string;
   expiry_date: string;
 
+  connection_name?: string | null;
+  installation_address?: string | null;
+
   status: SubscriptionStatus;
   remarks?: string | null;
 
@@ -46,6 +49,8 @@ export interface SubscriptionCreatePayload {
   customer_id: string;
   plan_pricing_id: string;
   start_date: string;
+  connection_name?: string;
+  installation_address?: string;
   remarks?: string;
 }
 

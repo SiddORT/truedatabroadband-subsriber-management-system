@@ -50,6 +50,16 @@ class SubscriptionError(Exception):
     """Business-rule violation in the subscription domain."""
 
 
+class DuplicateAddressWarning(Exception):
+    """Soft warning: an active subscription already exists at this address."""
+
+    def __init__(self, existing_code: str) -> None:
+        self.existing_code = existing_code
+        super().__init__(
+            f"An active subscription already exists at this address ({existing_code})"
+        )
+
+
 # ---------------------------------------------------------------------------
 # Service
 # ---------------------------------------------------------------------------
@@ -102,8 +112,24 @@ class SubscriptionService:
         actor_id: uuid.UUID,
         ip_address: str | None = None,
         user_agent: str | None = None,
+        force: bool = False,
     ) -> Subscription:
         customer = self._get_customer_or_raise(payload.customer_id)
+
+        # Resolve installation address — fall back to customer's primary address
+        installation_address = (
+            payload.installation_address.strip()
+            if payload.installation_address and payload.installation_address.strip()
+            else customer.installation_address or ""
+        )
+
+        # Soft duplicate-address check (bypass with force=True)
+        if not force and installation_address:
+            existing = self.subs.find_active_at_address(
+                payload.customer_id, installation_address
+            )
+            if existing:
+                raise DuplicateAddressWarning(existing.subscription_code)
 
         pricing = self._get_pricing_or_raise(payload.plan_pricing_id)
         plan = self._get_plan_or_raise(pricing.plan_id)
@@ -127,6 +153,8 @@ class SubscriptionService:
             renewal_date=expiry,
             expiry_date=expiry,
             status=SubscriptionStatus.ACTIVE,
+            connection_name=payload.connection_name.strip() if payload.connection_name else None,
+            installation_address=installation_address or None,
             remarks=payload.remarks,
         )
         self.db.add(sub)
@@ -205,6 +233,10 @@ class SubscriptionService:
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> Subscription:
+        # Carry forward connection details from the old subscription
+        carried_connection_name = sub.connection_name
+        carried_installation_address = sub.installation_address
+
         # End current subscription
         sub.status = SubscriptionStatus.CANCELLED
         self.db.commit()
@@ -231,6 +263,8 @@ class SubscriptionService:
             renewal_date=expiry,
             expiry_date=expiry,
             status=SubscriptionStatus.ACTIVE,
+            connection_name=carried_connection_name,
+            installation_address=carried_installation_address,
             remarks=payload.remarks,
         )
         self.db.add(new_sub)
@@ -251,12 +285,16 @@ class SubscriptionService:
     def update(
         self,
         sub: Subscription,
-        remarks: str | None,
         *,
+        connection_name: str | None = None,
+        installation_address: str | None = None,
+        remarks: str | None = None,
         actor_id: uuid.UUID,
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> Subscription:
+        sub.connection_name = connection_name
+        sub.installation_address = installation_address
         sub.remarks = remarks
         self.db.commit()
         self.db.refresh(sub)

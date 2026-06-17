@@ -14,22 +14,23 @@ class SubscriptionRepository(BaseRepository[Subscription]):
     def generate_next_code(self) -> str:
         """Return next subscription code in the format ``TDB-SUB-00001``.
 
-        Reads the highest existing code so deleted codes are never reused.
+        Reads the highest *numeric* code so deleted/test codes never collide.
         """
-        result = self.db.execute(
-            select(func.max(Subscription.subscription_code))
-        ).scalar()
-        if result is None:
-            n = 1
-        else:
+        rows = self.db.execute(
+            select(Subscription.subscription_code)
+            .where(Subscription.subscription_code.regexp_match(r"^TDB-SUB-\d+$"))
+        ).scalars().all()
+        nums = []
+        for code in rows:
             try:
-                n = int(result.split("-")[-1]) + 1
+                nums.append(int(code.split("-")[-1]))
             except (ValueError, IndexError):
-                n = 1
+                pass
+        n = (max(nums) if nums else 0) + 1
         return f"TDB-SUB-{n:05d}"
 
     def get_active_by_customer(self, customer_id: uuid.UUID) -> Subscription | None:
-        """Return the single ACTIVE subscription for a customer, if any."""
+        """Return the first ACTIVE subscription for a customer, if any."""
         stmt = (
             select(Subscription)
             .where(Subscription.customer_id == customer_id)
@@ -37,6 +38,22 @@ class SubscriptionRepository(BaseRepository[Subscription]):
             .where(Subscription.deleted_at.is_(None))
         )
         return self.db.scalars(stmt).first()
+
+    def find_active_at_address(
+        self, customer_id: uuid.UUID, installation_address: str
+    ) -> Subscription | None:
+        """Return an ACTIVE subscription for this customer at the same address (case-insensitive)."""
+        normalised = installation_address.strip().lower()
+        stmt = (
+            select(Subscription)
+            .where(Subscription.customer_id == customer_id)
+            .where(Subscription.status == SubscriptionStatus.ACTIVE)
+            .where(Subscription.deleted_at.is_(None))
+        )
+        for sub in self.db.scalars(stmt).all():
+            if sub.installation_address and sub.installation_address.strip().lower() == normalised:
+                return sub
+        return None
 
     def get_by_customer_user(self, user_id: uuid.UUID) -> Subscription | None:
         """Return the ACTIVE subscription for the customer linked to a user."""

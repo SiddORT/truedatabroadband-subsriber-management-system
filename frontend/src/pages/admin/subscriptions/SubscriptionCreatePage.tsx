@@ -208,6 +208,20 @@ export function SubscriptionCreatePage() {
     [startDate, selectedPricing],
   );
 
+  // ── Connection details ────────────────────────────────────────────────────
+  const [connectionName, setConnectionName] = useState("");
+  const [installationAddress, setInstallationAddress] = useState("");
+
+  // Pre-fill address from selected customer
+  useEffect(() => {
+    if (selectedCustomer) {
+      setInstallationAddress(selectedCustomer.installation_address ?? "");
+    }
+  }, [selectedCustomer]);
+
+  // ── Duplicate-address warning state ──────────────────────────────────────
+  const [dupWarning, setDupWarning] = useState<{ message: string; existing_code: string } | null>(null);
+
   // ── Remarks ────────────────────────────────────────────────────────────────
   const [remarks, setRemarks] = useState("");
 
@@ -230,25 +244,32 @@ export function SubscriptionCreatePage() {
 
   // ── Submit ─────────────────────────────────────────────────────────────────
   const createMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (force = false) =>
       subscriptionsService.create({
         customer_id: selectedCustomer!.id,
         plan_pricing_id: selectedPricingId,
         start_date: startDate,
+        connection_name: connectionName.trim() || undefined,
+        installation_address: installationAddress.trim() || undefined,
         remarks: remarks.trim() || undefined,
-      }),
+      }, force),
     onSuccess: (sub) => {
       showToast("Subscription created successfully", "success");
       navigate(`/admin/subscriptions/${sub.id}`);
     },
-    onError: (err) => {
-      showToast(getApiErrorMessage(err), "error");
+    onError: (err: unknown) => {
+      const detail = (err as { response?: { data?: { detail?: { warning?: string; existing_code?: string } | string } } })?.response?.data?.detail;
+      if (detail && typeof detail === "object" && detail.warning) {
+        setDupWarning({ message: detail.warning, existing_code: detail.existing_code ?? "" });
+      } else {
+        showToast(getApiErrorMessage(err), "error");
+      }
     },
   });
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (validate()) createMutation.mutate();
+    if (validate()) createMutation.mutate(false);
   }
 
   const isBusy = createMutation.isPending;
@@ -257,6 +278,7 @@ export function SubscriptionCreatePage() {
   const step1Done = !!selectedCustomer;
   const step2Done = !!selectedPlan && !!selectedPricing;
   const step3Done = !!startDate && !!expiryDate;
+  const step4Done = !!installationAddress.trim();
 
   return (
     <AppLayout title="New Subscription" portalLabel="Administration">
@@ -558,10 +580,39 @@ export function SubscriptionCreatePage() {
                 </CardContent>
               </Card>
 
-              {/* Step 4 — Remarks */}
+              {/* Step 4 — Connection Details */}
               <Card>
                 <CardContent className="space-y-4 pt-5">
-                  <StepBadge step={4} label="Additional Notes" done={false} />
+                  <StepBadge step={4} label="Connection Details" done={step4Done} />
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Field label="Connection Label">
+                      <input
+                        type="text"
+                        value={connectionName}
+                        onChange={(e) => setConnectionName(e.target.value)}
+                        placeholder="e.g. Home, Office, Shop…"
+                        className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      />
+                    </Field>
+                    <div />
+                  </div>
+                  <Field label="Installation Address" required>
+                    <textarea
+                      value={installationAddress}
+                      onChange={(e) => setInstallationAddress(e.target.value)}
+                      rows={3}
+                      placeholder="Full installation address…"
+                      className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                    <p className="text-xs text-muted-foreground">Pre-filled from customer record. Edit if this connection is at a different location.</p>
+                  </Field>
+                </CardContent>
+              </Card>
+
+              {/* Step 5 — Remarks */}
+              <Card>
+                <CardContent className="space-y-4 pt-5">
+                  <StepBadge step={5} label="Additional Notes" done={false} />
                   <Field label="Remarks (optional)">
                     <textarea
                       value={remarks}
@@ -707,6 +758,7 @@ export function SubscriptionCreatePage() {
                       { label: "Customer selected", done: step1Done },
                       { label: "Plan & cycle chosen", done: step2Done },
                       { label: "Dates set", done: step3Done },
+                      { label: "Address entered", done: step4Done },
                     ].map(({ label, done }) => (
                       <div
                         key={label}
@@ -762,6 +814,36 @@ export function SubscriptionCreatePage() {
           </div>
         </div>
       </form>
+
+      {/* ── Duplicate Address Warning Dialog ──────────────────────────── */}
+      {dupWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl border border-border bg-background p-6 shadow-xl">
+            <h3 className="mb-2 text-base font-semibold text-foreground">Duplicate Address Warning</h3>
+            <p className="mb-1 text-sm text-muted-foreground">{dupWarning.message}</p>
+            <p className="mb-5 text-xs text-muted-foreground">
+              Existing subscription:{" "}
+              <span className="font-mono font-semibold text-foreground">{dupWarning.existing_code}</span>
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDupWarning(null)}
+                className="rounded-lg border border-input px-4 py-2 text-sm font-medium hover:bg-muted/50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => { setDupWarning(null); createMutation.mutate(true); }}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"
+              >
+                Create Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }

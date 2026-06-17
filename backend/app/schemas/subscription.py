@@ -12,10 +12,14 @@ class SubscriptionCreate(BaseModel):
     customer_id: uuid.UUID
     plan_pricing_id: uuid.UUID
     start_date: date
+    connection_name: Optional[str] = None
+    installation_address: Optional[str] = None
     remarks: Optional[str] = None
 
 
 class SubscriptionUpdate(BaseModel):
+    connection_name: Optional[str] = None
+    installation_address: Optional[str] = None
     remarks: Optional[str] = None
 
 
@@ -51,6 +55,10 @@ class SubscriptionOut(BaseModel):
     start_date: date
     renewal_date: date
     expiry_date: date
+
+    # Connection details
+    connection_name: Optional[str] = None
+    installation_address: Optional[str] = None
 
     # Status
     status: SubscriptionStatus

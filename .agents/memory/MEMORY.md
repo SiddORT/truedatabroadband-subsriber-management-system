@@ -6,3 +6,6 @@
 - [Alembic PgEnum migration](alembic-pgenum-migration.md) — use postgresql.ENUM(create_type=False) + raw DO $$ SQL for enum creation; sa.Enum create_type=False fires _on_table_create regardless in this SQLAlchemy version.
 - [Phase completion tracker](phases.md) — tracks which phases are done and patterns established per phase.
 - [DataTable & UI patterns](datatable-ui-patterns.md) — DataTable accepts filtersNode/filterCount props for collapsible filter panel; accent (#D72B20) used for form step badges, WizardProgress, SectionTitle icons; list pages have no CardHeader (filters live inside DataTable).
+- [Subscription code generation](sub-code-generation.md) — generate_next_code must regexp_match for numeric-only codes before taking max(); func.max() on VARCHAR is lexicographic and collides when non-numeric test codes exist.
+- [Alembic revision ID length](alembic-revision-id-length.md) — alembic_version.version_num is VARCHAR(32); revision IDs must be ≤32 chars or the UPDATE fails with StringDataRightTruncation.
+- [Multi-subscription per customer](multi-sub-design.md) — each subscription owns connection_name + installation_address; address pre-filled from customer record; duplicate address → 409 DuplicateAddressWarning (?force=true bypasses); change_plan carries both fields forward to the new sub.
