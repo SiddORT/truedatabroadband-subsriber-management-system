@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Plus, Eye, Edit, ShieldOff, Key, Trash2 } from "lucide-react";
+import { Tooltip } from "@/components/ui/tooltip";
 
 import {
   DataTable,
@@ -173,49 +174,54 @@ export function CustomerListPage() {
       className: "text-right",
       render: (row) => (
         <div className="flex items-center justify-end gap-0.5">
-          <button
-            onClick={() => navigate(`/admin/customers/${row.id}`)}
-            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            title="View"
-          >
-            <Eye className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => navigate(`/admin/customers/${row.id}/edit`)}
-            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            title="Edit"
-          >
-            <Edit className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() =>
-              setStatusDialog({
-                open: true,
-                customer: row,
-                newStatus: row.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE",
-              })
-            }
-            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            title="Change status"
-          >
-            <ShieldOff className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() =>
-              setResetDialog({ open: true, customer: row, tempPassword: null })
-            }
-            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            title="Reset password"
-          >
-            <Key className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => setDeleteDialog({ open: true, customer: row })}
-            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
-            title="Delete customer"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          <Tooltip label="View">
+            <button
+              onClick={() => navigate(`/admin/customers/${row.id}`)}
+              className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Eye className="h-4 w-4" />
+            </button>
+          </Tooltip>
+          <Tooltip label="Edit">
+            <button
+              onClick={() => navigate(`/admin/customers/${row.id}/edit`)}
+              className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Edit className="h-4 w-4" />
+            </button>
+          </Tooltip>
+          <Tooltip label="Change Status">
+            <button
+              onClick={() =>
+                setStatusDialog({
+                  open: true,
+                  customer: row,
+                  newStatus: row.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE",
+                })
+              }
+              className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <ShieldOff className="h-4 w-4" />
+            </button>
+          </Tooltip>
+          <Tooltip label="Reset Password">
+            <button
+              onClick={() =>
+                setResetDialog({ open: true, customer: row, tempPassword: null })
+              }
+              className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Key className="h-4 w-4" />
+            </button>
+          </Tooltip>
+          <Tooltip label="Delete Customer">
+            <button
+              onClick={() => setDeleteDialog({ open: true, customer: row })}
+              className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </Tooltip>
         </div>
       ),
     },

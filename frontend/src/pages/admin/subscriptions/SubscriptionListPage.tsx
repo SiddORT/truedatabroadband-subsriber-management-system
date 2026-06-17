@@ -7,6 +7,7 @@ import { AppLayout } from "@/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/Dialog";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   DataTable,
   type DataTableColumn,
@@ -183,22 +184,25 @@ export function SubscriptionListPage() {
       className: "w-28 text-right",
       render: (row) => (
         <div className="flex items-center justify-end gap-0.5">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`/admin/subscriptions/${row.id}`)}
-            className="gap-1.5"
-          >
-            <Eye className="h-3.5 w-3.5" />
-            View
-          </Button>
-          <button
-            onClick={() => setDeleteDialog({ open: true, sub: row })}
-            className="ml-1 rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
-            title="Delete subscription"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          <Tooltip label="View Subscription">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(`/admin/subscriptions/${row.id}`)}
+              className="gap-1.5"
+            >
+              <Eye className="h-3.5 w-3.5" />
+              View
+            </Button>
+          </Tooltip>
+          <Tooltip label="Delete Subscription">
+            <button
+              onClick={() => setDeleteDialog({ open: true, sub: row })}
+              className="ml-1 rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </Tooltip>
         </div>
       ),
     },

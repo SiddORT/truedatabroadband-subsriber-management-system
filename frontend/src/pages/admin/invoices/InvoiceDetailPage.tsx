@@ -12,6 +12,7 @@ import {
   Plus,
   X,
 } from "lucide-react";
+import { Tooltip } from "@/components/ui/tooltip";
 
 import { AppLayout } from "@/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -154,10 +155,12 @@ function EditChargeRowUI({ row, onUpdate, onRemove }: ChargeRowUIProps) {
             />
           </div>
         )}
-        <button type="button" onClick={onRemove}
-          className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
-          <X className="h-4 w-4" />
-        </button>
+        <Tooltip label="Remove Item">
+          <button type="button" onClick={onRemove}
+            className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
+            <X className="h-4 w-4" />
+          </button>
+        </Tooltip>
       </div>
       {disc > 0 && gross > 0 && (
         <div className="mt-2 flex items-center gap-2 pl-1 text-xs">

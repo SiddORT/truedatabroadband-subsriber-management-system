@@ -7,6 +7,7 @@ import { AppLayout } from "@/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/Dialog";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   DataTable,
   type DataTableColumn,
@@ -227,32 +228,37 @@ export function InvoiceListPage() {
       className: "w-36 text-right",
       render: (row) => (
         <div className="flex items-center justify-end gap-1">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`/admin/invoices/${row.id}`)}
-            className="gap-1"
-          >
-            <Eye className="h-3.5 w-3.5" />
-            View
-          </Button>
-          {row.pdf_path && (
+          <Tooltip label="View Invoice">
             <Button
               variant="outline"
               size="sm"
+              onClick={() => navigate(`/admin/invoices/${row.id}`)}
               className="gap-1"
-              onClick={(e) => { e.stopPropagation(); downloadPdf(row); }}
             >
-              <Download className="h-3.5 w-3.5" />
+              <Eye className="h-3.5 w-3.5" />
+              View
             </Button>
+          </Tooltip>
+          {row.pdf_path && (
+            <Tooltip label="Download PDF">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                onClick={(e) => { e.stopPropagation(); downloadPdf(row); }}
+              >
+                <Download className="h-3.5 w-3.5" />
+              </Button>
+            </Tooltip>
           )}
-          <button
-            onClick={() => setDeleteDialog({ open: true, invoice: row })}
-            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
-            title="Delete invoice"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          <Tooltip label="Delete Invoice">
+            <button
+              onClick={() => setDeleteDialog({ open: true, invoice: row })}
+              className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </Tooltip>
         </div>
       ),
     },

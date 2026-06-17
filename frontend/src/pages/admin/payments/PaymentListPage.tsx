@@ -7,6 +7,7 @@ import { AppLayout } from "@/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/Dialog";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   DataTable,
   type DataTableColumn,
@@ -158,13 +159,14 @@ export function PaymentListPage() {
       header: "",
       className: "w-14 text-right",
       render: (row) => (
-        <button
-          onClick={() => setDeleteDialog({ open: true, payment: row })}
-          className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
-          title="Delete payment"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
+        <Tooltip label="Delete Payment">
+          <button
+            onClick={() => setDeleteDialog({ open: true, payment: row })}
+            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </Tooltip>
       ),
     },
   ];

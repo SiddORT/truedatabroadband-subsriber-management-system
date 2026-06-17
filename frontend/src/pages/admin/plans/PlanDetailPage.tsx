@@ -13,6 +13,7 @@ import { AppLayout } from "@/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Tooltip } from "@/components/ui/tooltip";
 import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/contexts/ToastContext";
 import { plansService } from "@/services/plans";
@@ -177,16 +178,20 @@ function PricingTableRow({
       </td>
       <td className="px-3 py-3 text-right">
         <div className="flex items-center justify-end gap-1.5">
-          <Button variant="outline" size="sm" onClick={() => onEdit(row)} className="h-7 px-2.5 text-xs">
-            <Edit className="h-3 w-3" />Edit
-          </Button>
-          <Button
-            variant="outline" size="sm"
-            onClick={() => onDelete(row)}
-            className="h-7 px-2.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
+          <Tooltip label="Edit Pricing">
+            <Button variant="outline" size="sm" onClick={() => onEdit(row)} className="h-7 px-2.5 text-xs">
+              <Edit className="h-3 w-3" />Edit
+            </Button>
+          </Tooltip>
+          <Tooltip label="Remove Pricing">
+            <Button
+              variant="outline" size="sm"
+              onClick={() => onDelete(row)}
+              className="h-7 px-2.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </Tooltip>
         </div>
       </td>
     </tr>
