@@ -104,8 +104,12 @@ class PaymentService:
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> None:
+        invoice_id = payment.invoice_id
         self.repo.soft_delete(payment)
-        self.db.commit()
+        # Recalculate the linked invoice so paid_amount/balance_amount/status stay correct
+        invoice = self.inv_repo.get(invoice_id)
+        if invoice is not None:
+            InvoiceService(self.db).recalculate_after_payment(invoice, actor_id=actor_id)
         self.audit.log(
             ACTION_PAYMENT_DELETED,
             user_id=actor_id,

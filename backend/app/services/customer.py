@@ -1,6 +1,7 @@
 import secrets
 import string
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
@@ -114,6 +115,14 @@ class CustomerService:
             city=payload.city,
             state=payload.state,
             pincode=payload.pincode,
+            customer_type=payload.customer_type,
+            spokesperson_name=payload.spokesperson_name,
+            spokesperson_mobile=payload.spokesperson_mobile,
+            spokesperson_email=payload.spokesperson_email,
+            spokesperson_designation=payload.spokesperson_designation,
+            connection_date=payload.connection_date,
+            reference_source=payload.reference_source,
+            sales_person=payload.sales_person,
             notes=payload.notes,
             status=CustomerStatus.ACTIVE,
         )
@@ -235,8 +244,9 @@ class CustomerService:
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> None:
-        self.customers.soft_delete(customer)
-        self.db.commit()
+        # Soft-delete the linked auth user so it cannot log in
+        customer.user.deleted_at = datetime.now(timezone.utc)
+        self.customers.soft_delete(customer)  # sets customer.deleted_at + commits both
         self.audit.log(
             ACTION_CUSTOMER_DELETED,
             user_id=actor_id,

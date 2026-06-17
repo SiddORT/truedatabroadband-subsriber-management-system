@@ -7,8 +7,10 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.dependencies.auth import require_client, require_superadmin
+from app.models.invoice import InvoiceStatus
 from app.models.subscription import Subscription
 from app.models.user import User
+from app.repositories.invoice import InvoiceRepository
 from app.repositories.subscription import SubscriptionRepository
 from app.schemas.subscription import (
     SubscriptionChangePlan,
@@ -227,6 +229,15 @@ def delete_subscription(
     db: Session = Depends(get_db),
 ) -> None:
     sub = _get_sub_or_404(sub_id, db)
+    active_invoices = [
+        i for i in InvoiceRepository(db).list_by_subscription(sub_id)
+        if i.status != InvoiceStatus.CANCELLED
+    ]
+    if active_invoices:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot delete subscription: {len(active_invoices)} invoice(s) exist. Cancel or delete them first.",
+        )
     SubscriptionService(db).delete(
         sub,
         actor_id=current_user.id,

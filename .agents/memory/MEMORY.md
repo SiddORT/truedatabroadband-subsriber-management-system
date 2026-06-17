@@ -9,3 +9,4 @@
 - [Subscription code generation](sub-code-generation.md) — generate_next_code must regexp_match for numeric-only codes before taking max(); func.max() on VARCHAR is lexicographic and collides when non-numeric test codes exist.
 - [Alembic revision ID length](alembic-revision-id-length.md) — alembic_version.version_num is VARCHAR(32); revision IDs must be ≤32 chars or the UPDATE fails with StringDataRightTruncation.
 - [Multi-subscription per customer](multi-sub-design.md) — each subscription owns connection_name + installation_address; address pre-filled from customer record; duplicate address → 409 DuplicateAddressWarning (?force=true bypasses); change_plan carries both fields forward to the new sub.
+- [Customer service create/delete bugs](customer-service-bugs.md) — CustomerService.create() was missing 7 additional-info fields; delete() was not soft-deleting the linked User (user could still log in after customer deletion).

@@ -630,6 +630,15 @@ class InvoiceService:
                     f"Subscription {sub.subscription_code} does not belong to customer {customer.customer_code}"
                 )
 
+            # Guard: check for existing individual invoice overlapping the same billing period
+            if self.repo.check_overlapping_billing_period(
+                sub.id, payload.billing_period_start, payload.billing_period_end
+            ):
+                raise InvoiceError(
+                    f"Subscription {sub.subscription_code} already has an invoice that overlaps "
+                    f"the billing period {payload.billing_period_start} – {payload.billing_period_end}."
+                )
+
             plan = sub.plan
             pricing = self.db.get(PlanPricing, sub.plan_pricing_id)
             if pricing is None:

@@ -2,11 +2,13 @@ import math
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.dependencies.auth import require_superadmin
 from app.models.plan import Plan, PlanPricing
+from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.user import User
 from app.repositories.plan import PlanRepository
 from app.schemas.plan import (
@@ -228,6 +230,17 @@ def delete_plan(
     db: Session = Depends(get_db),
 ) -> None:
     plan = _get_plan_or_404(plan_id, db)
+    sub_count = db.scalar(
+        select(func.count()).select_from(Subscription)
+        .where(Subscription.plan_id == plan.id)
+        .where(Subscription.deleted_at.is_(None))
+        .where(Subscription.status != SubscriptionStatus.CANCELLED)
+    ) or 0
+    if sub_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot delete plan: {sub_count} active subscription(s) are using this plan.",
+        )
     PlanService(db).delete(
         plan,
         actor_id=current_user.id,

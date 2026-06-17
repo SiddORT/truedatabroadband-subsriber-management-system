@@ -1,0 +1,613 @@
+You are continuing development of the existing project.
+
+IMPORTANT:
+
+Follow the existing architecture, coding standards, theme, folder structure, reusable components, API conventions, pagination standards, and existing audit logging patterns.
+
+Implement ONLY the Admin Activity Logs & Audit Center module.
+
+Do NOT implement:
+
+* Notifications
+* OTP login
+* Client portal
+* Support tickets
+* Payment gateway integration
+
+Prerequisites already exist:
+
+* Authentication & RBAC
+* Customers
+* Plans
+* Subscriptions
+* Company Settings
+* Invoices
+* Payments
+* Dashboard
+* Reports
+
+==================================================
+OBJECTIVE
+=========
+
+Create a centralized audit and activity management system.
+
+The Audit Center must provide:
+
+* Complete traceability
+* User accountability
+* Change history
+* Financial audit support
+* Operational transparency
+
+All important actions in the system must be logged.
+
+Audit logs are immutable.
+
+Users cannot edit or delete audit records.
+
+==================================================
+AUDIT DESIGN PRINCIPLES
+=======================
+
+Audit logs are permanent records.
+
+Rules:
+
+* Never update audit records
+* Never delete audit records
+* No soft delete
+* Append-only storage
+
+Audit logs must survive entity deletion.
+
+Audit logs are for compliance and troubleshooting.
+
+==================================================
+DATABASE DESIGN
+===============
+
+Create:
+
+audit_logs
+
+Fields:
+
+* id (UUID)
+
+Module Information:
+
+* module
+
+Values:
+
+* AUTH
+* CUSTOMERS
+* PLANS
+* SUBSCRIPTIONS
+* SETTINGS
+* INVOICES
+* PAYMENTS
+* REPORTS
+
+Action Information:
+
+* action
+
+Examples:
+
+* login
+
+* logout
+
+* password_changed
+
+* customer_created
+
+* customer_updated
+
+* customer_status_changed
+
+* plan_created
+
+* pricing_updated
+
+* subscription_created
+
+* subscription_renewed
+
+* subscription_plan_changed
+
+* invoice_created
+
+* invoice_updated
+
+* invoice_locked
+
+* invoice_cancelled
+
+* payment_recorded
+
+* settings_updated
+
+* report_exported
+
+Entity Information:
+
+* entity_type
+
+Examples:
+
+* customer
+
+* plan
+
+* subscription
+
+* invoice
+
+* payment
+
+* entity_id
+
+* entity_name
+
+User Information:
+
+* performed_by_user_id (nullable FK → users.id)
+
+* performed_by_name
+
+Request Information:
+
+* ip_address
+
+* user_agent
+
+Change Information:
+
+* old_values (JSONB)
+
+* new_values (JSONB)
+
+Additional:
+
+* remarks
+
+Audit timestamp:
+
+* created_at
+
+Indexes:
+
+* module
+* action
+* entity_type
+* entity_id
+* performed_by_user_id
+* created_at
+
+==================================================
+STANDARDIZED AUDIT SERVICE
+==========================
+
+Create a reusable audit logging service.
+
+Example:
+
+audit_service.log(
+module,
+action,
+entity_type,
+entity_id,
+entity_name,
+old_values,
+new_values,
+remarks
+)
+
+Replace all existing scattered audit implementations with this centralized service.
+
+Do not break existing audit functionality.
+
+==================================================
+EVENTS TO TRACK
+===============
+
+Authentication:
+
+* login
+* logout
+* password_changed
+
+Customers:
+
+* customer_created
+* customer_updated
+* customer_status_changed
+* customer_password_reset
+
+Plans:
+
+* plan_created
+* plan_updated
+* plan_status_changed
+
+Pricing:
+
+* pricing_created
+* pricing_updated
+* pricing_deleted
+
+Subscriptions:
+
+* subscription_created
+* subscription_renewed
+* subscription_plan_changed
+* subscription_status_changed
+
+Settings:
+
+* settings_updated
+* logo_uploaded
+
+Invoices:
+
+* invoice_created
+* invoice_updated
+* invoice_locked
+* invoice_cancelled
+* invoice_emailed
+* duplicate_invoice_blocked
+
+Payments:
+
+* payment_recorded
+
+Reports:
+
+* report_viewed
+* report_exported
+
+Dashboard:
+
+* dashboard_viewed
+
+==================================================
+CHANGE TRACKING RULES
+=====================
+
+For CREATE actions:
+
+old_values = null
+
+new_values = created record snapshot
+
+For UPDATE actions:
+
+Store only changed fields.
+
+Example:
+
+old_values:
+
+{
+"status": "ACTIVE"
+}
+
+new_values:
+
+{
+"status": "SUSPENDED"
+}
+
+Do not store entire objects unless necessary.
+
+Sensitive fields must never be logged.
+
+Never log:
+
+* passwords
+* password hashes
+* refresh tokens
+* OTP codes
+* SMTP passwords
+
+Mask sensitive values when necessary.
+
+==================================================
+API ROUTES
+==========
+
+Prefix:
+
+/api/v1/activity
+
+Create:
+
+GET /api/v1/activity
+
+GET /api/v1/activity/{id}
+
+POST /api/v1/activity/export
+
+Access:
+
+SuperAdmin only.
+
+==================================================
+PAGINATION STANDARD
+===================
+
+Support:
+
+* page
+* page_size
+* search
+* sort_by
+* sort_order
+
+Default:
+
+page_size = 25
+
+Allowed:
+
+10, 25, 50, 100
+
+Response:
+
+{
+"items": [],
+"total": 0,
+"page": 1,
+"page_size": 25,
+"total_pages": 0
+}
+
+==================================================
+SEARCH
+======
+
+Search across:
+
+* entity_name
+* action
+* performed_by_name
+
+Server-side only.
+
+==================================================
+FILTERS
+=======
+
+Add filters:
+
+* Module
+
+* Action
+
+* User
+
+* Entity Type
+
+Date Range:
+
+* Created Date Range
+
+All filters must be server-side.
+
+==================================================
+SORTING
+=======
+
+Allow sorting by:
+
+* created_at
+* module
+* action
+* performed_by_name
+
+Default:
+
+created_at DESC
+
+==================================================
+EXPORTS
+=======
+
+Support:
+
+* CSV
+* Excel (.xlsx)
+
+Generate exports on the backend.
+
+Store files locally.
+
+Folder:
+
+storage/reports/activity/
+
+Auto-delete after:
+
+24 hours
+
+==================================================
+FRONTEND ROUTES
+===============
+
+Create:
+
+/admin/activity
+
+==================================================
+ACTIVITY LIST PAGE
+==================
+
+Use reusable DataTable.
+
+Columns:
+
+* Timestamp
+* Module
+* Action
+* Entity
+* User
+* IP Address
+
+Features:
+
+* Server-side pagination
+* Search
+* Sorting
+* Filters
+* Export
+
+Action:
+
+View Details
+
+==================================================
+ACTIVITY DETAILS DRAWER
+=======================
+
+Open as:
+
+* Drawer
+  or
+* Modal
+
+Display:
+
+General Information:
+
+* Module
+* Action
+* Entity Type
+* Entity Name
+
+User Information:
+
+* User
+* IP Address
+* User Agent
+
+Timestamp:
+
+* Created At
+
+Changes:
+
+Old Values
+
+New Values
+
+Render JSON in a readable format.
+
+Highlight changed fields.
+
+Show:
+
+* Previous Value
+* Current Value
+
+==================================================
+UI REQUIREMENTS
+===============
+
+Use existing theme.
+
+Primary:
+
+#1F4959
+
+Secondary:
+
+#5C7C89
+
+Requirements:
+
+* Fully responsive
+* Loading skeletons
+* Empty states
+* Error states
+
+Use color-coded badges:
+
+AUTH → Blue
+
+CUSTOMERS → Green
+
+PLANS → Purple
+
+SUBSCRIPTIONS → Indigo
+
+INVOICES → Orange
+
+PAYMENTS → Emerald
+
+SETTINGS → Gray
+
+REPORTS → Teal
+
+==================================================
+PERFORMANCE REQUIREMENTS
+========================
+
+Target:
+
+Search and filters < 2 seconds.
+
+Requirements:
+
+* Database indexes
+* Server-side filtering
+* Efficient JSON handling
+
+Do not load entire audit history into memory.
+
+==================================================
+SECURITY REQUIREMENTS
+=====================
+
+Only SuperAdmin can access activity logs.
+
+Users cannot:
+
+* Modify logs
+* Delete logs
+
+Audit logs must not expose sensitive information.
+
+==================================================
+TESTING
+=======
+
+Create tests for:
+
+* Audit log creation
+* Change tracking
+* Sensitive data masking
+* Search
+* Filters
+* Sorting
+* Exports
+* Permission checks
+
+==================================================
+ACCEPTANCE CRITERIA
+===================
+
+Success means:
+
+1. All important actions are logged
+2. Audit logs are immutable
+3. Sensitive data is never logged
+4. Search works correctly
+5. Filters work correctly
+6. Exports work correctly
+7. Activity details show old and new values
+8. Logs load in under 2 seconds
+9. Only SuperAdmin can access logs
+10. Audit records survive entity deletion

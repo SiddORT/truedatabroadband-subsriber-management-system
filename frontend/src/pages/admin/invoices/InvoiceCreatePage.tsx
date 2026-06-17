@@ -352,6 +352,26 @@ export function InvoiceCreatePage() {
     setConsolidatedSubs([]);
   }, [customerId]);
 
+  // ── Auto-calculate billing period end from subscription billing cycle ────
+  useEffect(() => {
+    if (invoiceType !== "SINGLE") return;
+    const subs = subsData?.items ?? [];
+    const cycle = subs.find((s) => s.id === subscriptionId)?.billing_cycle_snapshot;
+    if (!cycle || !billingStart) return;
+    const parts = billingStart.split("-").map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) return;
+    let [y, m, d] = parts;
+    if (cycle === "MONTHLY")         { m += 1; }
+    else if (cycle === "QUARTERLY")  { m += 3; }
+    else if (cycle === "HALF_YEARLY") { m += 6; }
+    else                             { y += 1; } // ANNUALLY
+    while (m > 12) { m -= 12; y += 1; }
+    const nextStart = new Date(y, m - 1, d);
+    nextStart.setDate(nextStart.getDate() - 1);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    setBillingEnd(`${nextStart.getFullYear()}-${pad(nextStart.getMonth() + 1)}-${pad(nextStart.getDate())}`);
+  }, [subscriptionId, billingStart, invoiceType, subsData]);
+
   // ── SINGLE: amount calculations ──────────────────────────────────────────
 
   const activeSubs = subsData?.items ?? [];

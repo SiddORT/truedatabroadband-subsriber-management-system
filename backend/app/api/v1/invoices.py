@@ -14,6 +14,7 @@ from app.core.database import get_db
 from app.dependencies.auth import require_client, require_superadmin
 from app.models.user import User
 from app.repositories.invoice import InvoiceRepository
+from app.repositories.payment import PaymentRepository
 from app.schemas.invoice import (
     ConsolidatedInvoiceCreate,
     InvoiceCreate,
@@ -247,6 +248,12 @@ def delete_invoice(
     invoice = InvoiceRepository(db).get(invoice_id)
     if invoice is None:
         raise _not_found()
+    payments = PaymentRepository(db).list_by_invoice(invoice_id)
+    if payments:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot delete invoice: {len(payments)} payment(s) have been recorded. Delete the payments first.",
+        )
     InvoiceService(db).delete(
         invoice,
         actor_id=current_user.id,
