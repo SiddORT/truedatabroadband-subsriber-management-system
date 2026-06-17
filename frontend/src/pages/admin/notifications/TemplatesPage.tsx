@@ -168,7 +168,7 @@ function EditDrawer({ template, onClose, onSave, saving }: EditDrawerProps) {
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export function NotificationTemplatesPage() {
-  const { addToast } = useToast();
+  const { showToast } = useToast();
   const qc = useQueryClient();
   const [editTarget, setEditTarget] = useState<NotificationTemplate | null>(null);
 
@@ -181,12 +181,12 @@ export function NotificationTemplatesPage() {
     mutationFn: ({ id, data }: { id: string; data: Partial<NotificationTemplate> }) =>
       updateTemplate(id, data),
     onSuccess: () => {
-      addToast({ type: "success", message: "Template updated successfully" });
+      showToast("Template updated successfully", "success");
       qc.invalidateQueries({ queryKey: ["notification-templates"] });
       setEditTarget(null);
     },
     onError: (err) => {
-      addToast({ type: "error", message: getApiErrorMessage(err) });
+      showToast(getApiErrorMessage(err), "error");
     },
   });
 
