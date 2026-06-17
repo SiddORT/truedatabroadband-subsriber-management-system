@@ -33,7 +33,7 @@ function CredentialField({
   label,
   configuredLabel,
   isConfigured,
-  replaceKey,
+  replaceKey: _replaceKey,
   replaceValue,
   setReplace,
   value,

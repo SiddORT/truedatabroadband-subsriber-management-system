@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Edit2, Eye, X, Check } from "lucide-react";
+import { Edit2, Eye, X } from "lucide-react";
 
 import { AppLayout } from "@/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/contexts/ToastContext";
 import { getApiErrorMessage } from "@/services/api";
 import { listTemplates, updateTemplate } from "@/services/notification";
-import type { NotificationTemplate } from "@/types/notification";
+import type { NotificationTemplate, NotificationTemplateUpdate } from "@/types/notification";
 import { CHANNEL_COLORS, TEMPLATE_KEY_LABELS } from "@/types/notification";
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -35,7 +35,7 @@ function StatusBadge({ active }: { active: boolean }) {
 interface EditDrawerProps {
   template: NotificationTemplate;
   onClose: () => void;
-  onSave: (id: string, data: Partial<NotificationTemplate>) => void;
+  onSave: (id: string, data: NotificationTemplateUpdate) => void;
   saving: boolean;
 }
 
@@ -178,7 +178,7 @@ export function NotificationTemplatesPage() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<NotificationTemplate> }) =>
+    mutationFn: ({ id, data }: { id: string; data: NotificationTemplateUpdate }) =>
       updateTemplate(id, data),
     onSuccess: () => {
       showToast("Template updated successfully", "success");

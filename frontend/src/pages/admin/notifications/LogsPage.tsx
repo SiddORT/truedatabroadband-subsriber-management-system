@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Filter, X } from "lucide-react";
+import { X } from "lucide-react";
 
 import { AppLayout } from "@/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -133,12 +133,12 @@ export function NotificationLogsPage() {
   const [tableState, setTableState] = useState<DataTableState>({
     page: 1,
     pageSize: 25,
+    search: "",
     sortBy: "created_at",
-    sortOrder: "desc",
+    sortDir: "desc",
   });
   const [filters, setFilters] = useState<Filters>(EMPTY);
   const [applied, setApplied] = useState<Filters>(EMPTY);
-  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const filterCount = Object.values(applied).filter(Boolean).length;
 
@@ -159,7 +159,6 @@ export function NotificationLogsPage() {
   function applyFilters() {
     setApplied({ ...filters });
     setTableState((s) => ({ ...s, page: 1 }));
-    setFiltersOpen(false);
   }
 
   function clearFilters() {
@@ -236,14 +235,14 @@ export function NotificationLogsPage() {
   return (
     <AppLayout title="Notification Logs" portalLabel="Admin Portal">
       <DataTable
-        title="Notification Logs"
-        description="All outbound notification attempts — SMS and Email"
         columns={COLUMNS}
-        data={data?.items ?? []}
+        rows={data?.items ?? []}
         total={data?.total ?? 0}
         isLoading={isLoading}
         state={tableState}
         onStateChange={setTableState}
+        rowKey={(row) => row.id}
+        emptyMessage="No notification logs found."
         filtersNode={filtersNode}
         filterCount={filterCount}
       />

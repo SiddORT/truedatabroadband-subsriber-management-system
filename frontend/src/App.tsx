@@ -17,7 +17,6 @@ import { PlanDetailPage } from "@/pages/admin/plans/PlanDetailPage";
 import { SubscriptionListPage } from "@/pages/admin/subscriptions/SubscriptionListPage";
 import { SubscriptionCreatePage } from "@/pages/admin/subscriptions/SubscriptionCreatePage";
 import { SubscriptionDetailPage } from "@/pages/admin/subscriptions/SubscriptionDetailPage";
-import { ClientSubscriptionPage } from "@/pages/client/ClientSubscriptionPage";
 import { ConnectionsPage } from "@/pages/client/ConnectionsPage";
 import { ConnectionDetailPage } from "@/pages/client/ConnectionDetailPage";
 import { RenewalRequestPage } from "@/pages/client/RenewalRequestPage";

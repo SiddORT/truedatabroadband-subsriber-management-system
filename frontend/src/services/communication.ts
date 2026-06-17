@@ -4,7 +4,6 @@ import type {
   SmsSettingsUpdate,
   EmailSettingsOut,
   EmailSettingsUpdate,
-  CommunicationLog,
   CommunicationLogPage,
 } from "@/types/communication";
 
