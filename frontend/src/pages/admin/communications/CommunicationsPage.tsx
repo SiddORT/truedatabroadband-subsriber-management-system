@@ -202,7 +202,7 @@ export function CommunicationsPage() {
           {row.request_payload && (
             <button
               title="View Request"
-              onClick={() => setModal({ title: "Request Payload", payload: row.request_payload })}
+              onClick={() => setModal({ title: "Request Payload", payload: row.request_payload ?? null })}
               className="p-1.5 rounded-lg text-gray-400 hover:text-[#1F4959] hover:bg-gray-100 transition"
             >
               <Eye className="h-3.5 w-3.5" />
@@ -211,7 +211,7 @@ export function CommunicationsPage() {
           {row.response_payload && (
             <button
               title="View Response"
-              onClick={() => setModal({ title: "Response Payload", payload: row.response_payload })}
+              onClick={() => setModal({ title: "Response Payload", payload: row.response_payload ?? null })}
               className="p-1.5 rounded-lg text-gray-400 hover:text-[#1F4959] hover:bg-gray-100 transition"
             >
               <Eye className="h-3.5 w-3.5" />
