@@ -26,6 +26,7 @@ from app.schemas.subscription import (
 )
 from app.services.notifications.notification_service import NotificationService, Recipient
 from app.services.subscription import DuplicateAddressWarning, SubscriptionError, SubscriptionService
+from app.utils.portal import build_portal_url
 
 logger = get_logger(__name__)
 
@@ -144,7 +145,7 @@ def create_subscription(
                     "start_date": str(sub.start_date),
                     "expiry_date": str(sub.expiry_date),
                     "total_price": str(sub.total_price_snapshot),
-                    "portal_url": f"{settings.SITE_URL.rstrip('/')}/client",
+                    "portal_url": build_portal_url(request),
                     "connection_name": sub.connection_name or "",
                 },
                 entity_type="subscription",

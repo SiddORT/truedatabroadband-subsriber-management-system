@@ -33,6 +33,7 @@ from app.services.invoice import (
     OverlappingBillingPeriodError,
 )
 from app.services.notifications.notification_service import NotificationService, Recipient
+from app.utils.portal import build_portal_url
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
@@ -301,7 +302,7 @@ def admin_send_invoice_email(
             "invoice_number": invoice.invoice_number,
             "amount": str(invoice.total_amount),
             "due_date": invoice.due_date.isoformat() if invoice.due_date else "",
-            "portal_url": "",
+            "portal_url": build_portal_url(request),
         },
         entity_type="INVOICE",
         entity_id=str(invoice.id),

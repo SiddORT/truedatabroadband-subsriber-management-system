@@ -29,6 +29,7 @@ from app.schemas.customer import (
 from app.services.customer import CustomerError, CustomerHasSubscriptionsError, CustomerService
 from app.services.notifications.notification_service import NotificationService, Recipient
 from app.storage import get_storage_service
+from app.utils.portal import build_portal_url
 
 logger = get_logger(__name__)
 
@@ -158,7 +159,7 @@ def create_customer(
     # Auto-send welcome email with portal link + initial password
     try:
         cs = CompanySettingsRepository(db).get_or_create()
-        portal_url = f"{settings.SITE_URL}/client" if settings.SITE_URL else ""
+        portal_url = build_portal_url(request)
         NotificationService(db).send(
             template_key=TemplateKey.WELCOME_CUSTOMER.value,
             recipient=Recipient(email=customer.email, mobile=customer.mobile_number),

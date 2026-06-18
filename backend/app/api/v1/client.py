@@ -74,6 +74,7 @@ from app.schemas.client import (
 )
 from app.services.invoice import InvoiceService
 from app.services.notifications.notification_service import NotificationService, Recipient
+from app.utils.portal import build_portal_url
 
 router = APIRouter(prefix="/client", tags=["client"])
 
@@ -976,7 +977,7 @@ def email_invoice(
             "invoice_number": invoice.invoice_number,
             "amount": str(invoice.total_amount),
             "due_date": invoice.due_date.isoformat(),
-            "portal_url": "",
+            "portal_url": build_portal_url(request),
         },
         entity_type="INVOICE",
         entity_id=str(invoice.id),
