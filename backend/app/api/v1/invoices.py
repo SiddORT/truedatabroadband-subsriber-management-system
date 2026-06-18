@@ -275,6 +275,24 @@ def admin_send_invoice_email(
             detail="Invoice email was sent recently. Please wait 5 minutes before requesting again.",
         )
 
+    # Attach PDF if available
+    from app.storage.service import get_storage_service
+    from app.services.notifications.email_service import Attachment
+
+    attachments = None
+    try:
+        svc_tmp = InvoiceService(db)
+        pdf_abs_path = svc_tmp.get_pdf_path(invoice)
+        with open(pdf_abs_path, "rb") as fh:
+            pdf_bytes = fh.read()
+        attachments = [Attachment(
+            filename=f"{invoice.invoice_number}.pdf",
+            data=pdf_bytes,
+            mime_type="application/pdf",
+        )]
+    except Exception:
+        pass
+
     NotificationService(db).send(
         template_key=TemplateKey.INVOICE_GENERATED,
         recipient=Recipient(email=customer.email, mobile=customer.mobile_number),
@@ -288,6 +306,7 @@ def admin_send_invoice_email(
         entity_type="INVOICE",
         entity_id=str(invoice.id),
         customer_id=customer.id,
+        attachments=attachments,
     )
     return MessageResponse(message="Invoice email sent successfully.")
 

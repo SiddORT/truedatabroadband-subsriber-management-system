@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Download, IndianRupee, Wallet } from "lucide-react";
+import { ArrowLeft, Download, IndianRupee, Wallet } from "lucide-react";
 import { AppLayout } from "@/layouts/AppLayout";
 import { DataTable, type DataTableState } from "@/components/DataTable";
 import type { DataTableColumn } from "@/components/DataTable";
@@ -58,6 +59,7 @@ function SummaryCard({ label, value, icon: Icon, color }: { label: string; value
 const DEFAULT_STATE: DataTableState = { page: 1, pageSize: 25, search: "", sortBy: "payment_date", sortDir: "desc" };
 
 export function PaymentReportPage() {
+  const navigate = useNavigate();
   const [state, setState] = useState<DataTableState>(DEFAULT_STATE);
   const [paymentMethod, setPaymentMethod] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -96,6 +98,10 @@ export function PaymentReportPage() {
   return (
     <AppLayout title="Payment Report" portalLabel="Admin Portal">
       <div className="space-y-5">
+        <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate("/admin/reports")}>
+          <ArrowLeft className="mr-1 h-4 w-4" />
+          Reports
+        </Button>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-foreground">Payment Report</h2>

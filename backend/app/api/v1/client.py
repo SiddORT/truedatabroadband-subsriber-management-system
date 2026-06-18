@@ -901,22 +901,14 @@ def download_invoice_pdf(
     customer = _get_customer_or_403(current_user, db, request)
     invoice = _get_owned_invoice_or_404(invoice_id, customer, db)
 
-    if not invoice.pdf_path:
+    # Auto-regenerate PDF if missing (also reflects latest payment status)
+    try:
+        path = InvoiceService(db).get_pdf_path(invoice)
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="PDF not yet available for this invoice.",
+            detail="PDF could not be generated for this invoice.",
         )
-
-    from app.storage.service import get_storage_service
-
-    storage = get_storage_service()
-    if not storage.exists("invoices", invoice.pdf_path):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="PDF file not found.",
-        )
-
-    path = storage.url("invoices", invoice.pdf_path)
 
     _audit(db, ACTION_CLIENT_INVOICE_DOWNLOADED, request, user_id=current_user.id)
 
@@ -959,6 +951,22 @@ def email_invoice(
             detail="Invoice email was sent recently. Please wait 5 minutes before requesting again.",
         )
 
+    # Attach PDF if available
+    from app.services.notifications.email_service import Attachment as EmailAttachment
+
+    attachments = None
+    try:
+        pdf_path = InvoiceService(db).get_pdf_path(invoice)
+        with open(pdf_path, "rb") as fh:
+            pdf_bytes = fh.read()
+        attachments = [EmailAttachment(
+            filename=f"{invoice.invoice_number}.pdf",
+            data=pdf_bytes,
+            mime_type="application/pdf",
+        )]
+    except Exception:
+        pass
+
     svc = NotificationService(db)
     svc.send(
         template_key=TemplateKey.INVOICE_GENERATED,
@@ -973,6 +981,7 @@ def email_invoice(
         entity_type="INVOICE",
         entity_id=str(invoice.id),
         customer_id=customer.id,
+        attachments=attachments,
     )
 
     _audit(db, ACTION_CLIENT_INVOICE_EMAILED, request, user_id=current_user.id)
@@ -1216,10 +1225,13 @@ def get_subscription_detail(
     data_policy = plan.data_policy.value if plan else "UNLIMITED"
     fup_limit_gb = plan.fup_limit_gb if plan else None
 
-    # Recent invoices (5)
+    # Recent invoices (5) — covers both SINGLE (subscription_id) and CONSOLIDATED (customer_id)
     raw_invoices = (
         db.query(Invoice)
-        .filter(Invoice.subscription_id == sub.id, Invoice.deleted_at.is_(None))
+        .filter(
+            or_(Invoice.subscription_id == sub.id, Invoice.customer_id == customer.id),
+            Invoice.deleted_at.is_(None),
+        )
         .order_by(Invoice.invoice_date.desc(), Invoice.created_at.desc())
         .limit(5)
         .all()
@@ -1239,12 +1251,12 @@ def get_subscription_detail(
         for inv in raw_invoices
     ]
 
-    # Recent payments (5)
+    # Recent payments (5) — covers both SINGLE and CONSOLIDATED invoices
     raw_payments = (
         db.query(Payment)
         .join(Invoice, Payment.invoice_id == Invoice.id)
         .filter(
-            Invoice.subscription_id == sub.id,
+            or_(Invoice.subscription_id == sub.id, Invoice.customer_id == customer.id),
             Invoice.deleted_at.is_(None),
             Payment.deleted_at.is_(None),
         )

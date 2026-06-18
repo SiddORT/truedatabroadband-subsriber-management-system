@@ -586,6 +586,12 @@ class InvoiceService:
         invoice = self.repo.recalculate_amounts(invoice)
         new_status = self._compute_status(invoice)
         invoice = self.repo.update(invoice, status=new_status)
+        # Regenerate PDF so it reflects the updated payment status
+        try:
+            pdf_key = self._generate_and_store_pdf(invoice)
+            invoice = self.repo.update(invoice, pdf_path=pdf_key)
+        except Exception:
+            pass
         return invoice
 
     # ── PDF ────────────────────────────────────────────────────────────────

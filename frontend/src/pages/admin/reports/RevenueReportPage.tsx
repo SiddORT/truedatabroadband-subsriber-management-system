@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, Users, RefreshCw } from "lucide-react";
+import { ArrowLeft, TrendingUp, Users, RefreshCw } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -60,6 +61,7 @@ const PRESETS = [
 ];
 
 export function RevenueReportPage() {
+  const navigate = useNavigate();
   const [preset, setPreset] = useState("1y");
   const [plan, setPlan] = useState("");
   const [city, setCity] = useState("");
@@ -86,6 +88,10 @@ export function RevenueReportPage() {
   return (
     <AppLayout title="Revenue Report" portalLabel="Admin Portal">
       <div className="space-y-5">
+        <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate("/admin/reports")}>
+          <ArrowLeft className="mr-1 h-4 w-4" />
+          Reports
+        </Button>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-foreground">Revenue Report</h2>

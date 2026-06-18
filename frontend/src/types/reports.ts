@@ -140,6 +140,7 @@ export interface OutstandingReportRow {
   outstanding_amount: number;
   days_overdue: number;
   aging_bucket: string;
+  status: string;
 }
 
 export interface OutstandingReportSummary {

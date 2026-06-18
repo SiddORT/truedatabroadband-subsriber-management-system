@@ -1,11 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
-  AlertCircle,
   Download,
   Eye,
-  Mail,
   ReceiptText,
   X,
 } from "lucide-react";
@@ -108,9 +106,6 @@ export function ClientInvoicePage() {
     sortDir: "desc",
   });
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const [emailingId, setEmailingId] = useState<string | null>(null);
-  const [toastMsg, setToastMsg] = useState<{ msg: string; ok: boolean } | null>(null);
-
   const { data, isLoading } = useQuery({
     queryKey: [
       "client-invoices-list",
@@ -137,22 +132,6 @@ export function ClientInvoicePage() {
         due_in_7_days: filters.due_in_7_days || undefined,
         overdue: filters.overdue || undefined,
       }),
-  });
-
-  const emailMutation = useMutation({
-    mutationFn: (id: string) => clientService.emailInvoice(id),
-    onSuccess: () => {
-      setToastMsg({ msg: "Invoice email sent!", ok: true });
-      setTimeout(() => setToastMsg(null), 4000);
-    },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-        "Failed to send email.";
-      setToastMsg({ msg, ok: false });
-      setTimeout(() => setToastMsg(null), 4000);
-    },
-    onSettled: () => setEmailingId(null),
   });
 
   function setFilter<K extends keyof Filters>(key: K, value: Filters[K]) {
@@ -388,18 +367,6 @@ export function ClientInvoicePage() {
               <Download className="h-3.5 w-3.5" />
             </Button>
           </a>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={emailingId === row.id || emailMutation.isPending}
-            title="Email Invoice"
-            onClick={() => {
-              setEmailingId(row.id);
-              emailMutation.mutate(row.id);
-            }}
-          >
-            <Mail className="h-3.5 w-3.5" />
-          </Button>
         </div>
       ),
     },
@@ -444,16 +411,6 @@ export function ClientInvoicePage() {
         </Card>
       </div>
 
-      {toastMsg && (
-        <div
-          className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-lg px-4 py-3 text-sm text-white shadow-lg ${
-            toastMsg.ok ? "bg-emerald-600" : "bg-red-600"
-          }`}
-        >
-          {toastMsg.ok ? <Mail className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-          {toastMsg.msg}
-        </div>
-      )}
     </ClientLayout>
   );
 }

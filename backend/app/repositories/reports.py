@@ -817,6 +817,7 @@ class ReportsRepository:
                 "outstanding_amount": float(r.balance_amount or 0),
                 "days_overdue": int(r.days_overdue or 0),
                 "aging_bucket": _aging_bucket(int(r.days_overdue or 0)),
+                "status": r.status.value if hasattr(r.status, "value") else str(r.status),
             }
             for r in rows
         ]

@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Download, ReceiptText, IndianRupee, Wallet, AlertCircle } from "lucide-react";
+import { ArrowLeft, Download, ReceiptText, IndianRupee, Wallet, AlertCircle } from "lucide-react";
 import { AppLayout } from "@/layouts/AppLayout";
 import { DataTable, type DataTableState } from "@/components/DataTable";
 import type { DataTableColumn } from "@/components/DataTable";
@@ -79,6 +80,7 @@ const QUICK_FILTERS = [
 const DEFAULT_STATE: DataTableState = { page: 1, pageSize: 25, search: "", sortBy: "created_at", sortDir: "desc" };
 
 export function InvoiceReportPage() {
+  const navigate = useNavigate();
   const [state, setState] = useState<DataTableState>(DEFAULT_STATE);
   const [statusFilter, setStatusFilter] = useState("");
   const [plan, setPlan] = useState("");
@@ -129,6 +131,10 @@ export function InvoiceReportPage() {
   return (
     <AppLayout title="Invoice Report" portalLabel="Admin Portal">
       <div className="space-y-5">
+        <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate("/admin/reports")}>
+          <ArrowLeft className="mr-1 h-4 w-4" />
+          Reports
+        </Button>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-foreground">Invoice Report</h2>

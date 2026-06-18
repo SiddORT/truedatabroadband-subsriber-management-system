@@ -83,7 +83,7 @@ class AuthService:
     ) -> tuple[str, str]:
         """Create and persist a session. Returns ``(access_token, refresh_token)``."""
         jti = uuid.uuid4()
-        access_token = create_access_token(str(user.id))
+        access_token = create_access_token(str(user.id), jti=str(jti))
         refresh_token = create_refresh_token(str(user.id), str(jti))
 
         expires_at = datetime.now(timezone.utc) + timedelta(

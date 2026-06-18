@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { IndianRupee, X } from "lucide-react";
+import { ArrowLeft, IndianRupee, X } from "lucide-react";
 
 import { ClientLayout } from "@/layouts/ClientLayout";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -195,14 +196,22 @@ export function ClientPaymentPage() {
     },
   ];
 
+  const navigate = useNavigate();
+
   return (
     <ClientLayout title="Billing">
       <div className="space-y-5">
-        <div>
-          <h2 className="text-xl font-semibold text-foreground">Payment History</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            All payments recorded for your account.
-          </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <Button variant="ghost" size="sm" className="-ml-2 mb-1" onClick={() => navigate("/client/billing")}>
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              Billing
+            </Button>
+            <h2 className="text-xl font-semibold text-foreground">Payment History</h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              All payments recorded for your account.
+            </p>
+          </div>
         </div>
 
         <Card>

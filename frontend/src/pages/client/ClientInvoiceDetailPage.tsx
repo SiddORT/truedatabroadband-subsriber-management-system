@@ -1,12 +1,10 @@
-import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
   ArrowLeft,
   Download,
   FileText,
-  Mail,
 } from "lucide-react";
 
 import { ClientLayout } from "@/layouts/ClientLayout";
@@ -75,30 +73,11 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
 export function ClientInvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [toastMsg, setToastMsg] = useState<{ msg: string; ok: boolean } | null>(null);
-
   const { data: invoice, isLoading, isError } = useQuery<ClientInvoiceDetail>({
     queryKey: ["client-invoice-detail", id],
     queryFn: () => clientService.getInvoiceDetail(id!),
     enabled: !!id,
   });
-
-  const emailMutation = useMutation({
-    mutationFn: () => clientService.emailInvoice(id!),
-    onSuccess: () => setToastMsg({ msg: "Invoice email sent successfully!", ok: true }),
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-        "Failed to send email.";
-      setToastMsg({ msg, ok: false });
-    },
-  });
-
-  useEffect(() => {
-    if (!toastMsg) return;
-    const t = setTimeout(() => setToastMsg(null), 4000);
-    return () => clearTimeout(t);
-  }, [toastMsg]);
 
   if (isError) {
     return (
@@ -142,27 +121,16 @@ export function ClientInvoiceDetailPage() {
 
           {/* Actions */}
           <div className="flex gap-2">
-            {invoice?.pdf_available && (
-              <a
-                href={clientService.invoicePdfUrl(id!)}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Button variant="outline" size="sm">
-                  <Download className="mr-1.5 h-4 w-4" />
-                  Download PDF
-                </Button>
-              </a>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={emailMutation.isPending}
-              onClick={() => emailMutation.mutate()}
+            <a
+              href={clientService.invoicePdfUrl(id!)}
+              target="_blank"
+              rel="noopener noreferrer"
             >
-              <Mail className="mr-1.5 h-4 w-4" />
-              {emailMutation.isPending ? "Sending…" : "Email Invoice"}
-            </Button>
+              <Button variant="outline" size="sm">
+                <Download className="mr-1.5 h-4 w-4" />
+                Download PDF
+              </Button>
+            </a>
           </div>
         </div>
 
@@ -314,16 +282,6 @@ export function ClientInvoiceDetailPage() {
         </Card>
       </div>
 
-      {toastMsg && (
-        <div
-          className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-lg px-4 py-3 text-sm text-white shadow-lg ${
-            toastMsg.ok ? "bg-emerald-600" : "bg-red-600"
-          }`}
-        >
-          {toastMsg.ok ? <Mail className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-          {toastMsg.msg}
-        </div>
-      )}
     </ClientLayout>
   );
 }

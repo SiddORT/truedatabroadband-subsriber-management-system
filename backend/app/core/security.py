@@ -20,7 +20,7 @@ def verify_password(plain_password: str, password_hash: str) -> bool:
     return pwd_context.verify(plain_password, password_hash)
 
 
-def create_access_token(subject: str) -> str:
+def create_access_token(subject: str, jti: str | None = None) -> str:
     now = datetime.now(timezone.utc)
     payload: dict[str, Any] = {
         "sub": str(subject),
@@ -28,6 +28,8 @@ def create_access_token(subject: str) -> str:
         "iat": now,
         "exp": now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     }
+    if jti is not None:
+        payload["jti"] = jti
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 

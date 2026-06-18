@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Download, IndianRupee } from "lucide-react";
+import { ArrowLeft, Download, IndianRupee } from "lucide-react";
 import { AppLayout } from "@/layouts/AppLayout";
 import { DataTable, type DataTableState } from "@/components/DataTable";
 import type { DataTableColumn } from "@/components/DataTable";
@@ -44,6 +45,12 @@ const COLUMNS: DataTableColumn<OutstandingReportRow>[] = [
       </span>
     ),
   },
+  {
+    key: "status", header: "Status",
+    render: (r) => r.status === "PARTIALLY_PAID"
+      ? <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold text-yellow-800">Partial</span>
+      : <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-800">Unpaid</span>,
+  },
 ];
 
 function SummaryCard({ label, value, subcolor }: { label: string; value: string; subcolor?: string }) {
@@ -60,6 +67,7 @@ function SummaryCard({ label, value, subcolor }: { label: string; value: string;
 const DEFAULT_STATE: DataTableState = { page: 1, pageSize: 25, search: "", sortBy: "days_overdue", sortDir: "desc" };
 
 export function OutstandingReportPage() {
+  const navigate = useNavigate();
   const [state, setState] = useState<DataTableState>(DEFAULT_STATE);
   const [city, setCity] = useState("");
   const [plan, setPlan] = useState("");
@@ -95,6 +103,10 @@ export function OutstandingReportPage() {
   return (
     <AppLayout title="Outstanding Report" portalLabel="Admin Portal">
       <div className="space-y-5">
+        <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate("/admin/reports")}>
+          <ArrowLeft className="mr-1 h-4 w-4" />
+          Reports
+        </Button>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-foreground">Outstanding Report</h2>
