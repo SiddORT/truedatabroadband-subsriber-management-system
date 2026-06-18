@@ -148,8 +148,8 @@ def wrap_from_settings(inner_html: str, settings: object, base_url: str = "") ->
             # Custom logo uploaded to company settings
             logo_url = f"{base_url.rstrip('/')}/api/v1/settings/company/logo"
         else:
-            # Fall back to the default sidebar logo served from the backend static dir
-            logo_url = f"{base_url.rstrip('/')}/static/logo.png"
+            # Fallback: logo-small.png served from the frontend public dir
+            logo_url = f"{base_url.rstrip('/')}/logo-small.png"
 
     addr_parts = [
         getattr(settings, "address_line_1", None),
