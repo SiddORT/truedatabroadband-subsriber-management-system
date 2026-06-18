@@ -5,6 +5,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile, status
 from fastapi.responses import FileResponse
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -136,6 +137,23 @@ def create_customer(
         )
     except CustomerError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    except IntegrityError as exc:
+        db.rollback()
+        detail = str(exc.orig) if exc.orig else str(exc)
+        if "mobile_number" in detail:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Mobile number is already registered to another customer.",
+            )
+        if "email" in detail or "users_email" in detail:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email address is already registered.",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A customer with these details already exists.",
+        )
 
     # Auto-send welcome email with portal link + initial password
     try:
