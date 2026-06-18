@@ -151,10 +151,12 @@ export function ConnectionDetailPage() {
     enabled: !!id,
   });
 
-  const { data: requests } = useQuery({
+  const { data: requests, refetch: refetchRequests } = useQuery({
     queryKey: ["client-subscription-requests", id],
     queryFn: () => clientService.getSubscriptionRequests(id!),
     enabled: !!id,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   });
 
   if (isLoading) {
@@ -503,7 +505,17 @@ export function ConnectionDetailPage() {
 
             {/* Request History */}
             <div className="rounded-xl border bg-white p-4 shadow-sm">
-              <SectionTitle icon={History}>Request History</SectionTitle>
+              <div className="flex items-center justify-between mb-3">
+                <SectionTitle icon={History}>Request History</SectionTitle>
+                <button
+                  onClick={() => refetchRequests()}
+                  className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  title="Refresh"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Refresh
+                </button>
+              </div>
               {!requests || requests.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-3">
                   No requests found.

@@ -283,7 +283,8 @@ class SupportTicketService:
         )
 
         # Admin portal notifications
-        customer = CustomerRepository(self.db).get_by_id(ticket.customer_id)
+        from app.models.customer import Customer as CustomerModel
+        customer = self.db.get(CustomerModel, ticket.customer_id)
         customer_name = customer.full_name if customer else "Unknown"
         self._create_admin_notifications(
             ticket,
@@ -462,7 +463,8 @@ class SupportTicketService:
         )
 
         # Email customer on status/priority change
-        customer = CustomerRepository(self.db).get_by_id(ticket.customer_id)
+        from app.models.customer import Customer as CustomerModel
+        customer = self.db.get(CustomerModel, ticket.customer_id)
         customer_email = customer.email if customer else None
         if customer_email and (
             old_status != ticket.status or old_priority != ticket.priority
