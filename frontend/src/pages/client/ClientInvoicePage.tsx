@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Download,
   Eye,
+  Loader2,
   ReceiptText,
   X,
 } from "lucide-react";
@@ -19,6 +20,7 @@ import {
   DEFAULT_PAGE_SIZE,
 } from "@/components/DataTable";
 import { clientService } from "@/services/client";
+import { tokenService } from "@/services/api";
 import type { ClientInvoiceListItem } from "@/types/client";
 const INVOICE_STATUS_COLORS: Record<string, string> = {
   DRAFT: "bg-gray-100 text-gray-600",
@@ -98,6 +100,32 @@ function countFilters(f: Filters) {
 
 export function ClientInvoicePage() {
   const navigate = useNavigate();
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  async function handleDownloadPdf(id: string, invoiceNumber?: string) {
+    setDownloadingId(id);
+    try {
+      const token = tokenService.getAccess();
+      const resp = await fetch(clientService.invoicePdfUrl(id), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = invoiceNumber ? `${invoiceNumber}.pdf` : `invoice-${id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Failed to download PDF. Please try again.");
+    } finally {
+      setDownloadingId(null);
+    }
+  }
+
   const [tableState, setTableState] = useState<DataTableState>({
     page: 1,
     pageSize: DEFAULT_PAGE_SIZE,
@@ -357,16 +385,17 @@ export function ClientInvoicePage() {
             <Eye className="h-3.5 w-3.5" />
             View
           </Button>
-          <a
-            href={clientService.invoicePdfUrl(row.id)}
-            target="_blank"
-            rel="noopener noreferrer"
+          <Button
+            variant="outline"
+            size="sm"
             title="Download PDF"
+            disabled={downloadingId === row.id}
+            onClick={() => handleDownloadPdf(row.id, row.invoice_number)}
           >
-            <Button variant="outline" size="sm">
-              <Download className="h-3.5 w-3.5" />
-            </Button>
-          </a>
+            {downloadingId === row.id
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <Download className="h-3.5 w-3.5" />}
+          </Button>
         </div>
       ),
     },
