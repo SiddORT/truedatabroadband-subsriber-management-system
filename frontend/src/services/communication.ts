@@ -56,7 +56,7 @@ export interface CommLogFilter {
 }
 
 export async function listCommunicationLogs(params: CommLogFilter = {}): Promise<CommunicationLogPage> {
-  const { data } = await api.get<CommunicationLogPage>(`${BASE}/logs`, { params });
+  const { data } = await api.get<CommunicationLogPage>(`/notifications/logs`, { params });
   return data;
 }
 

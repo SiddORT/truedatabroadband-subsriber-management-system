@@ -73,15 +73,16 @@ export interface CommunicationLog {
   recipient_email: string | null;
   provider_name: string | null;
   provider_message_id: string | null;
-  request_payload: Record<string, unknown> | null;
-  response_payload: Record<string, unknown> | null;
+  request_payload?: Record<string, unknown> | null;
+  response_payload?: Record<string, unknown> | null;
   status: CommStatus;
   error_message: string | null;
   entity_type: string | null;
   entity_id: string | null;
   created_at: string;
   sent_at: string | null;
-  delivered_at: string | null;
+  delivered_at?: string | null;
+  subscription_id?: string | null;
 }
 
 export interface CommunicationLogPage {

@@ -126,16 +126,37 @@ class CustomApiProvider(BaseSmsProvider):
             return SmsResult(success=False, error=str(exc))
 
     @staticmethod
-    def _is_success(data: dict) -> bool:
-        """Try multiple common success indicators."""
+    def _is_success(data: dict | list) -> bool:
+        """Try multiple common success indicators across various provider response formats."""
+        # Handle array responses (e.g. MsgClub: [{"Status":"Submitted",...}])
+        if isinstance(data, list):
+            if not data:
+                return False
+            data = data[0] if isinstance(data[0], dict) else {}
+
+        if not isinstance(data, dict):
+            return False
+
+        # Numeric 0 = success (some providers)
         if isinstance(data.get("Status"), int) and data["Status"] == 0:
             return True
-        if str(data.get("Status", "")).upper() in ("SUCCESS", "OK", "SENT"):
+
+        # String status values
+        _SUCCESS_VALS = {"SUCCESS", "OK", "SENT", "SUBMITTED", "QUEUED", "ACCEPTED"}
+        if str(data.get("Status", "")).upper() in _SUCCESS_VALS:
             return True
-        if str(data.get("status", "")).upper() in ("SUCCESS", "OK", "SENT"):
+        if str(data.get("status", "")).upper() in _SUCCESS_VALS:
             return True
-        if data.get("ErrorCode") == "000":
+
+        # Error-code based (000 = no error)
+        if str(data.get("ErrorCode", "")).strip() in ("000", "0", ""):
+            if data.get("MessageId") or data.get("message_id"):
+                return True
+
+        # Explicit success flag
+        if data.get("success") is True:
             return True
+
         return False
 
     @staticmethod

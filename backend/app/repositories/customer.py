@@ -14,6 +14,14 @@ class CustomerRepository(BaseRepository[Customer]):
     # Lookups
     # ------------------------------------------------------------------
 
+    def get(self, customer_id: uuid.UUID) -> Customer | None:
+        stmt = (
+            select(Customer)
+            .where(Customer.id == customer_id)
+            .where(Customer.deleted_at.is_(None))
+        )
+        return self.db.scalars(stmt).first()
+
     def get_by_user_id(self, user_id: uuid.UUID) -> Customer | None:
         stmt = (
             select(Customer)

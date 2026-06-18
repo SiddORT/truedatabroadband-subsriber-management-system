@@ -204,7 +204,7 @@ class SupportTicketService:
         )
 
         # Admin portal notifications
-        customer = CustomerRepository(self.db).get_by_id(customer_id)
+        customer = CustomerRepository(self.db).get(customer_id)
         customer_name = customer.full_name if customer else "Unknown"
         self._create_admin_notifications(
             ticket,

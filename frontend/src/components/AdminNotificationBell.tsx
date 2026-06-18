@@ -24,7 +24,7 @@ export function AdminNotificationBell() {
   const { data } = useQuery({
     queryKey: ["admin-notifications"],
     queryFn: () => adminNotificationsApi.list({ page: 1, page_size: 10 }),
-    refetchInterval: 60000,
+    refetchInterval: 15000,
     enabled: user?.role === "SUPERADMIN",
   });
 
@@ -122,6 +122,14 @@ export function AdminNotificationBell() {
                   </button>
                 ))
               )}
+            </div>
+            <div className="border-t border-border px-4 py-2.5">
+              <button
+                onClick={() => { navigate("/admin/support"); setOpen(false); }}
+                className="w-full text-center text-xs font-medium text-primary hover:underline"
+              >
+                View all support tickets →
+              </button>
             </div>
           </div>
         </>

@@ -69,10 +69,16 @@ function PayloadModal({
 const TEMPLATE_KEY_LABELS: Record<string, string> = {
   WELCOME_CUSTOMER: "Welcome",
   OTP_LOGIN: "OTP Login",
+  PASSWORD_RESET: "Password Reset",
   SUBSCRIPTION_EXPIRING: "Sub Expiring",
   SUBSCRIPTION_EXPIRED: "Sub Expired",
+  PLAN_CHANGED: "Plan Changed",
   INVOICE_GENERATED: "Invoice",
   PAYMENT_RECEIVED: "Payment",
+  SUPPORT_TICKET_CREATED: "Ticket Created",
+  SUPPORT_TICKET_REPLY: "Ticket Reply",
+  SUPPORT_TICKET_UPDATED: "Ticket Updated",
+  SUPPORT_TICKET_RESOLVED: "Ticket Resolved",
   TEST: "Test",
 };
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 import uuid
-from datetime import date
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse
@@ -12,9 +12,12 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.dependencies.auth import require_client, require_superadmin
+from app.models.notification import NotificationLog, TemplateKey
 from app.models.user import User
+from app.repositories.customer import CustomerRepository
 from app.repositories.invoice import InvoiceRepository
 from app.repositories.payment import PaymentRepository
+from app.schemas.auth import MessageResponse
 from app.schemas.invoice import (
     ConsolidatedInvoiceCreate,
     InvoiceCreate,
@@ -29,6 +32,7 @@ from app.services.invoice import (
     InvoiceService,
     OverlappingBillingPeriodError,
 )
+from app.services.notifications.notification_service import NotificationService, Recipient
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
@@ -234,6 +238,58 @@ def get_invoice_history(
         raise _not_found()
     from app.schemas.invoice import ChangeLogOut
     return [ChangeLogOut.model_validate(log) for log in invoice.change_logs]
+
+
+# ── Admin: send invoice email ─────────────────────────────────────────────────
+
+@router.post("/{invoice_id}/send-email", response_model=MessageResponse)
+def admin_send_invoice_email(
+    invoice_id: uuid.UUID,
+    current_user: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    invoice = InvoiceRepository(db).get(invoice_id)
+    if invoice is None:
+        raise _not_found()
+
+    customer = CustomerRepository(db).get(invoice.customer_id) if invoice.customer_id else None
+    if customer is None and invoice.subscription:
+        customer = invoice.subscription.customer
+    if customer is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found for this invoice")
+
+    five_min_ago = datetime.utcnow() - timedelta(minutes=5)
+    recent = (
+        db.query(NotificationLog)
+        .filter(
+            NotificationLog.entity_type == "INVOICE",
+            NotificationLog.entity_id == str(invoice.id),
+            NotificationLog.template_key == TemplateKey.INVOICE_GENERATED,
+            NotificationLog.created_at >= five_min_ago,
+        )
+        .first()
+    )
+    if recent:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Invoice email was sent recently. Please wait 5 minutes before requesting again.",
+        )
+
+    NotificationService(db).send(
+        template_key=TemplateKey.INVOICE_GENERATED,
+        recipient=Recipient(email=customer.email, mobile=customer.mobile_number),
+        variables={
+            "customer_name": invoice.customer_name_snapshot or customer.full_name,
+            "invoice_number": invoice.invoice_number,
+            "amount": str(invoice.total_amount),
+            "due_date": invoice.due_date.isoformat() if invoice.due_date else "",
+            "portal_url": "",
+        },
+        entity_type="INVOICE",
+        entity_id=str(invoice.id),
+        customer_id=customer.id,
+    )
+    return MessageResponse(message="Invoice email sent successfully.")
 
 
 # ── Admin: delete ─────────────────────────────────────────────────────────────

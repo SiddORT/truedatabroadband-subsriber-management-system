@@ -10,9 +10,13 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.dependencies.auth import require_client, require_superadmin
+from app.models.notification import TemplateKey
 from app.models.user import User
+from app.repositories.customer import CustomerRepository
+from app.repositories.invoice import InvoiceRepository
 from app.repositories.payment import PaymentRepository
 from app.schemas.payment import PaymentCreate, PaymentListResponse, PaymentOut
+from app.services.notifications.notification_service import NotificationService, Recipient
 from app.services.payment import PaymentError, PaymentService
 
 router = APIRouter(prefix="/payments", tags=["payments"])
@@ -68,6 +72,31 @@ def record_payment(
         )
     except PaymentError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    # PAYMENT_RECEIVED notification
+    try:
+        invoice = InvoiceRepository(db).get(payment.invoice_id)
+        if invoice:
+            customer = CustomerRepository(db).get(invoice.customer_id) if invoice.customer_id else None
+            if customer is None and invoice.subscription:
+                customer = invoice.subscription.customer
+            if customer:
+                NotificationService(db).send(
+                    template_key=TemplateKey.PAYMENT_RECEIVED,
+                    recipient=Recipient(email=customer.email, mobile=customer.mobile_number),
+                    variables={
+                        "customer_name": invoice.customer_name_snapshot or customer.full_name,
+                        "payment_amount": str(payment.amount),
+                        "invoice_number": invoice.invoice_number,
+                        "balance_amount": str(invoice.balance_amount),
+                    },
+                    entity_type="PAYMENT",
+                    entity_id=str(payment.id),
+                    customer_id=customer.id,
+                )
+    except Exception:
+        pass
+
     return PaymentOut.model_validate(payment)
 
 
