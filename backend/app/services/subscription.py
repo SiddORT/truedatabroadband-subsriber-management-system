@@ -80,10 +80,6 @@ class SubscriptionService:
         customer = self.db.get(Customer, customer_id)
         if customer is None or customer.deleted_at is not None:
             raise SubscriptionError("Customer not found")
-        if customer.status != CustomerStatus.ACTIVE:
-            raise SubscriptionError(
-                "Customer must be ACTIVE to create a subscription"
-            )
         return customer
 
     def _get_pricing_or_raise(self, plan_pricing_id: uuid.UUID) -> PlanPricing:
@@ -159,6 +155,11 @@ class SubscriptionService:
             remarks=payload.remarks,
         )
         self.db.add(sub)
+
+        # Re-activate customer if they were suspended/disconnected
+        if customer.status != CustomerStatus.ACTIVE:
+            customer.status = CustomerStatus.ACTIVE
+
         self.db.commit()
         self.db.refresh(sub)
         self.audit.log(

@@ -354,6 +354,53 @@ _DEFAULT_TEMPLATES: list[dict] = [
             "ticket_number", "resolution_notes", "portal_url",
         ],
     },
+    # ── SUBSCRIPTION_ACTIVATED ────────────────────────────────────────────
+    {
+        "template_key": TemplateKey.SUBSCRIPTION_ACTIVATED,
+        "channel": NotificationChannel.SMS,
+        "subject": None,
+        "body": (
+            "TrueData: Your broadband subscription {subscription_code} is now active. "
+            "Plan: {plan_name}. Valid till {expiry_date}. "
+            "Login: {portal_url}"
+        ),
+        "approved_variables": [
+            "subscription_code", "plan_name", "expiry_date", "portal_url",
+        ],
+    },
+    {
+        "template_key": TemplateKey.SUBSCRIPTION_ACTIVATED,
+        "channel": NotificationChannel.EMAIL,
+        "subject": "Your Broadband Subscription is Active - True Data Broadband",
+        "body": (
+            "<p>Dear {customer_name},</p>"
+            "<p>Your broadband subscription has been activated successfully. "
+            "Here are your connection details:</p>"
+            "<table style='border-collapse:collapse;margin:12px 0;'>"
+            "<tr><td style='padding:4px 16px 4px 0;color:#555;'>Subscription&nbsp;#</td>"
+            "<td style='padding:4px 0;font-weight:600;'>{subscription_code}</td></tr>"
+            "<tr><td style='padding:4px 16px 4px 0;color:#555;'>Plan</td>"
+            "<td style='padding:4px 0;'>{plan_name}</td></tr>"
+            "<tr><td style='padding:4px 16px 4px 0;color:#555;'>Billing Cycle</td>"
+            "<td style='padding:4px 0;'>{billing_cycle}</td></tr>"
+            "<tr><td style='padding:4px 16px 4px 0;color:#555;'>Start Date</td>"
+            "<td style='padding:4px 0;'>{start_date}</td></tr>"
+            "<tr><td style='padding:4px 16px 4px 0;color:#555;'>Expiry Date</td>"
+            "<td style='padding:4px 0;'>{expiry_date}</td></tr>"
+            "<tr><td style='padding:4px 16px 4px 0;color:#555;'>Amount</td>"
+            "<td style='padding:4px 0;font-weight:600;'>&#8377;{total_price}</td></tr>"
+            "</table>"
+            "<p><a href='{portal_url}' style='background:#1F4959;color:#fff;"
+            "padding:8px 20px;border-radius:8px;text-decoration:none;"
+            "font-weight:600;display:inline-block;'>Access Client Portal &rarr;</a></p>"
+            "<p>Thank you for choosing True Data Broadband.</p>"
+            "<p>Regards,<br>True Data Broadband Team</p>"
+        ),
+        "approved_variables": [
+            "customer_name", "subscription_code", "plan_name", "billing_cycle",
+            "start_date", "expiry_date", "total_price", "portal_url", "connection_name",
+        ],
+    },
 ]
 
 

@@ -5,9 +5,13 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import get_db
+from app.core.logging import get_logger
 from app.dependencies.auth import require_client, require_superadmin
+from app.models.customer import Customer
 from app.models.invoice import InvoiceStatus
+from app.models.notification import TemplateKey
 from app.models.subscription import Subscription
 from app.models.user import User
 from app.repositories.invoice import InvoiceRepository
@@ -20,7 +24,10 @@ from app.schemas.subscription import (
     SubscriptionStatusUpdate,
     SubscriptionUpdate,
 )
+from app.services.notifications.notification_service import NotificationService, Recipient
 from app.services.subscription import DuplicateAddressWarning, SubscriptionError, SubscriptionService
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 
@@ -121,6 +128,32 @@ def create_subscription(
         )
     except SubscriptionError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+
+    # Fire SUBSCRIPTION_ACTIVATED notification (best-effort — never blocks the response)
+    try:
+        customer = db.get(Customer, sub.customer_id)
+        if customer:
+            NotificationService(db).send(
+                TemplateKey.SUBSCRIPTION_ACTIVATED,
+                Recipient(email=customer.email, mobile=customer.mobile_number),
+                variables={
+                    "customer_name": customer.full_name,
+                    "subscription_code": sub.subscription_code,
+                    "plan_name": sub.plan_name_snapshot,
+                    "billing_cycle": sub.billing_cycle_snapshot,
+                    "start_date": str(sub.start_date),
+                    "expiry_date": str(sub.expiry_date),
+                    "total_price": str(sub.total_price_snapshot),
+                    "portal_url": f"{settings.SITE_URL.rstrip('/')}/client",
+                    "connection_name": sub.connection_name or "",
+                },
+                entity_type="subscription",
+                entity_id=str(sub.id),
+                customer_id=sub.customer_id,
+            )
+    except Exception as exc:
+        logger.warning("subscriptions.activation_notification.failed", error=str(exc))
+
     return _to_out(sub)
 
 
