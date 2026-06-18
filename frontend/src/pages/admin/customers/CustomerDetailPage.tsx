@@ -377,7 +377,7 @@ function AccountTab({ customerId }: { customerId: string }) {
 
   const { data: invoicesData } = useQuery({
     queryKey: ["customer-invoices", customerId],
-    queryFn: () => invoicesService.list({ customer_filter: customerId, page_size: 50, sort_by: "invoice_date", sort_order: "desc" }),
+    queryFn: () => invoicesService.list({ customer_id: customerId, page_size: 50, sort_by: "invoice_date", sort_order: "desc" }),
     enabled: !!customerId,
   });
   const invoices: InvoiceListItem[] = invoicesData?.items ?? [];

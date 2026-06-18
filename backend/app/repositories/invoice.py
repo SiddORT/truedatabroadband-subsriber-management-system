@@ -90,6 +90,7 @@ class InvoiceRepository:
         sort_order: str = "desc",
         status_filter: str | None = None,
         customer_filter: str | None = None,
+        customer_id: str | None = None,
         plan_filter: str | None = None,
         invoice_date_from: date | None = None,
         invoice_date_to: date | None = None,
@@ -125,6 +126,14 @@ class InvoiceRepository:
                     Invoice.customer_code_snapshot.ilike(term),
                 )
             )
+
+        if customer_id:
+            import uuid as _uuid
+            try:
+                cid = _uuid.UUID(customer_id)
+                stmt = stmt.where(Invoice.customer_id == cid)
+            except ValueError:
+                pass
 
         if plan_filter:
             term = f"%{plan_filter}%"
