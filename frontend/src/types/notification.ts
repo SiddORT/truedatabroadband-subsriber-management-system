@@ -34,6 +34,8 @@ export interface NotificationTemplateUpdate {
   body?: string;
   is_active?: boolean;
   approved_variables?: string[];
+  dlt_template_id?: string | null;
+  dlt_entity_id?: string | null;
 }
 
 // ── Log ───────────────────────────────────────────────────────────────────

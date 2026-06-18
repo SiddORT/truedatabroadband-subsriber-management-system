@@ -36,13 +36,20 @@ function EditDrawer({ template, onClose, onSave, saving }: EditDrawerProps) {
   const [body, setBody] = useState(template.body);
   const [isActive, setIsActive] = useState(template.is_active);
   const [previewMode, setPreviewMode] = useState(false);
+  const [dltTemplateId, setDltTemplateId] = useState(template.dlt_template_id ?? "");
+  const [dltEntityId, setDltEntityId] = useState(template.dlt_entity_id ?? "");
 
   function handleSave() {
-    onSave(template.id, {
+    const payload: Parameters<typeof onSave>[1] = {
       subject: template.channel === "EMAIL" ? subject : undefined,
       body,
       is_active: isActive,
-    });
+    };
+    if (template.channel === "SMS") {
+      payload.dlt_template_id = dltTemplateId.trim() || null;
+      payload.dlt_entity_id = dltEntityId.trim() || null;
+    }
+    onSave(template.id, payload);
   }
 
   return (
@@ -97,6 +104,33 @@ function EditDrawer({ template, onClose, onSave, saving }: EditDrawerProps) {
               <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${isActive ? "translate-x-4" : "translate-x-1"}`} />
             </button>
           </div>
+
+          {/* DLT IDs (SMS only) */}
+          {template.channel === "SMS" && (
+            <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <p className="text-xs font-medium text-amber-800">
+                DLT Registration (Indian SMS Compliance)
+              </p>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-foreground">DLT Template ID</label>
+                <Input
+                  value={dltTemplateId}
+                  onChange={(e) => setDltTemplateId(e.target.value)}
+                  placeholder="e.g. 1707178161061507836"
+                  className="font-mono text-xs"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-foreground">DLT Entity ID</label>
+                <Input
+                  value={dltEntityId}
+                  onChange={(e) => setDltEntityId(e.target.value)}
+                  placeholder="e.g. 1101600820000012345"
+                  className="font-mono text-xs"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Subject (email only) */}
           {template.channel === "EMAIL" && (

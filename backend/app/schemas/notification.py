@@ -30,12 +30,14 @@ class NotificationTemplateOut(BaseModel):
 
 
 class NotificationTemplateUpdate(BaseModel):
-    """Only editable fields — template_key and dlt_template_id are immutable."""
+    """Editable fields for a notification template."""
 
     subject: Optional[str] = Field(None, max_length=255)
     body: Optional[str] = Field(None, min_length=1)
     is_active: Optional[bool] = None
     approved_variables: Optional[list[str]] = None
+    dlt_template_id: Optional[str] = Field(None, max_length=50)
+    dlt_entity_id: Optional[str] = Field(None, max_length=50)
 
 
 # ---------------------------------------------------------------------------

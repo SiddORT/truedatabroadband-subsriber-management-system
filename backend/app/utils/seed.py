@@ -23,6 +23,7 @@ _DEFAULT_TEMPLATES: list[dict] = [
             "TrueData: Welcome {customer_name}. Your service request has been completed "
             "successfully. Plan: {plan_name}. Thank you for choosing us."
         ),
+        "dlt_template_id": "1707178161061507836",
         "approved_variables": ["customer_name", "plan_name"],
     },
     {
