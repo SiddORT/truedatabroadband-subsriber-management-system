@@ -17,17 +17,6 @@ _DEFAULT_TEMPLATES: list[dict] = [
     # ── WELCOME_CUSTOMER ──────────────────────────────────────────────────
     {
         "template_key": TemplateKey.WELCOME_CUSTOMER,
-        "channel": NotificationChannel.SMS,
-        "subject": None,
-        "body": (
-            "TrueData: Welcome {customer_name}. Your service request has been completed "
-            "successfully. Plan: {plan_name}. Thank you for choosing us."
-        ),
-        "dlt_template_id": "1707178161061507836",
-        "approved_variables": ["customer_name", "plan_name"],
-    },
-    {
-        "template_key": TemplateKey.WELCOME_CUSTOMER,
         "channel": NotificationChannel.EMAIL,
         "subject": "Welcome to True Data Broadband, {customer_name}!",
         "body": (
