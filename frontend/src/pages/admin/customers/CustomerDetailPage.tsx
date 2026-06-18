@@ -364,21 +364,24 @@ function AccountTab({ customerId }: { customerId: string }) {
     enabled: !!customerId,
   });
 
-  const active = subs.find((s) => s.status === "ACTIVE");
+  const activeSubs = subs.filter((s) => s.status === "ACTIVE");
+  const historySubs = subs.filter((s) => s.status !== "ACTIVE");
 
   return (
     <div className="space-y-6">
-      {/* Current Subscription */}
+      {/* Active Subscriptions */}
       <div>
         <h4 className="mb-3 text-sm font-semibold text-foreground">
-          Current Subscription
+          Active Subscription{activeSubs.length > 1 ? "s" : ""}
         </h4>
         {isLoading ? (
           <div className="flex h-24 items-center justify-center">
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
           </div>
-        ) : active ? (
-          <div className="rounded-xl border border-border bg-muted/20 p-5">
+        ) : activeSubs.length > 0 ? (
+          <div className="space-y-3">
+            {activeSubs.map((active) => (
+          <div key={active.id} className="rounded-xl border border-border bg-muted/20 p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
@@ -463,6 +466,8 @@ function AccountTab({ customerId }: { customerId: string }) {
               </Link>
             </div>
           </div>
+            ))}
+          </div>
         ) : (
           <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-border/60 p-8 text-center">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/50">
@@ -481,14 +486,13 @@ function AccountTab({ customerId }: { customerId: string }) {
       </div>
 
       {/* Subscription History */}
-      {subs.length > 1 && (
+      {historySubs.length > 0 && (
         <div>
           <h4 className="mb-3 text-sm font-semibold text-foreground">
             History
           </h4>
           <div className="divide-y divide-border rounded-xl border border-border">
-            {subs
-              .filter((s) => s.status !== "ACTIVE")
+            {historySubs
               .slice(0, 5)
               .map((s) => (
                 <Link
