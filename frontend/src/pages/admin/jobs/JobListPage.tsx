@@ -52,6 +52,7 @@ function fmt(d: string | null) {
 
 function JobRow({
   job,
+  srNo,
   onView,
   onRun,
   onToggle,
@@ -59,6 +60,7 @@ function JobRow({
   isToggling,
 }: {
   job: ScheduledJobOut;
+  srNo: number;
   onView: () => void;
   onRun: () => void;
   onToggle: () => void;
@@ -67,6 +69,7 @@ function JobRow({
 }) {
   return (
     <tr className="border-b hover:bg-muted/30 transition-colors">
+      <td className="px-4 py-3 text-xs text-muted-foreground tabular-nums w-10">{srNo}</td>
       <td className="px-4 py-3">
         <div>
           <p className="font-medium text-sm">{job.job_name}</p>
@@ -289,6 +292,9 @@ export function JobListPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50">
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground w-10">
+                      #
+                    </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Job Name
                     </th>
@@ -313,10 +319,11 @@ export function JobListPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((job) => (
+                  {filtered.map((job, i) => (
                     <JobRow
                       key={job.id}
                       job={job}
+                      srNo={i + 1}
                       onView={() => navigate(`/admin/jobs/${job.id}`)}
                       onRun={() => runMutation.mutate(job.id)}
                       onToggle={() => toggleMutation.mutate(job.id)}

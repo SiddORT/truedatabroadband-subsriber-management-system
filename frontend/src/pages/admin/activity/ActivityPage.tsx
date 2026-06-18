@@ -288,6 +288,15 @@ export function ActivityPage() {
 
   const columns: DataTableColumn<ActivityListItem>[] = [
     {
+      key: "sr_no",
+      header: "#",
+      render: (_, i) => (
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {(tableState.page - 1) * tableState.pageSize + i + 1}
+        </span>
+      ),
+    },
+    {
       key: "created_at",
       header: "Timestamp",
       sortable: true,

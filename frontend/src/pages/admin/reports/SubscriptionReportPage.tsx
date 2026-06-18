@@ -20,6 +20,7 @@ const STATUS_COLORS: Record<string, string> = {
 const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
 const COLUMNS: DataTableColumn<SubscriptionReportRow>[] = [
+  { key: "sr_no", header: "#", render: (_, i) => <span className="text-xs text-muted-foreground tabular-nums">{i + 1}</span> },
   { key: "subscription_code", header: "Code", sortable: true, render: (r) => <span className="font-mono text-xs text-muted-foreground">{r.subscription_code}</span> },
   {
     key: "customer_name", header: "Customer", sortable: true,

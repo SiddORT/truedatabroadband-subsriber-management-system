@@ -133,6 +133,15 @@ export function CommunicationsPage() {
 
   const columns: DataTableColumn<CommunicationLog>[] = [
     {
+      key: "sr_no",
+      header: "#",
+      render: (_, i) => (
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {(tableState.page - 1) * tableState.pageSize + i + 1}
+        </span>
+      ),
+    },
+    {
       key: "created_at",
       header: "Created At",
       render: (row) => <span className="text-xs text-gray-600 whitespace-nowrap">{fmtDateTime(row.created_at)}</span>,

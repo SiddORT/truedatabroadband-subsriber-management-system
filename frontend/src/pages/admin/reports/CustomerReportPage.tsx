@@ -20,6 +20,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const COLUMNS: DataTableColumn<CustomerReportRow>[] = [
+  { key: "sr_no", header: "#", render: (_, i) => <span className="text-xs text-muted-foreground tabular-nums">{i + 1}</span> },
   { key: "customer_code", header: "Code", sortable: true, render: (r) => <span className="font-mono text-xs text-muted-foreground">{r.customer_code}</span> },
   { key: "full_name", header: "Customer Name", sortable: true, render: (r) => <span className="font-medium text-foreground">{r.full_name}</span> },
   { key: "customer_type", header: "Type", render: (r) => <span className="capitalize text-xs">{r.customer_type.toLowerCase()}</span> },

@@ -2,6 +2,7 @@ import {
   BarChart3,
   Bell,
   CalendarClock,
+  ChevronDown,
   Headphones,
   IndianRupee,
   LayoutDashboard,
@@ -15,10 +16,9 @@ import {
   Users,
   Wifi,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
-import { Button } from "@/components/ui/button";
 import { AdminNotificationBell } from "@/components/AdminNotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -84,45 +84,10 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["SUPERADMIN"],
   },
   {
-    label: "Notifications",
-    icon: Bell,
-    href: "/admin/notifications/templates",
-    matchPrefix: "/admin/notifications",
-    roles: ["SUPERADMIN"],
-  },
-  {
-    label: "Communications",
-    icon: MessageSquare,
-    href: "/admin/communications",
-    matchPrefix: "/admin/communications",
-    roles: ["SUPERADMIN"],
-  },
-  {
-    label: "Activity Logs",
-    icon: ShieldCheck,
-    href: "/admin/activity",
-    matchPrefix: "/admin/activity",
-    roles: ["SUPERADMIN"],
-  },
-  {
     label: "Support",
     icon: Headphones,
     href: "/admin/support",
     matchPrefix: "/admin/support",
-    roles: ["SUPERADMIN"],
-  },
-  {
-    label: "Scheduled Jobs",
-    icon: CalendarClock,
-    href: "/admin/jobs",
-    matchPrefix: "/admin/jobs",
-    roles: ["SUPERADMIN"],
-  },
-  {
-    label: "Settings",
-    icon: Settings,
-    href: "/admin/settings",
-    matchPrefix: "/admin/settings",
     roles: ["SUPERADMIN"],
   },
   // Client nav
@@ -163,6 +128,15 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
+// Items shown only in the profile dropdown (superadmin only)
+const PROFILE_MENU_ITEMS = [
+  { label: "Settings", icon: Settings, href: "/admin/settings" },
+  { label: "Scheduled Jobs", icon: CalendarClock, href: "/admin/jobs" },
+  { label: "Activity Logs", icon: ShieldCheck, href: "/admin/activity" },
+  { label: "Notifications", icon: Bell, href: "/admin/notifications/templates" },
+  { label: "Communications", icon: MessageSquare, href: "/admin/communications" },
+];
+
 interface AppLayoutProps {
   title: string;
   portalLabel: string;
@@ -173,6 +147,24 @@ export function AppLayout({ title, portalLabel, children }: AppLayoutProps) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
+      }
+    }
+    if (profileOpen) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [profileOpen]);
+
+  // Close dropdown on route change
+  useEffect(() => {
+    setProfileOpen(false);
+  }, [location.pathname]);
 
   const visibleItems = NAV_ITEMS.filter(
     (item) => !item.roles || item.roles.includes(user?.role ?? ""),
@@ -273,13 +265,64 @@ export function AppLayout({ title, portalLabel, children }: AppLayoutProps) {
               </p>
               <p className="text-xs text-muted-foreground">{user?.role}</p>
             </div>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
-              {user?.email?.[0]?.toUpperCase() ?? "U"}
+
+            {/* Profile avatar + dropdown */}
+            <div className="relative" ref={profileRef}>
+              <button
+                onClick={() => setProfileOpen((v) => !v)}
+                className="flex items-center gap-1.5 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/40"
+                aria-label="Open profile menu"
+              >
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+                  {user?.email?.[0]?.toUpperCase() ?? "U"}
+                </div>
+                <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", profileOpen && "rotate-180")} />
+              </button>
+
+              {profileOpen && (
+                <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-border bg-surface shadow-lg">
+                  {/* User info */}
+                  <div className="px-4 py-3 border-b border-border">
+                    <p className="text-xs font-semibold text-foreground truncate">{user?.email}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{user?.role}</p>
+                  </div>
+
+                  {/* Menu items — only shown for SUPERADMIN */}
+                  {user?.role === "SUPERADMIN" && (
+                    <div className="py-1">
+                      {PROFILE_MENU_ITEMS.map((item) => {
+                        const isActive = location.pathname.startsWith(item.href);
+                        return (
+                          <Link
+                            key={item.href}
+                            to={item.href}
+                            className={cn(
+                              "flex items-center gap-2.5 px-4 py-2 text-sm transition-colors",
+                              isActive
+                                ? "bg-primary/8 text-primary font-medium"
+                                : "text-foreground hover:bg-muted",
+                            )}
+                          >
+                            <item.icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-muted-foreground")} />
+                            {item.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="border-t border-border py-1">
+                    <button
+                      onClick={() => void logout()}
+                      className="flex w-full items-center gap-2.5 px-4 py-2 text-sm text-destructive hover:bg-destructive/8 transition-colors"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            <Button variant="outline" size="sm" onClick={() => void logout()}>
-              <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Logout</span>
-            </Button>
           </div>
         </header>
 

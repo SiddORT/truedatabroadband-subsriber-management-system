@@ -64,6 +64,15 @@ export function AdminSupportListPage() {
 
   const columns: DataTableColumn<AdminTicketListItem>[] = [
     {
+      key: "sr_no",
+      header: "#",
+      render: (_, i) => (
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {(tableState.page - 1) * tableState.pageSize + i + 1}
+        </span>
+      ),
+    },
+    {
       key: "ticket_number",
       header: "Ticket #",
       render: (row) => (

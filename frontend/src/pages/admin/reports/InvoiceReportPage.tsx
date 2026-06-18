@@ -24,6 +24,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const COLUMNS: DataTableColumn<InvoiceReportRow>[] = [
+  { key: "sr_no", header: "#", render: (_, i) => <span className="text-xs text-muted-foreground tabular-nums">{i + 1}</span> },
   { key: "invoice_number", header: "Invoice #", sortable: true, render: (r) => <span className="font-mono text-xs text-muted-foreground">{r.invoice_number}</span> },
   {
     key: "customer_name", header: "Customer", sortable: false,

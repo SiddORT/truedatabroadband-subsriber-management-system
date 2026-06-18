@@ -22,6 +22,7 @@ const METHOD_COLORS: Record<string, string> = {
 };
 
 const COLUMNS: DataTableColumn<PaymentReportRow>[] = [
+  { key: "sr_no", header: "#", render: (_, i) => <span className="text-xs text-muted-foreground tabular-nums">{i + 1}</span> },
   { key: "payment_number", header: "Payment #", sortable: true, render: (r) => <span className="font-mono text-xs text-muted-foreground">{r.payment_number}</span> },
   { key: "invoice_number", header: "Invoice #", render: (r) => <span className="font-mono text-xs text-muted-foreground">{r.invoice_number}</span> },
   { key: "customer_name", header: "Customer", render: (r) => <span className="text-xs font-medium text-foreground">{r.customer_name}</span> },
