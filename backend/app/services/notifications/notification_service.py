@@ -129,6 +129,7 @@ class NotificationService:
                 smtp_settings=smtp_settings,
                 sms_settings=sms_settings,
                 attachments=attachments,
+                company_settings=settings,
             )
             results.append(result)
         return results
@@ -152,6 +153,7 @@ class NotificationService:
         smtp_settings: dict,
         sms_settings: dict,
         attachments: list[Attachment] | None,
+        company_settings: Any = None,
     ) -> SendResult:
         template_key = template.template_key
 
@@ -205,7 +207,7 @@ class NotificationService:
             else:
                 from app.core.config import settings as app_settings
                 wrapped_body = wrap_from_settings(
-                    rendered_body, app_settings, base_url=app_settings.SITE_URL
+                    rendered_body, company_settings, base_url=app_settings.SITE_URL
                 )
                 result = self.email_svc.send(
                     to_email=recipient.email,
