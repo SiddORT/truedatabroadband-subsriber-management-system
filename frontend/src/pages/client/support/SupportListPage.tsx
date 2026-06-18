@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Headphones, Plus } from "lucide-react";
-import { AppLayout } from "@/layouts/AppLayout";
+import { ClientLayout } from "@/layouts/ClientLayout";
 import { Button } from "@/components/ui/button";
 import { DataTable, DataTableState } from "@/components/DataTable";
 import type { DataTableColumn } from "@/components/DataTable";
@@ -67,6 +67,16 @@ export function ClientSupportListPage() {
 
   const columns: DataTableColumn<ClientTicketListItem>[] = [
     {
+      key: "sr_no",
+      header: "Sr.",
+      className: "w-12 text-center",
+      render: (_row, index) => (
+        <span className="text-xs text-muted-foreground">
+          {(tableState.page - 1) * tableState.pageSize + index + 1}
+        </span>
+      ),
+    },
+    {
       key: "ticket_number",
       header: "Ticket #",
       render: (row) => (
@@ -123,7 +133,7 @@ export function ClientSupportListPage() {
   const filterCount = [statusFilter, categoryFilter].filter(Boolean).length;
 
   return (
-    <AppLayout title="My Support Tickets" portalLabel="Client Portal">
+    <ClientLayout title="Support">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -180,6 +190,6 @@ export function ClientSupportListPage() {
           }
         />
       </div>
-    </AppLayout>
+    </ClientLayout>
   );
 }

@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, Paperclip, Send } from "lucide-react";
-import { AppLayout } from "@/layouts/AppLayout";
+import { ClientLayout } from "@/layouts/ClientLayout";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/contexts/ToastContext";
 import { clientSupportApi, TicketMessage } from "@/services/support";
@@ -105,28 +105,28 @@ export function ClientSupportDetailPage() {
 
   if (isLoading) {
     return (
-      <AppLayout title="Ticket" portalLabel="Client Portal">
+      <ClientLayout title="Support">
         <div className="flex h-64 items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      </AppLayout>
+      </ClientLayout>
     );
   }
 
   if (!ticket) {
     return (
-      <AppLayout title="Ticket" portalLabel="Client Portal">
+      <ClientLayout title="Support">
         <div className="flex h-64 items-center justify-center text-muted-foreground">
           Ticket not found.
         </div>
-      </AppLayout>
+      </ClientLayout>
     );
   }
 
   const isClosed = ticket.status === "CLOSED";
 
   return (
-    <AppLayout title={`Ticket ${ticket.ticket_number}`} portalLabel="Client Portal">
+    <ClientLayout title="Support">
       <div className="mx-auto max-w-3xl space-y-4">
         {/* Header */}
         <div className="flex items-start gap-3">
@@ -239,6 +239,6 @@ export function ClientSupportDetailPage() {
           )}
         </div>
       </div>
-    </AppLayout>
+    </ClientLayout>
   );
 }

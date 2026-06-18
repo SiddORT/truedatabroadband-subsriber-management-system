@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { AppLayout } from "@/layouts/AppLayout";
+import { ClientLayout } from "@/layouts/ClientLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,7 +52,7 @@ export function ClientSupportNewPage() {
   const isValid = subject.trim().length >= 5 && description.trim().length >= 10 && category;
 
   return (
-    <AppLayout title="New Support Ticket" portalLabel="Client Portal">
+    <ClientLayout title="Support">
       <div className="mx-auto max-w-2xl space-y-6">
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
@@ -139,6 +139,6 @@ export function ClientSupportNewPage() {
           </div>
         </div>
       </div>
-    </AppLayout>
+    </ClientLayout>
   );
 }
