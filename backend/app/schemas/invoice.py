@@ -46,6 +46,8 @@ class InvoiceCreate(BaseModel):
 class SubscriptionBillingIn(BaseModel):
     """Per-subscription config within a consolidated invoice."""
     subscription_id: UUID
+    billing_period_start: Optional[date] = None
+    billing_period_end: Optional[date] = None
     line_items: list[LineItemIn] = Field(default_factory=list)
     discount_type: Optional[str] = None
     discount_value: Optional[Decimal] = Field(default=None, ge=0)
@@ -55,8 +57,8 @@ class SubscriptionBillingIn(BaseModel):
 
 class ConsolidatedInvoiceCreate(BaseModel):
     customer_id: UUID
-    billing_period_start: date
-    billing_period_end: date
+    billing_period_start: Optional[date] = None
+    billing_period_end: Optional[date] = None
     invoice_date: date
     due_date: Optional[date] = None
     remarks: Optional[str] = None

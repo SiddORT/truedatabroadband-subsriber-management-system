@@ -53,6 +53,8 @@ interface SubBillingState {
   enabled: boolean;
   chargeRows: ChargeRow[];
   chargeIdCounter: number;
+  billingStart: string;
+  billingEnd: string;
 }
 
 interface CustomerItem {
@@ -207,10 +209,11 @@ interface SubChargeCardProps {
   onAddRow: () => void;
   onRemoveRow: (rowId: number) => void;
   onUpdateRow: (rowId: number, patch: Partial<ChargeRow>) => void;
+  onBillingChange: (start: string, end: string) => void;
 }
 
-function SubChargeCard({ subState, subIdx: _subIdx, onToggle, onAddRow, onRemoveRow, onUpdateRow }: SubChargeCardProps) {
-  const { sub, enabled, chargeRows } = subState;
+function SubChargeCard({ subState, subIdx: _subIdx, onToggle, onAddRow, onRemoveRow, onUpdateRow, onBillingChange }: SubChargeCardProps) {
+  const { sub, enabled, chargeRows, billingStart, billingEnd } = subState;
   const baseAmt = Number(sub.base_price_snapshot ?? 0);
   const gstPct  = Number(sub.gst_percentage_snapshot ?? 0);
   const lit = lineItemsTotal(chargeRows);
@@ -243,6 +246,23 @@ function SubChargeCard({ subState, subIdx: _subIdx, onToggle, onAddRow, onRemove
       {/* Charges */}
       {enabled && (
         <div className="space-y-3 p-4">
+          {/* Per-subscription billing period */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-muted-foreground">Period Start <span className="text-red-500">*</span></label>
+              <input type="date" value={billingStart}
+                onChange={(e) => onBillingChange(e.target.value, billingEnd)}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-muted-foreground">Period End <span className="text-red-500">*</span></label>
+              <input type="date" value={billingEnd}
+                onChange={(e) => onBillingChange(billingStart, e.target.value)}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+          </div>
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Additional Charges
@@ -342,6 +362,8 @@ export function InvoiceCreatePage() {
           enabled: true,
           chargeRows: makeDefaultRows(),
           chargeIdCounter: 3,
+          billingStart: sub.start_date ?? firstOfMonth(),
+          billingEnd: sub.expiry_date ?? lastOfMonth(),
         }))
       );
     }
@@ -352,26 +374,14 @@ export function InvoiceCreatePage() {
     setConsolidatedSubs([]);
   }, [customerId]);
 
-  // ── Auto-set billing period end from subscription expiry date ───────────
-  // SINGLE: use the selected subscription's expiry_date directly
+  // ── Auto-set billing period for SINGLE from subscription start/end dates ─
   useEffect(() => {
     if (invoiceType !== "SINGLE") return;
     const subs = subsData?.items ?? [];
-    const expiry = subs.find((s) => s.id === subscriptionId)?.expiry_date;
-    if (expiry) setBillingEnd(expiry);
+    const sub = subs.find((s) => s.id === subscriptionId);
+    if (sub?.start_date) setBillingStart(sub.start_date);
+    if (sub?.expiry_date) setBillingEnd(sub.expiry_date);
   }, [subscriptionId, invoiceType, subsData]);
-
-  // CONSOLIDATED: use max(expiry_date) across all enabled subscriptions
-  useEffect(() => {
-    if (invoiceType !== "CONSOLIDATED") return;
-    const enabled = consolidatedSubs.filter((s) => s.enabled);
-    if (enabled.length === 0) return;
-    const maxExpiry = enabled.reduce((max, s) =>
-      s.sub.expiry_date > max ? s.sub.expiry_date : max,
-      enabled[0].sub.expiry_date,
-    );
-    if (maxExpiry) setBillingEnd(maxExpiry);
-  }, [consolidatedSubs, invoiceType]);
 
   // ── SINGLE: amount calculations ──────────────────────────────────────────
 
@@ -419,7 +429,7 @@ export function InvoiceCreatePage() {
   // ── Validation ────────────────────────────────────────────────────────────
 
   const step1Done = invoiceType === "SINGLE" ? !!subscriptionId : !!customerId;
-  const step2Done = !!billingStart && !!billingEnd;
+  const step2Done = invoiceType === "SINGLE" ? (!!billingStart && !!billingEnd) : true;
   const step3Done = !!invoiceDate;
   const step4Done = invoiceType === "CONSOLIDATED" ? enabledSubs.length >= 1 : false;
 
@@ -454,6 +464,10 @@ export function InvoiceCreatePage() {
     setConsolidatedSubs((prev) => prev.map((s, i) =>
       i === subIdx ? { ...s, chargeRows: s.chargeRows.map((r) => r.id === rowId ? { ...r, ...patch } : r) } : s));
   }
+  function updateSubBillingDates(subIdx: number, start: string, end: string) {
+    setConsolidatedSubs((prev) => prev.map((s, i) =>
+      i === subIdx ? { ...s, billingStart: start, billingEnd: end } : s));
+  }
 
   // ── Mutations ─────────────────────────────────────────────────────────────
 
@@ -480,13 +494,13 @@ export function InvoiceCreatePage() {
     mutationFn: () =>
       invoicesService.createConsolidated({
         customer_id: customerId,
-        billing_period_start: billingStart,
-        billing_period_end: billingEnd,
         invoice_date: invoiceDate,
         due_date: dueDate || undefined,
         remarks: remarks || undefined,
         subscriptions: enabledSubs.map((s) => ({
           subscription_id: s.sub.id,
+          billing_period_start: s.billingStart,
+          billing_period_end: s.billingEnd,
           line_items: buildLineItems(s.chargeRows),
         })),
       }),
@@ -617,22 +631,24 @@ export function InvoiceCreatePage() {
               </CardContent>
             </Card>
 
-            {/* ── Step 2: Billing Period (shared) ── */}
-            <Card>
-              <CardContent className="space-y-4 pt-5">
-                <StepBadge step={2} label="Billing Period" done={step2Done} />
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-sm font-medium">Period Start <span className="text-red-500">*</span></label>
-                    <input type="date" value={billingStart} onChange={(e) => setBillingStart(e.target.value)} className={INPUT_CLS} />
+            {/* ── Step 2: Billing Period (SINGLE only) ── */}
+            {invoiceType === "SINGLE" && (
+              <Card>
+                <CardContent className="space-y-4 pt-5">
+                  <StepBadge step={2} label="Billing Period" done={step2Done} />
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-medium">Period Start <span className="text-red-500">*</span></label>
+                      <input type="date" value={billingStart} onChange={(e) => setBillingStart(e.target.value)} className={INPUT_CLS} />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-medium">Period End <span className="text-red-500">*</span></label>
+                      <input type="date" value={billingEnd} onChange={(e) => setBillingEnd(e.target.value)} className={INPUT_CLS} />
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-sm font-medium">Period End <span className="text-red-500">*</span></label>
-                    <input type="date" value={billingEnd} onChange={(e) => setBillingEnd(e.target.value)} className={INPUT_CLS} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
             {/* ── Step 3: Invoice Date & Notes (shared) ── */}
             <Card>
@@ -762,6 +778,7 @@ export function InvoiceCreatePage() {
                           onAddRow={() => addSubRow(idx)}
                           onRemoveRow={(rowId) => removeSubRow(idx, rowId)}
                           onUpdateRow={(rowId, patch) => updateSubRow(idx, rowId, patch)}
+                          onBillingChange={(start, end) => updateSubBillingDates(idx, start, end)}
                         />
                       ))}
                     </div>

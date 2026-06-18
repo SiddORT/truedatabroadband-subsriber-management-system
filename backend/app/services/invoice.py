@@ -337,6 +337,26 @@ class InvoiceService:
             entity_id=str(invoice.id),
             entity_name=invoice.invoice_number,
         )
+        # Send invoice generated email (fire-and-forget)
+        try:
+            from app.services.notifications.notification_service import NotificationService, Recipient
+            notif_svc = NotificationService(self.db)
+            notif_svc.send(
+                template_key="INVOICE_GENERATED",
+                recipient=Recipient(
+                    email=invoice.customer_email_snapshot,
+                    mobile=invoice.customer_mobile_snapshot,
+                ),
+                variables={
+                    "customer_name": invoice.customer_name_snapshot or customer.full_name,
+                    "invoice_number": invoice.invoice_number,
+                    "amount": f"{invoice.total_amount:,.2f}",
+                    "due_date": str(invoice.due_date),
+                },
+                customer_id=customer.id,
+            )
+        except Exception:
+            pass
         return self.repo.get(invoice.id)
 
     # ── Full edit ──────────────────────────────────────────────────────────
@@ -668,12 +688,16 @@ class InvoiceService:
                 )
 
             # Guard: check for existing individual invoice overlapping the same billing period
+            sub_bp_start = sub_billing.billing_period_start or payload.billing_period_start
+            sub_bp_end = sub_billing.billing_period_end or payload.billing_period_end
+            if sub_bp_start is None or sub_bp_end is None:
+                raise InvoiceError("Billing period is required for each subscription.")
             if self.repo.check_overlapping_billing_period(
-                sub.id, payload.billing_period_start, payload.billing_period_end
+                sub.id, sub_bp_start, sub_bp_end
             ):
                 raise InvoiceError(
                     f"Subscription {sub.subscription_code} already has an invoice that overlaps "
-                    f"the billing period {payload.billing_period_start} – {payload.billing_period_end}."
+                    f"the billing period {sub_bp_start} – {sub_bp_end}."
                 )
 
             plan = sub.plan
@@ -705,6 +729,8 @@ class InvoiceService:
                 "disc_scope": disc_scope,
                 "line_items_data": line_items_data,
                 "sort_order": idx,
+                "bp_start": sub_bp_start,
+                "bp_end": sub_bp_end,
             })
 
         grand_base = sum(c["base"] for c in sub_computations)
@@ -776,8 +802,8 @@ class InvoiceService:
             discount_amount=grand_disc,
             discount_label=None,
             discount_scope="base",
-            billing_period_start=payload.billing_period_start,
-            billing_period_end=payload.billing_period_end,
+            billing_period_start=min(c["bp_start"] for c in sub_computations),
+            billing_period_end=max(c["bp_end"] for c in sub_computations),
             invoice_date=today,
             due_date=due,
             status=InvoiceStatus.UNPAID,
@@ -805,8 +831,8 @@ class InvoiceService:
                 data_policy_snapshot=comp["plan"].data_policy.value,
                 fup_limit_gb_snapshot=comp["plan"].fup_limit_gb,
                 billing_cycle_snapshot=comp["pricing"].billing_cycle.value,
-                billing_period_start=payload.billing_period_start,
-                billing_period_end=payload.billing_period_end,
+                billing_period_start=comp["bp_start"],
+                billing_period_end=comp["bp_end"],
                 base_amount=comp["base"],
                 gst_percentage=comp["gst_pct"],
                 gst_amount=comp["gst_amt"],
@@ -842,4 +868,24 @@ class InvoiceService:
             entity_id=str(invoice.id),
             entity_name=invoice.invoice_number,
         )
+        # Send invoice generated email (fire-and-forget)
+        try:
+            from app.services.notifications.notification_service import NotificationService, Recipient
+            notif_svc = NotificationService(self.db)
+            notif_svc.send(
+                template_key="INVOICE_GENERATED",
+                recipient=Recipient(
+                    email=invoice.customer_email_snapshot,
+                    mobile=invoice.customer_mobile_snapshot,
+                ),
+                variables={
+                    "customer_name": invoice.customer_name_snapshot or customer.full_name,
+                    "invoice_number": invoice.invoice_number,
+                    "amount": f"{invoice.total_amount:,.2f}",
+                    "due_date": str(invoice.due_date),
+                },
+                customer_id=customer.id,
+            )
+        except Exception:
+            pass
         return self.repo.get(invoice.id)

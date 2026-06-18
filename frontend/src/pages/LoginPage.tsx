@@ -381,7 +381,7 @@ export function LoginPage({ role, title, subtitle, redirectTo }: LoginPageProps)
           {tab === "otp" && otpStep === "verify" && (
             <form onSubmit={otpVerifyForm.handleSubmit(onOtpVerify)} className="space-y-5">
               <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-primary">
-                OTP sent to <strong>{pendingMobile}</strong>. Enter the code below.
+                OTP sent to registered number and email. Enter the code below.
               </div>
 
               <div className="space-y-2">
