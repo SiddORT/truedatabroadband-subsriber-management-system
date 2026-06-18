@@ -100,7 +100,7 @@ export default function App() {
             role="CLIENT"
             title="Client Portal"
             subtitle="Sign in to access your broadband account."
-            redirectTo="/client/dashboard"
+            redirectTo="/client"
           />
         }
       />

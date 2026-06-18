@@ -158,7 +158,7 @@ def create_customer(
     # Auto-send welcome email with portal link + initial password
     try:
         cs = CompanySettingsRepository(db).get_or_create()
-        portal_url = f"{settings.SITE_URL}/client/login" if settings.SITE_URL else ""
+        portal_url = f"{settings.SITE_URL}/client" if settings.SITE_URL else ""
         NotificationService(db).send(
             template_key=TemplateKey.WELCOME_CUSTOMER.value,
             recipient=Recipient(email=customer.email, mobile=customer.mobile_number),
