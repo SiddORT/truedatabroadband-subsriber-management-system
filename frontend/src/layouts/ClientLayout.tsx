@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquare,
   User,
   Monitor,
   Wifi,
@@ -47,6 +48,12 @@ const NAV_ITEMS: NavItem[] = [
     icon: User,
     href: "/client/profile",
     matchPrefix: "/client/profile",
+  },
+  {
+    label: "Support",
+    icon: MessageSquare,
+    href: "/client/support",
+    matchPrefix: "/client/support",
   },
   {
     label: "Sessions",

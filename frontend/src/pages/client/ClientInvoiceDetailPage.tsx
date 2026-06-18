@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -5,12 +6,14 @@ import {
   ArrowLeft,
   Download,
   FileText,
+  Loader2,
 } from "lucide-react";
 
 import { ClientLayout } from "@/layouts/ClientLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { clientService } from "@/services/client";
+import { tokenService } from "@/services/api";
 import type { ClientInvoiceDetail } from "@/types/client";
 import { PAYMENT_METHOD_LABELS, type PaymentMethod } from "@/types/payment";
 
@@ -73,6 +76,32 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
 export function ClientInvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [downloading, setDownloading] = useState(false);
+
+  async function handleDownloadPdf() {
+    if (!id) return;
+    setDownloading(true);
+    try {
+      const token = tokenService.getAccess();
+      const resp = await fetch(clientService.invoicePdfUrl(id), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `invoice-${id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Failed to download PDF. Please try again.");
+    } finally {
+      setDownloading(false);
+    }
+  }
   const { data: invoice, isLoading, isError } = useQuery<ClientInvoiceDetail>({
     queryKey: ["client-invoice-detail", id],
     queryFn: () => clientService.getInvoiceDetail(id!),
@@ -121,16 +150,12 @@ export function ClientInvoiceDetailPage() {
 
           {/* Actions */}
           <div className="flex gap-2">
-            <a
-              href={clientService.invoicePdfUrl(id!)}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Button variant="outline" size="sm">
-                <Download className="mr-1.5 h-4 w-4" />
-                Download PDF
-              </Button>
-            </a>
+            <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={downloading}>
+              {downloading
+                ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                : <Download className="mr-1.5 h-4 w-4" />}
+              {downloading ? "Downloading…" : "Download PDF"}
+            </Button>
           </div>
         </div>
 
