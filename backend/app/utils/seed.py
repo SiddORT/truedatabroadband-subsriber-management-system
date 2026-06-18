@@ -212,12 +212,15 @@ _DEFAULT_TEMPLATES: list[dict] = [
         "channel": NotificationChannel.EMAIL,
         "subject": "Your Password Has Been Reset - True Data Broadband",
         "body": (
-            "<p>Dear Customer,</p>"
+            "<p>Dear {customer_name},</p>"
             "<p>Your True Data Broadband account password has been reset by the administrator.</p>"
-            "<p>Please log in with your new temporary password and change it immediately.</p>"
+            "<p>Your temporary password is: "
+            "<strong style='font-family:monospace;background:#f4f4f4;"
+            "padding:3px 10px;letter-spacing:1px;'>{temp_password}</strong></p>"
+            "<p>Please log in and change your password immediately.</p>"
             "<p>Regards,<br>True Data Broadband Team</p>"
         ),
-        "approved_variables": [],
+        "approved_variables": ["customer_name", "temp_password"],
     },
     # ── PLAN_CHANGED ──────────────────────────────────────────────────────
     {

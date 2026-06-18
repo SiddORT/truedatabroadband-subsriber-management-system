@@ -251,6 +251,27 @@ class CustomerService:
             entity_id=str(customer.id),
             entity_name=customer.full_name,
         )
+        # Send password reset email (fire-and-forget)
+        try:
+            from app.services.notifications.notification_service import (
+                NotificationService,
+                Recipient,
+            )
+            notif_svc = NotificationService(self.db)
+            notif_svc.send(
+                template_key="PASSWORD_RESET",
+                recipient=Recipient(
+                    email=customer.user.email,
+                    mobile=customer.mobile_number,
+                ),
+                variables={
+                    "customer_name": customer.full_name,
+                    "temp_password": temp_password,
+                },
+                customer_id=customer.id,
+            )
+        except Exception:
+            pass  # Non-fatal — password is still reset
         return temp_password
 
     # ------------------------------------------------------------------

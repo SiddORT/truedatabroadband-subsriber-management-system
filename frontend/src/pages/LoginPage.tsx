@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -70,6 +70,48 @@ export function LoginPage({ role, title, subtitle, redirectTo }: LoginPageProps)
   const [pendingMobile, setPendingMobile] = useState("");
   const [serverError, setServerError] = useState<string | null>(null);
 
+  // OTP countdown timer (180 s)
+  const OTP_TTL = 180;
+  const [secondsLeft, setSecondsLeft] = useState(OTP_TTL);
+  const [resending, setResending] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startTimer = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setSecondsLeft(OTP_TTL);
+    timerRef.current = setInterval(() => {
+      setSecondsLeft((s) => {
+        if (s <= 1) {
+          clearInterval(timerRef.current!);
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
+
+  const handleResendOtp = async () => {
+    setResending(true);
+    setServerError(null);
+    try {
+      await api.post("/auth/request-otp", {
+        mobile_number: pendingMobile,
+        purpose: "LOGIN",
+      });
+      startTimer();
+    } catch (err) {
+      setServerError(getApiErrorMessage(err, "Could not resend OTP. Please try again."));
+    } finally {
+      setResending(false);
+    }
+  };
+
   const Icon = role === "SUPERADMIN" ? ShieldCheck : Users;
 
   /* ---- Email+password form ---- */
@@ -105,6 +147,7 @@ export function LoginPage({ role, title, subtitle, redirectTo }: LoginPageProps)
       });
       setPendingMobile(values.mobile_number);
       setOtpStep("verify");
+      startTimer();
     } catch (err) {
       setServerError(getApiErrorMessage(err, "Could not send OTP. Please try again."));
     }
@@ -376,17 +419,41 @@ export function LoginPage({ role, title, subtitle, redirectTo }: LoginPageProps)
                 Verify & Sign in
               </Button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setOtpStep("request");
-                  setServerError(null);
-                  otpVerifyForm.reset();
-                }}
-                className="w-full text-center text-sm text-muted-foreground hover:text-foreground"
-              >
-                ← Change mobile number
-              </button>
+              {/* Timer / Resend OTP */}
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOtpStep("request");
+                    setServerError(null);
+                    otpVerifyForm.reset();
+                    if (timerRef.current) clearInterval(timerRef.current);
+                  }}
+                  className="text-sm text-muted-foreground hover:text-foreground"
+                >
+                  ← Change number
+                </button>
+
+                {secondsLeft > 0 ? (
+                  <span className="text-sm text-muted-foreground">
+                    Resend OTP in{" "}
+                    <span className="font-mono font-semibold text-primary">
+                      {String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:
+                      {String(secondsLeft % 60).padStart(2, "0")}
+                    </span>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={resending}
+                    className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline disabled:opacity-60"
+                  >
+                    {resending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    Resend OTP
+                  </button>
+                )}
+              </div>
             </form>
           )}
         </div>
