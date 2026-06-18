@@ -53,7 +53,7 @@ export function ClientSupportNewPage() {
 
   return (
     <ClientLayout title="Support">
-      <div className="mx-auto max-w-2xl space-y-6">
+      <div className="space-y-6">
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4" />
