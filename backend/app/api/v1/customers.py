@@ -26,7 +26,7 @@ from app.schemas.customer import (
     CustomerStatusUpdate,
     CustomerUpdate,
 )
-from app.services.customer import CustomerError, CustomerService
+from app.services.customer import CustomerError, CustomerHasSubscriptionsError, CustomerService
 from app.services.notifications.notification_service import NotificationService, Recipient
 from app.storage import get_storage_service
 
@@ -343,12 +343,15 @@ def delete_customer(
     db: Session = Depends(get_db),
 ) -> Response:
     customer = _get_customer_or_404(customer_id, db)
-    CustomerService(db).delete(
-        customer,
-        actor_id=current_user.id,
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-    )
+    try:
+        CustomerService(db).delete(
+            customer,
+            actor_id=current_user.id,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+    except CustomerHasSubscriptionsError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

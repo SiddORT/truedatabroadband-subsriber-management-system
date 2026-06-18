@@ -3,6 +3,7 @@ import string
 import uuid
 from datetime import datetime, timezone
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password
@@ -14,6 +15,7 @@ from app.models.audit_log import (
     ACTION_CUSTOMER_UPDATED,
 )
 from app.models.customer import Customer, CustomerStatus
+from app.models.subscription import Subscription
 from app.models.user import User, UserRole
 from app.repositories.audit_log import AuditLogRepository
 from app.repositories.customer import CustomerRepository
@@ -51,6 +53,10 @@ def generate_temp_password() -> str:
 
 class CustomerError(Exception):
     """Business-rule violation in the customer domain."""
+
+
+class CustomerHasSubscriptionsError(CustomerError):
+    """Raised when deletion is attempted on a customer that still has subscriptions."""
 
 
 # ---------------------------------------------------------------------------
@@ -259,6 +265,21 @@ class CustomerService:
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> None:
+        # Block deletion if any non-deleted subscriptions exist
+        has_subs = self.customers.db.scalar(
+            select(Subscription.id)
+            .where(
+                Subscription.customer_id == customer.id,
+                Subscription.deleted_at.is_(None),
+            )
+            .limit(1)
+        )
+        if has_subs:
+            raise CustomerHasSubscriptionsError(
+                "Cannot delete a customer with subscriptions. "
+                "Deactivate the customer instead."
+            )
+
         # Soft-delete the linked auth user so it cannot log in
         customer.user.deleted_at = datetime.now(timezone.utc)
         self.customers.soft_delete(customer)  # sets customer.deleted_at + commits both
