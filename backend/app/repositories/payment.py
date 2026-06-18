@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -41,6 +42,12 @@ class PaymentRepository:
             except (ValueError, IndexError):
                 n = 1
         return f"TDB-PAY-{n:05d}"
+
+    def soft_delete(self, payment: Payment) -> Payment:
+        payment.deleted_at = datetime.now(timezone.utc)
+        self.db.commit()
+        self.db.refresh(payment)
+        return payment
 
     def create(self, payment: Payment) -> Payment:
         self.db.add(payment)
