@@ -60,13 +60,8 @@ class CustomApiProvider(BaseSmsProvider):
                 except Exception:
                     data = {"raw": resp.text}
 
-                # Mask credentials from the stored response
-                safe_params = {k: v for k, v in params.items() if k not in ("ApiKey", "ClientId")}
-                safe_params["ApiKey"] = "***"
-                safe_params["ClientId"] = "***"
-
-                success = resp.status_code == 200 and self._is_success(data)
                 msg_id = self._extract_message_id(data)
+                success = resp.status_code == 200 and self._is_success(data)
 
                 if success:
                     return SmsResult(
@@ -75,14 +70,14 @@ class CustomApiProvider(BaseSmsProvider):
                         raw_response=data,
                     )
 
+                # We received an HTTP response — the provider already processed the
+                # request (SMS may have been dispatched).  Do NOT retry; retrying
+                # would send the message multiple times.
                 error_msg = self._extract_error(data, resp.status_code)
-                if attempt < _MAX_RETRIES - 1:
-                    time.sleep(2 ** attempt)
-                    continue
-
                 return SmsResult(success=False, error=error_msg, raw_response=data)
 
             except httpx.TimeoutException:
+                # Network-level timeout — safe to retry (no response received)
                 if attempt < _MAX_RETRIES - 1:
                     time.sleep(2 ** attempt)
                     continue
