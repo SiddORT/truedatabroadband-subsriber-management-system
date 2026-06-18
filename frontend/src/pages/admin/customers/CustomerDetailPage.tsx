@@ -13,8 +13,7 @@ import {
   SUBSCRIPTION_STATUS_LABELS,
 } from "@/types/subscription";
 import { BILLING_CYCLE_LABELS } from "@/types/plan";
-import { invoicesService } from "@/services/invoices";
-import type { InvoiceListItem } from "@/types/invoice";
+
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -359,14 +358,6 @@ function MoreInfoTab({ customer }: { customer: Customer }) {
   );
 }
 
-const INVOICE_STATUS_COLORS: Record<string, string> = {
-  DRAFT: "bg-gray-100 text-gray-600",
-  UNPAID: "bg-amber-100 text-amber-700",
-  PARTIALLY_PAID: "bg-blue-100 text-blue-700",
-  PAID: "bg-emerald-100 text-emerald-700",
-  OVERDUE: "bg-red-100 text-red-700",
-  CANCELLED: "bg-gray-200 text-gray-500",
-};
 
 function AccountTab({ customerId }: { customerId: string }) {
   const { data: subs = [], isLoading } = useQuery({
@@ -374,13 +365,6 @@ function AccountTab({ customerId }: { customerId: string }) {
     queryFn: () => subscriptionsService.listByCustomer(customerId),
     enabled: !!customerId,
   });
-
-  const { data: invoicesData } = useQuery({
-    queryKey: ["customer-invoices", customerId],
-    queryFn: () => invoicesService.list({ customer_id: customerId, page_size: 50, sort_by: "invoice_date", sort_order: "desc" }),
-    enabled: !!customerId,
-  });
-  const invoices: InvoiceListItem[] = invoicesData?.items ?? [];
 
   const activeSubs = subs.filter((s) => s.status === "ACTIVE");
   const historySubs = subs.filter((s) => s.status !== "ACTIVE");
@@ -542,69 +526,6 @@ function AccountTab({ customerId }: { customerId: string }) {
         </div>
       )}
 
-      {/* Invoice History */}
-      <div>
-        <h4 className="mb-3 text-sm font-semibold text-foreground">Invoice History</h4>
-        {invoices.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-border/60 p-8 text-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/50">
-              <FileText className="h-5 w-5 text-muted-foreground/40" />
-            </div>
-            <p className="text-sm text-muted-foreground">No invoices found for this customer.</p>
-          </div>
-        ) : (
-          <div className="rounded-xl border border-border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Invoice #</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Date</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Due Date</th>
-                  <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Amount</th>
-                  <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Balance</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Status</th>
-                  <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {invoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-muted/20">
-                    <td className="px-4 py-2.5 font-mono text-xs font-semibold text-primary">
-                      {inv.invoice_number}
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                      {new Date(inv.invoice_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                      {new Date(inv.due_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                    </td>
-                    <td className="px-4 py-2.5 text-right text-xs font-medium">
-                      ₹{Number(inv.total_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-4 py-2.5 text-right text-xs font-medium">
-                      ₹{Number(inv.balance_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${INVOICE_STATUS_COLORS[inv.status] ?? "bg-gray-100 text-gray-600"}`}>
-                        {inv.status.replace(/_/g, " ")}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      <Link
-                        to={`/admin/invoices/${inv.id}`}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        Open
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
