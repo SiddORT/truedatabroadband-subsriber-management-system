@@ -428,7 +428,7 @@ export function SubscriptionRequestsPage() {
   const [activeTab, setActiveTab] = useState("renewal");
 
   return (
-    <AppLayout title="Subscription Requests">
+    <AppLayout title="Subscription Requests" portalLabel="Administration">
       <div className="space-y-5">
         <div className="flex items-center gap-2">
           <ClipboardList className="h-5 w-5 text-primary" />

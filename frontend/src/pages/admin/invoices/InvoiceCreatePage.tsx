@@ -491,9 +491,13 @@ export function InvoiceCreatePage() {
   });
 
   const consolidatedMutation = useMutation({
-    mutationFn: () =>
-      invoicesService.createConsolidated({
+    mutationFn: () => {
+      const starts = enabledSubs.map((s) => s.billingStart).filter(Boolean).sort();
+      const ends = enabledSubs.map((s) => s.billingEnd).filter(Boolean).sort();
+      return invoicesService.createConsolidated({
         customer_id: customerId,
+        billing_period_start: starts[0] ?? billingStart,
+        billing_period_end: ends[ends.length - 1] ?? billingEnd,
         invoice_date: invoiceDate,
         due_date: dueDate || undefined,
         remarks: remarks || undefined,
@@ -503,7 +507,8 @@ export function InvoiceCreatePage() {
           billing_period_end: s.billingEnd,
           line_items: buildLineItems(s.chargeRows),
         })),
-      }),
+      });
+    },
     onSuccess: (inv) => { showToast(`Consolidated invoice ${inv.invoice_number} created`, "success"); navigate(`/admin/invoices/${inv.id}`); },
     onError: (err) => showToast(getApiErrorMessage(err), "error"),
   });
