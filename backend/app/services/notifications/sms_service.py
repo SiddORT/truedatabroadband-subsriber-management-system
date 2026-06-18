@@ -76,8 +76,13 @@ class SmsService:
         )
         provider = self._get_provider(provider_name, config, sms_settings)
 
+        # Normalise to E.164-style: strip leading + or zeros, then prepend 91
+        normalised = mobile_number.lstrip("+").lstrip("0")
+        if not normalised.startswith("91"):
+            normalised = "91" + normalised
+
         result: SmsResult = provider.send(
-            mobile=mobile_number,
+            mobile=normalised,
             message=rendered_body,
             dlt_template_id=dlt_template_id,
             dlt_entity_id=dlt_entity_id or config.entity_id,
