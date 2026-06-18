@@ -143,8 +143,13 @@ def render_email_html(
 def wrap_from_settings(inner_html: str, settings: object, base_url: str = "") -> str:
     """Convenience wrapper: pull branding fields straight from a CompanySettings ORM object."""
     logo_url: str | None = None
-    if base_url and getattr(settings, "logo_path", None):
-        logo_url = f"{base_url.rstrip('/')}/api/v1/settings/company/logo"
+    if base_url:
+        if getattr(settings, "logo_path", None):
+            # Custom logo uploaded to company settings
+            logo_url = f"{base_url.rstrip('/')}/api/v1/settings/company/logo"
+        else:
+            # Fall back to the default sidebar logo served from the backend static dir
+            logo_url = f"{base_url.rstrip('/')}/static/logo.png"
 
     addr_parts = [
         getattr(settings, "address_line_1", None),
