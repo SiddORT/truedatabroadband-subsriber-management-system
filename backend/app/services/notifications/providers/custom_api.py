@@ -143,10 +143,9 @@ class CustomApiProvider(BaseSmsProvider):
         if str(data.get("status", "")).upper() in _SUCCESS_VALS:
             return True
 
-        # Error-code based (000 = no error)
-        if str(data.get("ErrorCode", "")).strip() in ("000", "0", ""):
-            if data.get("MessageId") or data.get("message_id"):
-                return True
+        # Error-code based: "000" / "0" / empty = no error → success
+        if str(data.get("ErrorCode", "MISSING")).strip() in ("000", "0", ""):
+            return True
 
         # Explicit success flag
         if data.get("success") is True:
@@ -156,9 +155,18 @@ class CustomApiProvider(BaseSmsProvider):
 
     @staticmethod
     def _extract_message_id(data: dict) -> str | None:
+        # Top-level keys first
         for key in ("MessageId", "message_id", "msgid", "Id", "id"):
             if val := data.get(key):
                 return str(val)
+        # Nested inside MessageIds list (e.g. {"MessageIds": [{"MessageId": "xxx"}]})
+        msg_ids = data.get("MessageIds") or data.get("messageIds") or []
+        if isinstance(msg_ids, list) and msg_ids:
+            first = msg_ids[0]
+            if isinstance(first, dict):
+                for key in ("MessageId", "message_id", "msgid", "Id", "id"):
+                    if val := first.get(key):
+                        return str(val)
         return None
 
     @staticmethod
