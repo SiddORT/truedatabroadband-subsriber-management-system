@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Headphones, Plus } from "lucide-react";
+import { Eye, Headphones, Plus } from "lucide-react";
 import { ClientLayout } from "@/layouts/ClientLayout";
 import { Button } from "@/components/ui/button";
 import { DataTable, DataTableState } from "@/components/DataTable";
@@ -127,6 +127,22 @@ export function ClientSupportListPage() {
       key: "updated_at",
       header: "Last Updated",
       render: (row) => <span className="text-xs text-muted-foreground">{fmt(row.updated_at)}</span>,
+    },
+    {
+      key: "actions",
+      header: "",
+      className: "w-20 text-right",
+      render: (row) => (
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1"
+          onClick={() => navigate(`/client/support/${row.id}`)}
+        >
+          <Eye className="h-3.5 w-3.5" />
+          View
+        </Button>
+      ),
     },
   ];
 
