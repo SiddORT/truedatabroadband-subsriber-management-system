@@ -213,10 +213,18 @@ export function SubscriptionCreatePage() {
   const [connectionName, setConnectionName] = useState("");
   const [installationAddress, setInstallationAddress] = useState("");
 
-  // Pre-fill address from selected customer
+  // Pre-fill address from selected customer (compose full address)
   useEffect(() => {
     if (selectedCustomer) {
-      setInstallationAddress(selectedCustomer.installation_address ?? "");
+      const parts = [
+        selectedCustomer.installation_address,
+        selectedCustomer.address_line_2,
+        selectedCustomer.landmark,
+        selectedCustomer.city,
+        selectedCustomer.state,
+        selectedCustomer.pincode,
+      ].filter(Boolean).join(", ");
+      setInstallationAddress(parts);
     }
   }, [selectedCustomer]);
 
