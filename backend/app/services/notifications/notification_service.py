@@ -205,7 +205,7 @@ class NotificationService:
             else:
                 from app.core.config import settings as app_settings
                 wrapped_body = wrap_from_settings(
-                    rendered_body, settings, base_url=app_settings.SITE_URL
+                    rendered_body, app_settings, base_url=app_settings.SITE_URL
                 )
                 result = self.email_svc.send(
                     to_email=recipient.email,
