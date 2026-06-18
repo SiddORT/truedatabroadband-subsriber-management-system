@@ -356,7 +356,8 @@ class SupportTicketService:
 
         # Send email to customer for non-internal replies
         if not is_internal_note:
-            customer = CustomerRepository(self.db).get_by_id(ticket.customer_id)
+            from app.models.customer import Customer as CustomerModel
+            customer = self.db.get(CustomerModel, ticket.customer_id)
             customer_email = customer.email if customer else None
             if customer_email:
                 self._send_support_email(
