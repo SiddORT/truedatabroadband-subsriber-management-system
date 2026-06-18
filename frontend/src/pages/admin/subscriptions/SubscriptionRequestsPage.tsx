@@ -176,6 +176,7 @@ function RenewalTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/30">
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Sr. No.</th>
                 <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Customer</th>
                 <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Subscription</th>
                 <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Billing Cycle</th>
@@ -186,8 +187,9 @@ function RenewalTab() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {data.map((req) => (
+              {data.map((req, idx) => (
                 <tr key={req.id} className="hover:bg-muted/20">
+                  <td className="px-4 py-3 text-xs text-muted-foreground">{idx + 1}</td>
                   <td className="px-4 py-3">
                     <Link to={`/admin/customers/${req.customer_id}`} className="font-medium text-foreground hover:text-primary hover:underline">
                       {req.customer_name}
@@ -316,6 +318,7 @@ function PlanChangeTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/30">
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Sr. No.</th>
                 <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Customer</th>
                 <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Subscription</th>
                 <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Plan Change</th>
@@ -326,8 +329,9 @@ function PlanChangeTab() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {data.map((req) => (
+              {data.map((req, idx) => (
                 <tr key={req.id} className="hover:bg-muted/20">
+                  <td className="px-4 py-3 text-xs text-muted-foreground">{idx + 1}</td>
                   <td className="px-4 py-3">
                     <Link to={`/admin/customers/${req.customer_id}`} className="font-medium text-foreground hover:text-primary hover:underline">
                       {req.customer_name}
