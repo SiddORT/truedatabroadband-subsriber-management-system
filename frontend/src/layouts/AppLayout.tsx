@@ -3,6 +3,7 @@ import {
   Bell,
   CalendarClock,
   ChevronDown,
+  ClipboardList,
   Headphones,
   IndianRupee,
   LayoutDashboard,
@@ -60,6 +61,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: RefreshCw,
     href: "/admin/subscriptions",
     matchPrefix: "/admin/subscriptions",
+    roles: ["SUPERADMIN"],
+  },
+  {
+    label: "Requests",
+    icon: ClipboardList,
+    href: "/admin/subscription-requests",
+    matchPrefix: "/admin/subscription-requests",
     roles: ["SUPERADMIN"],
   },
   {

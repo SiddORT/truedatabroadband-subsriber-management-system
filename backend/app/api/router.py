@@ -16,6 +16,7 @@ from app.api.v1 import (
     plans,
     reports,
     settings,
+    subscription_requests,
     subscriptions,
     support,
 )
@@ -29,6 +30,7 @@ api_router.include_router(client.router)
 api_router.include_router(customers.router)
 api_router.include_router(plans.router)
 api_router.include_router(subscriptions.router)
+api_router.include_router(subscription_requests.router)
 api_router.include_router(settings.router)
 api_router.include_router(invoices.router)
 api_router.include_router(payments.router)

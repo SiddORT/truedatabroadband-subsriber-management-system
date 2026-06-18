@@ -17,6 +17,7 @@ import { PlanDetailPage } from "@/pages/admin/plans/PlanDetailPage";
 import { SubscriptionListPage } from "@/pages/admin/subscriptions/SubscriptionListPage";
 import { SubscriptionCreatePage } from "@/pages/admin/subscriptions/SubscriptionCreatePage";
 import { SubscriptionDetailPage } from "@/pages/admin/subscriptions/SubscriptionDetailPage";
+import { SubscriptionRequestsPage } from "@/pages/admin/subscriptions/SubscriptionRequestsPage";
 import { ConnectionsPage } from "@/pages/client/ConnectionsPage";
 import { ConnectionDetailPage } from "@/pages/client/ConnectionDetailPage";
 import { RenewalRequestPage } from "@/pages/client/RenewalRequestPage";
@@ -138,6 +139,7 @@ export default function App() {
       <Route path="/admin/subscriptions" element={<AdminRoute><SubscriptionListPage /></AdminRoute>} />
       <Route path="/admin/subscriptions/new" element={<AdminRoute><SubscriptionCreatePage /></AdminRoute>} />
       <Route path="/admin/subscriptions/:id" element={<AdminRoute><SubscriptionDetailPage /></AdminRoute>} />
+      <Route path="/admin/subscription-requests" element={<AdminRoute><SubscriptionRequestsPage /></AdminRoute>} />
 
       {/* Invoices */}
       <Route path="/admin/invoices" element={<AdminRoute><InvoiceListPage /></AdminRoute>} />
