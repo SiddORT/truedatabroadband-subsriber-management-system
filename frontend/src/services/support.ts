@@ -149,6 +149,9 @@ export const clientSupportApi = {
       .post<TicketMessage>(`/client/support/${id}/reply`, { message })
       .then((r) => r.data),
 
+  close: (id: string) =>
+    api.post<ClientTicketOut>(`/client/support/${id}/close`).then((r) => r.data),
+
   uploadAttachment: (id: string, file: File) => {
     const fd = new FormData();
     fd.append("file", file);
@@ -189,6 +192,9 @@ export const adminSupportApi = {
     }
   ) =>
     api.patch<AdminTicketOut>(`/admin/support/${id}`, payload).then((r) => r.data),
+
+  close: (id: string) =>
+    api.patch<AdminTicketOut>(`/admin/support/${id}`, { status: "CLOSED" }).then((r) => r.data),
 
   reply: (id: string, message: string) =>
     api

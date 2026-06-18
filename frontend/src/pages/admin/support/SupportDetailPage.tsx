@@ -148,6 +148,15 @@ export function AdminSupportDetailPage() {
     onError: (e: Error) => showToast(e.message || "Update failed.", "error"),
   });
 
+  const closeTicket = useMutation({
+    mutationFn: () => adminSupportApi.close(id!),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-ticket", id] });
+      showToast("Ticket closed.", "success");
+    },
+    onError: () => showToast("Failed to close ticket.", "error"),
+  });
+
   const reply = useMutation({
     mutationFn: () => adminSupportApi.reply(id!, replyText.trim()),
     onSuccess: () => {
@@ -371,6 +380,24 @@ export function AdminSupportDetailPage() {
                       ))}
                     </select>
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-red-200 text-red-600 hover:bg-red-50"
+                    disabled={closeTicket.isPending}
+                    onClick={() => {
+                      if (confirm("Close this ticket? This action cannot be undone.")) {
+                        closeTicket.mutate();
+                      }
+                    }}
+                  >
+                    {closeTicket.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Lock className="h-4 w-4" />
+                    )}
+                    Close Ticket
+                  </Button>
                 </div>
               </div>
             )}

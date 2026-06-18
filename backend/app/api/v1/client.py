@@ -1793,6 +1793,28 @@ def client_reply_ticket(
     return _support_msg_out(msg, db)
 
 
+@router.post("/support/{ticket_id}/close", response_model=ClientTicketOut)
+def client_close_ticket(
+    ticket_id: uuid.UUID,
+    request: Request,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> ClientTicketOut:
+    customer = _get_customer_or_403(current_user, db, request)
+    ticket = _get_owned_ticket_or_404(ticket_id, customer.id, db, request, current_user.id)
+    if ticket.status == "CLOSED":
+        raise HTTPException(status_code=409, detail="Ticket is already closed.")
+    from app.models.support_ticket import TicketStatus
+    from datetime import datetime, timezone
+    ticket.status = TicketStatus.CLOSED.value
+    ticket.closed_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(ticket)
+    from app.models.audit_log import ACTION_SUPPORT_TICKET_CLOSED
+    _audit(db, ACTION_SUPPORT_TICKET_CLOSED, request, user_id=current_user.id)
+    return _client_ticket_out(ticket, db)
+
+
 @router.post(
     "/support/{ticket_id}/attachments",
     response_model=TicketAttachmentOut,

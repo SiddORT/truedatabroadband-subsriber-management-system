@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, Paperclip, Send } from "lucide-react";
+import { ArrowLeft, Loader2, Lock, Paperclip, Send } from "lucide-react";
 import { ClientLayout } from "@/layouts/ClientLayout";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/contexts/ToastContext";
@@ -103,6 +103,15 @@ export function ClientSupportDetailPage() {
     onError: () => showToast("Upload failed.", "error"),
   });
 
+  const closeTicket = useMutation({
+    mutationFn: () => clientSupportApi.close(id!),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["client-ticket", id] });
+      showToast("Ticket closed.", "success");
+    },
+    onError: () => showToast("Failed to close ticket.", "error"),
+  });
+
   if (isLoading) {
     return (
       <ClientLayout title="Support">
@@ -157,6 +166,26 @@ export function ClientSupportDetailPage() {
             </div>
             <h2 className="mt-1 text-lg font-semibold leading-tight">{ticket.subject}</h2>
           </div>
+          {!isClosed && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 border-red-200 text-red-600 hover:bg-red-50"
+              disabled={closeTicket.isPending}
+              onClick={() => {
+                if (confirm("Close this ticket? You won't be able to reply once it's closed.")) {
+                  closeTicket.mutate();
+                }
+              }}
+            >
+              {closeTicket.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Lock className="h-4 w-4" />
+              )}
+              Close Ticket
+            </Button>
+          )}
         </div>
 
         {/* Conversation */}

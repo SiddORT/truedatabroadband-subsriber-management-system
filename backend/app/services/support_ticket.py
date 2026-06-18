@@ -396,13 +396,14 @@ class SupportTicketService:
         old_priority = ticket.priority
         now = datetime.now(timezone.utc)
 
-        # Validate status transition
+        # Validate status transition (admin may force-close from any state)
         if update.status is not None and update.status.value != ticket.status:
-            allowed = ALLOWED_TRANSITIONS.get(ticket.status, [])
-            if update.status.value not in allowed:
-                raise SupportError(
-                    f"Cannot transition from {ticket.status} to {update.status.value}."
-                )
+            if update.status != TicketStatus.CLOSED:
+                allowed = ALLOWED_TRANSITIONS.get(ticket.status, [])
+                if update.status.value not in allowed:
+                    raise SupportError(
+                        f"Cannot transition from {ticket.status} to {update.status.value}."
+                    )
             ticket.status = update.status.value
             if ticket.status == TicketStatus.RESOLVED:
                 ticket.resolved_at = now
