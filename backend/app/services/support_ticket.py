@@ -267,8 +267,8 @@ class SupportTicketService:
         )
         msg = self.msg_repo.create(msg)
 
-        # Auto-move from WAITING_FOR_CUSTOMER → IN_PROGRESS
-        if ticket.status == TicketStatus.WAITING_FOR_CUSTOMER:
+        # Auto-move: OPEN or WAITING_FOR_CUSTOMER → IN_PROGRESS on client reply
+        if ticket.status in (TicketStatus.WAITING_FOR_CUSTOMER, TicketStatus.OPEN):
             ticket.status = TicketStatus.IN_PROGRESS
             self.repo.update(ticket)
 
@@ -335,9 +335,12 @@ class SupportTicketService:
         )
         msg = self.msg_repo.create(msg)
 
-        # Set first_response_at if this is the first non-internal admin reply
-        if not is_internal_note and ticket.first_response_at is None:
-            ticket.first_response_at = datetime.now(timezone.utc)
+        # Set first_response_at + auto-move OPEN → IN_PROGRESS on first admin reply
+        if not is_internal_note:
+            if ticket.first_response_at is None:
+                ticket.first_response_at = datetime.now(timezone.utc)
+            if ticket.status == TicketStatus.OPEN:
+                ticket.status = TicketStatus.IN_PROGRESS
             self.repo.update(ticket)
 
         action = (

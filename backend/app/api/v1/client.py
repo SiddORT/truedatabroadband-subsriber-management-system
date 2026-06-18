@@ -1805,13 +1805,19 @@ def client_close_ticket(
     if ticket.status == "CLOSED":
         raise HTTPException(status_code=409, detail="Ticket is already closed.")
     from app.models.support_ticket import TicketStatus
-    from datetime import datetime, timezone
-    ticket.status = TicketStatus.CLOSED.value
-    ticket.closed_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(ticket)
-    from app.models.audit_log import ACTION_SUPPORT_TICKET_CLOSED
-    _audit(db, ACTION_SUPPORT_TICKET_CLOSED, request, user_id=current_user.id)
+    from app.schemas.support_ticket import AdminTicketUpdate
+    from app.services.support_ticket import SupportTicketService, SupportError
+    svc = SupportTicketService(db)
+    try:
+        ticket = svc.admin_update_ticket(
+            ticket,
+            AdminTicketUpdate(status=TicketStatus.CLOSED),
+            actor_user_id=current_user.id,
+            actor_ip=request.client.host if request.client else None,
+            actor_ua=request.headers.get("user-agent"),
+        )
+    except SupportError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     return _client_ticket_out(ticket, db)
 
 

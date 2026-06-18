@@ -25,6 +25,9 @@ interface RenewalRequest {
   review_notes: string | null;
   reviewed_at: string | null;
   created_at: string;
+  new_subscription_code: string | null;
+  renewal_start_date: string | null;
+  renewal_end_date: string | null;
 }
 
 interface PlanChangeRequest {
@@ -135,8 +138,17 @@ function RenewalTab() {
   const mutate = useMutation({
     mutationFn: ({ id, action, notes }: { id: string; action: string; notes: string }) =>
       api.post(`/subscription-requests/renewal/${id}/${action}`, { review_notes: notes || null }),
-    onSuccess: (_, vars) => {
-      showToast(vars.action === "approve" ? "Renewal approved and executed." : "Request rejected.", vars.action === "approve" ? "success" : "info");
+    onSuccess: (res, vars) => {
+      if (vars.action === "approve") {
+        const d = res.data as { new_subscription_code?: string; renewal_start_date?: string; renewal_end_date?: string };
+        const code = d?.new_subscription_code;
+        const msg = code
+          ? `Renewal approved. New subscription ${code} scheduled from ${d.renewal_start_date} to ${d.renewal_end_date}.`
+          : "Renewal approved. New subscription created.";
+        showToast(msg, "success");
+      } else {
+        showToast("Request rejected.", "info");
+      }
       qc.invalidateQueries({ queryKey: ["admin-renewal-requests"] });
       setDialog(null);
     },
@@ -208,10 +220,15 @@ function RenewalTab() {
                   <td className="px-4 py-3 text-sm">
                     {BILLING_CYCLE_LABELS[req.requested_billing_cycle] ?? req.requested_billing_cycle}
                   </td>
-                  <td className="px-4 py-3 max-w-[180px]">
+                  <td className="px-4 py-3 max-w-[200px]">
                     <p className="truncate text-xs text-muted-foreground">{req.remarks || "—"}</p>
                     {req.review_notes && (
                       <p className="mt-0.5 truncate text-xs text-muted-foreground italic">Review: {req.review_notes}</p>
+                    )}
+                    {req.status === "APPROVED" && req.new_subscription_code && (
+                      <p className="mt-1 text-xs font-medium text-green-700">
+                        New: {req.new_subscription_code} ({req.renewal_start_date} → {req.renewal_end_date})
+                      </p>
                     )}
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{fmt(req.created_at)}</td>
@@ -275,7 +292,7 @@ function PlanChangeTab() {
     onSuccess: (_, vars) => {
       showToast(
         vars.action === "approve"
-          ? "Plan change approved. Go to the subscription to execute it."
+          ? "Plan change approved and applied. The subscription now reflects the new plan."
           : "Request rejected.",
         vars.action === "approve" ? "success" : "info",
       );

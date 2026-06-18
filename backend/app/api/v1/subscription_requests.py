@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
@@ -8,11 +8,13 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.dependencies.auth import require_superadmin
 from app.models.customer import Customer
-from app.models.plan import Plan
+from app.models.plan import Plan, PlanPricing
 from app.models.plan_change_request import PlanChangeRequest, PlanChangeRequestStatus
 from app.models.renewal_request import RenewalRequest, RenewalRequestStatus
 from app.models.subscription import Subscription
 from app.models.user import User
+from app.schemas.subscription import SubscriptionChangePlan, SubscriptionCreate
+from app.services.notifications.notification_service import NotificationService, Recipient
 from app.services.subscription import SubscriptionError, SubscriptionService
 
 router = APIRouter(prefix="/subscription-requests", tags=["subscription-requests"])
@@ -36,6 +38,9 @@ class RenewalRequestOut(BaseModel):
     review_notes: str | None
     reviewed_at: datetime | None
     created_at: datetime
+    new_subscription_code: str | None = None
+    renewal_start_date: date | None = None
+    renewal_end_date: date | None = None
 
 
 class PlanChangeRequestOut(BaseModel):
@@ -57,7 +62,12 @@ class PlanChangeRequestOut(BaseModel):
     created_at: datetime
 
 
-def _build_renewal_out(req: RenewalRequest, sub: Subscription, cust: Customer) -> RenewalRequestOut:
+def _build_renewal_out(
+    req: RenewalRequest,
+    sub: Subscription,
+    cust: Customer,
+    new_sub: Subscription | None = None,
+) -> RenewalRequestOut:
     return RenewalRequestOut(
         id=req.id,
         status=req.status,
@@ -72,6 +82,9 @@ def _build_renewal_out(req: RenewalRequest, sub: Subscription, cust: Customer) -
         review_notes=req.review_notes,
         reviewed_at=req.reviewed_at,
         created_at=req.created_at,
+        new_subscription_code=new_sub.subscription_code if new_sub else None,
+        renewal_start_date=new_sub.start_date if new_sub else None,
+        renewal_end_date=new_sub.expiry_date if new_sub else None,
     )
 
 
@@ -146,12 +159,40 @@ def approve_renewal(
     if not sub or not cust:
         raise HTTPException(status_code=404, detail="Subscription or customer not found.")
 
+    # Find pricing for the same plan matching requested billing cycle
+    pricing = (
+        db.query(PlanPricing)
+        .filter(
+            PlanPricing.plan_id == sub.plan_id,
+            PlanPricing.billing_cycle == req.requested_billing_cycle,
+            PlanPricing.deleted_at.is_(None),
+            PlanPricing.is_active.is_(True),
+        )
+        .first()
+    )
+    if pricing is None:
+        raise HTTPException(
+            status_code=409,
+            detail=f"No active pricing found for billing cycle '{req.requested_billing_cycle}' on the current plan.",
+        )
+
+    # Create a NEW subscription starting the day after the current one ends
+    new_start = sub.expiry_date + timedelta(days=1)
+    create_payload = SubscriptionCreate(
+        customer_id=req.customer_id,
+        plan_pricing_id=pricing.id,
+        start_date=new_start,
+        connection_name=sub.connection_name,
+        installation_address=sub.installation_address,
+        remarks=sub.remarks,
+    )
     try:
-        SubscriptionService(db).renew(
-            sub,
+        new_sub = SubscriptionService(db).create(
+            create_payload,
             actor_id=current_user.id,
             ip_address=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
+            force=True,
         )
     except SubscriptionError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
@@ -162,8 +203,7 @@ def approve_renewal(
     req.reviewed_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(req)
-    db.refresh(sub)
-    return _build_renewal_out(req, sub, cust)
+    return _build_renewal_out(req, sub, cust, new_sub)
 
 
 @router.post("/renewal/{request_id}/reject", response_model=RenewalRequestOut)
@@ -224,6 +264,7 @@ def list_plan_change_requests(
 def approve_plan_change(
     request_id: uuid.UUID,
     payload: ReviewPayload,
+    request: Request,
     current_user: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ) -> PlanChangeRequestOut:
@@ -241,12 +282,72 @@ def approve_plan_change(
     current_plan = db.get(Plan, req.current_plan_id)
     requested_plan = db.get(Plan, req.requested_plan_id)
 
+    # Find pricing for the requested plan matching the current subscription's billing cycle
+    pricing = (
+        db.query(PlanPricing)
+        .filter(
+            PlanPricing.plan_id == req.requested_plan_id,
+            PlanPricing.billing_cycle == sub.billing_cycle_snapshot,
+            PlanPricing.deleted_at.is_(None),
+            PlanPricing.is_active.is_(True),
+        )
+        .first()
+    )
+    if pricing is None:
+        # Fallback: any active pricing for the requested plan
+        pricing = (
+            db.query(PlanPricing)
+            .filter(
+                PlanPricing.plan_id == req.requested_plan_id,
+                PlanPricing.deleted_at.is_(None),
+                PlanPricing.is_active.is_(True),
+            )
+            .first()
+        )
+    if pricing is None:
+        raise HTTPException(
+            status_code=409,
+            detail="No active pricing found for the requested plan. Cannot execute plan change.",
+        )
+
+    # Execute the plan change — cancels current sub and creates new one
+    change_payload = SubscriptionChangePlan(
+        plan_pricing_id=pricing.id,
+        start_date=date.today(),
+    )
+    try:
+        SubscriptionService(db).change_plan(
+            sub,
+            change_payload,
+            actor_id=current_user.id,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+    except SubscriptionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+    # Notify customer via PLAN_CHANGED template (fire-and-forget)
+    try:
+        NotificationService(db).send(
+            template_key="PLAN_CHANGED",
+            recipient=Recipient(email=cust.email),
+            variables={
+                "customer_name": cust.full_name,
+                "old_plan_name": current_plan.name if current_plan else sub.plan_name_snapshot,
+                "new_plan_name": requested_plan.name if requested_plan else "New Plan",
+            },
+            customer_id=cust.id,
+        )
+    except Exception:
+        pass
+
     req.status = PlanChangeRequestStatus.APPROVED
     req.reviewed_by_user_id = current_user.id
     req.review_notes = payload.review_notes
     req.reviewed_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(req)
+    # sub is now cancelled; return request info with the recorded plan names
     return _build_plan_change_out(req, sub, cust, current_plan, requested_plan)
 
 

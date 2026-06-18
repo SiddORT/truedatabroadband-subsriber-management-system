@@ -228,12 +228,18 @@ _DEFAULT_TEMPLATES: list[dict] = [
         "channel": NotificationChannel.EMAIL,
         "subject": "Your Broadband Plan Has Been Changed - True Data Broadband",
         "body": (
-            "<p>Dear Customer,</p>"
-            "<p>Your broadband plan has been updated. "
-            "Please contact support if you have any questions.</p>"
+            "<p>Dear <strong>{customer_name}</strong>,</p>"
+            "<p>Your broadband plan has been successfully updated as per your request.</p>"
+            "<table style='border-collapse:collapse;margin:12px 0;'>"
+            "<tr><td style='padding:4px 16px 4px 0;color:#555;'>Previous Plan</td>"
+            "<td style='padding:4px 0;'>{old_plan_name}</td></tr>"
+            "<tr><td style='padding:4px 16px 4px 0;color:#555;'>New Plan</td>"
+            "<td style='padding:4px 0;font-weight:600;color:#1F4959;'>{new_plan_name}</td></tr>"
+            "</table>"
+            "<p>Your new plan is now active. Please contact support if you have any questions.</p>"
             "<p>Regards,<br>True Data Broadband Team</p>"
         ),
-        "approved_variables": [],
+        "approved_variables": ["customer_name", "old_plan_name", "new_plan_name"],
     },
     # ── SUPPORT_TICKET_CREATED ────────────────────────────────────────────
     {

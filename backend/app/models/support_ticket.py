@@ -37,12 +37,19 @@ class TicketStatus(str, enum.Enum):
     CLOSED = "CLOSED"
 
 
-# Valid status transitions
+# Valid status transitions — admin can move to any non-closed state from any non-closed state
+_ALL_OPEN = [
+    TicketStatus.OPEN,
+    TicketStatus.IN_PROGRESS,
+    TicketStatus.WAITING_FOR_CUSTOMER,
+    TicketStatus.RESOLVED,
+    TicketStatus.CLOSED,
+]
 ALLOWED_TRANSITIONS: dict[str, list[str]] = {
-    TicketStatus.OPEN: [TicketStatus.IN_PROGRESS],
-    TicketStatus.IN_PROGRESS: [TicketStatus.WAITING_FOR_CUSTOMER, TicketStatus.RESOLVED],
-    TicketStatus.WAITING_FOR_CUSTOMER: [TicketStatus.IN_PROGRESS, TicketStatus.RESOLVED],
-    TicketStatus.RESOLVED: [TicketStatus.CLOSED, TicketStatus.IN_PROGRESS],
+    TicketStatus.OPEN: [TicketStatus.IN_PROGRESS, TicketStatus.WAITING_FOR_CUSTOMER, TicketStatus.RESOLVED, TicketStatus.CLOSED],
+    TicketStatus.IN_PROGRESS: [TicketStatus.OPEN, TicketStatus.WAITING_FOR_CUSTOMER, TicketStatus.RESOLVED, TicketStatus.CLOSED],
+    TicketStatus.WAITING_FOR_CUSTOMER: [TicketStatus.OPEN, TicketStatus.IN_PROGRESS, TicketStatus.RESOLVED, TicketStatus.CLOSED],
+    TicketStatus.RESOLVED: [TicketStatus.OPEN, TicketStatus.IN_PROGRESS, TicketStatus.CLOSED],
     TicketStatus.CLOSED: [],
 }
 
