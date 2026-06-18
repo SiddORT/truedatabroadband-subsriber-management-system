@@ -352,25 +352,26 @@ export function InvoiceCreatePage() {
     setConsolidatedSubs([]);
   }, [customerId]);
 
-  // ── Auto-calculate billing period end from subscription billing cycle ────
+  // ── Auto-set billing period end from subscription expiry date ───────────
+  // SINGLE: use the selected subscription's expiry_date directly
   useEffect(() => {
     if (invoiceType !== "SINGLE") return;
     const subs = subsData?.items ?? [];
-    const cycle = subs.find((s) => s.id === subscriptionId)?.billing_cycle_snapshot;
-    if (!cycle || !billingStart) return;
-    const parts = billingStart.split("-").map(Number);
-    if (parts.length !== 3 || parts.some(isNaN)) return;
-    let [y, m, d] = parts;
-    if (cycle === "MONTHLY")         { m += 1; }
-    else if (cycle === "QUARTERLY")  { m += 3; }
-    else if (cycle === "HALF_YEARLY") { m += 6; }
-    else                             { y += 1; } // ANNUALLY
-    while (m > 12) { m -= 12; y += 1; }
-    const nextStart = new Date(y, m - 1, d);
-    nextStart.setDate(nextStart.getDate() - 1);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    setBillingEnd(`${nextStart.getFullYear()}-${pad(nextStart.getMonth() + 1)}-${pad(nextStart.getDate())}`);
-  }, [subscriptionId, billingStart, invoiceType, subsData]);
+    const expiry = subs.find((s) => s.id === subscriptionId)?.expiry_date;
+    if (expiry) setBillingEnd(expiry);
+  }, [subscriptionId, invoiceType, subsData]);
+
+  // CONSOLIDATED: use max(expiry_date) across all enabled subscriptions
+  useEffect(() => {
+    if (invoiceType !== "CONSOLIDATED") return;
+    const enabled = consolidatedSubs.filter((s) => s.enabled);
+    if (enabled.length === 0) return;
+    const maxExpiry = enabled.reduce((max, s) =>
+      s.sub.expiry_date > max ? s.sub.expiry_date : max,
+      enabled[0].sub.expiry_date,
+    );
+    if (maxExpiry) setBillingEnd(maxExpiry);
+  }, [consolidatedSubs, invoiceType]);
 
   // ── SINGLE: amount calculations ──────────────────────────────────────────
 

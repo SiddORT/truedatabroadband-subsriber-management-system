@@ -1017,17 +1017,35 @@ export function InvoiceDetailPage() {
         open={payDialog}
         onClose={() => setPayDialog(false)}
         title="Record Payment"
+        fullscreen
       >
-        <div className="space-y-4">
-          <div className="rounded-lg bg-muted/40 px-4 py-3 text-sm">
-            Balance due:{" "}
-            <span className="font-bold text-red-600">
-              {fmtMoney(inv.balance_amount)}
-            </span>
+        <div className="mx-auto w-full max-w-2xl space-y-6">
+          {/* Invoice summary banner */}
+          <div className="rounded-xl border border-border bg-muted/30 px-5 py-4">
+            <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
+              <div>
+                <p className="text-xs text-muted-foreground">Invoice #</p>
+                <p className="font-mono font-semibold">{inv.invoice_number}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total</p>
+                <p className="font-semibold">₹{fmtMoney(inv.total_amount)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Paid</p>
+                <p className="font-semibold text-green-600">₹{fmtMoney(inv.paid_amount)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Balance Due</p>
+                <p className="text-base font-bold text-red-600">₹{fmtMoney(inv.balance_amount)}</p>
+              </div>
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium">
+
+          {/* Form fields */}
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium">
                 Amount <span className="text-red-500">*</span>
               </label>
               <input
@@ -1036,54 +1054,57 @@ export function InvoiceDetailPage() {
                 min="0.01"
                 value={payAmount}
                 onChange={(e) => setPayAmount(e.target.value)}
-                className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium">
                 Payment Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
                 value={payDate}
                 onChange={(e) => setPayDate(e.target.value)}
-                className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium">Payment Method</label>
+              <select
+                value={payMethod}
+                onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                <option value="CASH">Cash</option>
+                <option value="UPI">UPI</option>
+                <option value="BANK_TRANSFER">Bank Transfer</option>
+                <option value="CHEQUE">Cheque</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium">Transaction Reference</label>
+              <input
+                type="text"
+                value={payRef}
+                onChange={(e) => setPayRef(e.target.value)}
+                placeholder="UTR / Cheque No. / etc."
+                className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
             </div>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium">Payment Method</label>
-            <select
-              value={payMethod}
-              onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}
-              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-            >
-              <option value="CASH">Cash</option>
-              <option value="UPI">UPI</option>
-              <option value="BANK_TRANSFER">Bank Transfer</option>
-              <option value="CHEQUE">Cheque</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium">Transaction Reference</label>
-            <input
-              type="text"
-              value={payRef}
-              onChange={(e) => setPayRef(e.target.value)}
-              placeholder="UTR / Cheque No. / etc."
-              className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium">Notes</label>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium">Notes</label>
             <textarea
               value={payNotes}
               onChange={(e) => setPayNotes(e.target.value)}
-              rows={2}
-              className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              rows={4}
+              placeholder="Optional notes about this payment…"
+              className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </div>
-          <div className="flex justify-end gap-3">
+
+          <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
             <Button
               variant="outline"
               onClick={() => setPayDialog(false)}

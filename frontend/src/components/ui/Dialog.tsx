@@ -8,9 +8,10 @@ interface DialogProps {
   title?: string;
   children: ReactNode;
   className?: string;
+  fullscreen?: boolean;
 }
 
-export function Dialog({ open, onClose, title, children, className }: DialogProps) {
+export function Dialog({ open, onClose, title, children, className, fullscreen }: DialogProps) {
   // Close on Escape
   useEffect(() => {
     if (!open) return;
@@ -34,6 +35,28 @@ export function Dialog({ open, onClose, title, children, className }: DialogProp
   }, [open]);
 
   if (!open) return null;
+
+  if (fullscreen) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col bg-background">
+        {/* Header */}
+        <div className="flex shrink-0 items-center justify-between border-b border-border bg-background px-6 py-4 shadow-sm">
+          {title && <h2 className="text-lg font-semibold text-foreground">{title}</h2>}
+          <button
+            onClick={onClose}
+            className="ml-auto text-muted-foreground transition-colors hover:text-foreground"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        {/* Scrollable body */}
+        <div className={cn("flex-1 overflow-y-auto px-6 py-6", className)}>
+          {children}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
