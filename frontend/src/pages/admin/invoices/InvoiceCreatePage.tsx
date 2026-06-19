@@ -194,10 +194,7 @@ function buildLineItems(rows: ChargeRow[]) {
 }
 
 function makeDefaultRows(): ChargeRow[] {
-  return [
-    { id: 1, description: "Installation Charges", locked: true,  amount: "", discountType: "", discountValue: "" },
-    { id: 2, description: "Service Charges",       locked: true,  amount: "", discountType: "", discountValue: "" },
-  ];
+  return [];
 }
 
 // ── Subscription charge card (for CONSOLIDATED mode) ──────────────────────────
