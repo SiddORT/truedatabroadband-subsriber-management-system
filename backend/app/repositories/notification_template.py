@@ -45,10 +45,22 @@ class NotificationTemplateRepository:
         return template
 
     def upsert(self, template_key: str, channel: str, **kwargs: object) -> NotificationTemplate:
-        """Create or update a template by key+channel. Used by seed."""
+        """Create or update a template by key+channel. Used by seed.
+
+        On existing records: always syncs code-owned fields (approved_variables,
+        dlt_template_id) while preserving admin-editable fields (body, subject,
+        is_active).
+        """
         existing = self.get_by_key_and_channel(template_key, channel)
         if existing is not None:
-            return existing  # preserve any admin edits
+            # Sync metadata that is code-owned, not user-editable
+            if "approved_variables" in kwargs:
+                existing.approved_variables = kwargs["approved_variables"]
+            if "dlt_template_id" in kwargs and kwargs["dlt_template_id"] is not None:
+                existing.dlt_template_id = kwargs["dlt_template_id"]
+            self.db.commit()
+            self.db.refresh(existing)
+            return existing
         tmpl = NotificationTemplate(
             id=uuid.uuid4(),
             template_key=template_key,
