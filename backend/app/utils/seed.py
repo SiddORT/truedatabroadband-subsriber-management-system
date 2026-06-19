@@ -371,13 +371,10 @@ _DEFAULT_TEMPLATES: list[dict] = [
         "channel": NotificationChannel.SMS,
         "subject": None,
         "body": (
-            "TrueData: Your broadband subscription {subscription_code} is now active. "
-            "Plan: {plan_name}. Valid till {expiry_date}. "
-            "Login: {portal_url}"
+            "TrueData: Welcome {customer_name}. Your service request has been completed successfully. "
+            "Plan: {plan_name}. Thank you for choosing us."
         ),
-        "approved_variables": [
-            "subscription_code", "plan_name", "expiry_date", "portal_url",
-        ],
+        "approved_variables": ["customer_name", "plan_name"],
     },
     {
         "template_key": TemplateKey.SUBSCRIPTION_ACTIVATED,
