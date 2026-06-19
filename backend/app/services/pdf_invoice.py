@@ -460,7 +460,7 @@ def _sec_charges(invoice: "Invoice") -> list:
     rows = [header_row]
 
     # Plan row
-    plan_desc = f'{invoice.plan_name_snapshot}\n<font size="7" color="#6B7280">{invoice.speed_mbps_snapshot} Mbps · {invoice.data_policy_snapshot or ""}{fup}</font>'
+    plan_desc = f'{invoice.plan_name_snapshot}<br/><font size="7" color="#6B7280">{invoice.speed_mbps_snapshot} Mbps · {invoice.data_policy_snapshot or ""}{fup}</font>'
     rows.append([
         _p(plan_desc, _s("pd", fontName=_FB, fontSize=8.5, leading=12)),
         _p(period_txt, tc_m),
