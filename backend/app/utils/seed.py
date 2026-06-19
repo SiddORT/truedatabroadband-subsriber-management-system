@@ -76,6 +76,18 @@ _DEFAULT_TEMPLATES: list[dict] = [
             "plan_name", "portal_url", "support_email", "support_phone",
         ],
     },
+    {
+        "template_key": TemplateKey.WELCOME_CUSTOMER,
+        "channel": NotificationChannel.SMS,
+        "subject": None,
+        "body": (
+            "Hi {customer_name} , Welcome to TrueData! We're excited to have you on board. "
+            "Thank you for registering on our platform. Please use your registered mobile number "
+            "to login to the TrueData portal."
+        ),
+        "dlt_template_id": "1707178179243151738",
+        "approved_variables": ["customer_name"],
+    },
     # ── OTP_LOGIN ─────────────────────────────────────────────────────────
     {
         "template_key": TemplateKey.OTP_LOGIN,
