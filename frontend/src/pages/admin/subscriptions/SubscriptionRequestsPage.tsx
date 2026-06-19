@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, ClipboardList, ExternalLink, Loader2, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  ClipboardList,
+  ExternalLink,
+  Loader2,
+  XCircle,
+  RefreshCw,
+  AlertCircle,
+} from "lucide-react";
 import { AppLayout } from "@/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/Dialog";
@@ -47,6 +55,17 @@ interface PlanChangeRequest {
   created_at: string;
 }
 
+interface RenewalPreview {
+  plan_name: string;
+  billing_cycle: string;
+  total_price: number;
+  start_date: string;
+  connection_name: string | null;
+  installation_address: string | null;
+  remarks: string | null;
+  current_expiry_date: string;
+}
+
 const STATUS_BADGE: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-700",
   APPROVED: "bg-emerald-100 text-emerald-700",
@@ -67,7 +86,175 @@ function fmt(d: string) {
   });
 }
 
-// ── Review Dialog ─────────────────────────────────────────────────────────────
+// ── Renewal Approval Modal ────────────────────────────────────────────────────
+
+function RenewalApprovalModal({
+  open,
+  requestId,
+  customerName,
+  subscriptionCode,
+  requestedBillingCycle,
+  onClose,
+  onConfirm,
+  isPending,
+}: {
+  open: boolean;
+  requestId: string;
+  customerName: string;
+  subscriptionCode: string;
+  requestedBillingCycle: string;
+  onClose: () => void;
+  onConfirm: (data: {
+    start_date: string;
+    connection_name: string;
+    installation_address: string;
+    remarks: string;
+    review_notes: string;
+  }) => void;
+  isPending: boolean;
+}) {
+  const [form, setForm] = useState({
+    start_date: "",
+    connection_name: "",
+    installation_address: "",
+    remarks: "",
+    review_notes: "",
+  });
+  const [initialised, setInitialised] = useState(false);
+
+  const { data: preview, isLoading, isError } = useQuery<RenewalPreview>({
+    queryKey: ["renewal-preview", requestId],
+    queryFn: () =>
+      api.get(`/subscription-requests/renewal/${requestId}/preview`).then((r) => r.data),
+    enabled: open,
+    staleTime: 0,
+  });
+
+  // Pre-fill form once preview loads (only once per open)
+  if (preview && !initialised) {
+    setForm({
+      start_date: preview.start_date,
+      connection_name: preview.connection_name ?? "",
+      installation_address: preview.installation_address ?? "",
+      remarks: preview.remarks ?? "",
+      review_notes: "",
+    });
+    setInitialised(true);
+  }
+
+  // Reset when closed
+  const handleClose = () => {
+    setInitialised(false);
+    setForm({ start_date: "", connection_name: "", installation_address: "", remarks: "", review_notes: "" });
+    onClose();
+  };
+
+  const field = (label: string, key: keyof typeof form, type = "text", rows?: number) => (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-muted-foreground">{label}</label>
+      {rows ? (
+        <textarea
+          value={form[key]}
+          onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+          rows={rows}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+      ) : (
+        <input
+          type={type}
+          value={form[key]}
+          onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+      )}
+    </div>
+  );
+
+  return (
+    <Dialog open={open} onClose={handleClose} title="Approve Renewal Request">
+      <div className="space-y-4 min-w-[480px]">
+        {/* Header info */}
+        <div className="rounded-lg bg-muted/40 px-4 py-3 text-sm space-y-1">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Customer</span>
+            <span className="font-medium">{customerName}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Subscription</span>
+            <span className="font-mono font-semibold text-primary">{subscriptionCode}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Billing Cycle</span>
+            <span className="font-medium">{BILLING_CYCLE_LABELS[requestedBillingCycle] ?? requestedBillingCycle}</span>
+          </div>
+        </div>
+
+        {isLoading && (
+          <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading subscription details…
+          </div>
+        )}
+
+        {isError && (
+          <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            Could not load preview. No active pricing may exist for the requested billing cycle.
+          </div>
+        )}
+
+        {preview && initialised && (
+          <>
+            {/* Plan/price summary */}
+            <div className="rounded-lg border border-border bg-primary/5 px-4 py-3 text-sm space-y-1">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Plan</span>
+                <span className="font-medium">{preview.plan_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Price</span>
+                <span className="font-semibold text-primary">₹{Number(preview.total_price).toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Current expiry</span>
+                <span>{fmt(preview.current_expiry_date)}</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground -mt-1">
+              Review the new subscription details below and adjust if needed before confirming.
+            </p>
+
+            {/* Editable fields */}
+            <div className="space-y-3">
+              {field("New Start Date", "start_date", "date")}
+              {field("Connection Name", "connection_name")}
+              {field("Installation Address", "installation_address", "text", 2)}
+              {field("Remarks", "remarks", "text", 2)}
+              {field("Review Notes (optional)", "review_notes", "text", 2)}
+            </div>
+          </>
+        )}
+
+        <div className="flex justify-end gap-2 border-t border-border pt-3">
+          <Button variant="outline" size="sm" onClick={handleClose} disabled={isPending}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            disabled={isPending || isLoading || isError || !initialised}
+            onClick={() => onConfirm(form)}
+          >
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+            Confirm Approval
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+// ── Review Dialog (reject / plan-change approve) ───────────────────────────────
 
 function ReviewDialog({
   open,
@@ -126,7 +313,8 @@ function RenewalTab() {
   const { showToast } = useToast();
   const qc = useQueryClient();
   const [statusFilter, setStatusFilter] = useState("PENDING");
-  const [dialog, setDialog] = useState<{ id: string; action: "approve" | "reject" } | null>(null);
+  const [approvalModal, setApprovalModal] = useState<RenewalRequest | null>(null);
+  const [rejectDialog, setRejectDialog] = useState<string | null>(null);
 
   const { data = [], isLoading } = useQuery<RenewalRequest[]>({
     queryKey: ["admin-renewal-requests", statusFilter],
@@ -135,22 +323,47 @@ function RenewalTab() {
         .then((r) => r.data),
   });
 
-  const mutate = useMutation({
-    mutationFn: ({ id, action, notes }: { id: string; action: string; notes: string }) =>
-      api.post(`/subscription-requests/renewal/${id}/${action}`, { review_notes: notes || null }),
-    onSuccess: (res, vars) => {
-      if (vars.action === "approve") {
-        const d = res.data as { new_subscription_code?: string; renewal_start_date?: string; renewal_end_date?: string };
-        const code = d?.new_subscription_code;
-        const msg = code
-          ? `Renewal approved. New subscription ${code} scheduled from ${d.renewal_start_date} to ${d.renewal_end_date}.`
-          : "Renewal approved. New subscription created.";
-        showToast(msg, "success");
-      } else {
-        showToast("Request rejected.", "info");
-      }
+  const approveMutate = useMutation({
+    mutationFn: ({ id, data }: {
+      id: string;
+      data: {
+        start_date: string;
+        connection_name: string;
+        installation_address: string;
+        remarks: string;
+        review_notes: string;
+      };
+    }) =>
+      api.post(`/subscription-requests/renewal/${id}/approve`, {
+        review_notes: data.review_notes || null,
+        start_date: data.start_date || null,
+        connection_name: data.connection_name || null,
+        installation_address: data.installation_address || null,
+        remarks: data.remarks || null,
+      }),
+    onSuccess: (res) => {
+      const d = res.data as { new_subscription_code?: string; renewal_start_date?: string; renewal_end_date?: string };
+      const code = d?.new_subscription_code;
+      const msg = code
+        ? `Renewal approved. New subscription ${code} scheduled from ${d.renewal_start_date} to ${d.renewal_end_date}.`
+        : "Renewal approved. New subscription created.";
+      showToast(msg, "success");
       qc.invalidateQueries({ queryKey: ["admin-renewal-requests"] });
-      setDialog(null);
+      setApprovalModal(null);
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? "Approval failed.";
+      showToast(msg, "error");
+    },
+  });
+
+  const rejectMutate = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes: string }) =>
+      api.post(`/subscription-requests/renewal/${id}/reject`, { review_notes: notes || null }),
+    onSuccess: () => {
+      showToast("Request rejected.", "info");
+      qc.invalidateQueries({ queryKey: ["admin-renewal-requests"] });
+      setRejectDialog(null);
     },
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? "Action failed.";
@@ -240,11 +453,20 @@ function RenewalTab() {
                   <td className="px-4 py-3 text-right">
                     {req.status === "PENDING" && (
                       <div className="flex items-center justify-end gap-1">
-                        <Button size="sm" className="h-7 gap-1 text-xs" onClick={() => setDialog({ id: req.id, action: "approve" })}>
+                        <Button
+                          size="sm"
+                          className="h-7 gap-1 text-xs"
+                          onClick={() => setApprovalModal(req)}
+                        >
                           <CheckCircle2 className="h-3.5 w-3.5" />
                           Approve
                         </Button>
-                        <Button size="sm" variant="outline" className="h-7 gap-1 text-xs text-destructive hover:text-destructive" onClick={() => setDialog({ id: req.id, action: "reject" })}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 gap-1 text-xs text-destructive hover:text-destructive"
+                          onClick={() => setRejectDialog(req.id)}
+                        >
                           <XCircle className="h-3.5 w-3.5" />
                           Reject
                         </Button>
@@ -258,13 +480,26 @@ function RenewalTab() {
         </div>
       )}
 
-      {dialog && (
+      {approvalModal && (
+        <RenewalApprovalModal
+          open
+          requestId={approvalModal.id}
+          customerName={approvalModal.customer_name}
+          subscriptionCode={approvalModal.subscription_code}
+          requestedBillingCycle={approvalModal.requested_billing_cycle}
+          onClose={() => setApprovalModal(null)}
+          isPending={approveMutate.isPending}
+          onConfirm={(data) => approveMutate.mutate({ id: approvalModal.id, data })}
+        />
+      )}
+
+      {rejectDialog && (
         <ReviewDialog
           open
-          onClose={() => setDialog(null)}
-          action={dialog.action}
-          isPending={mutate.isPending}
-          onConfirm={(notes) => mutate.mutate({ id: dialog.id, action: dialog.action, notes })}
+          onClose={() => setRejectDialog(null)}
+          action="reject"
+          isPending={rejectMutate.isPending}
+          onConfirm={(notes) => rejectMutate.mutate({ id: rejectDialog, notes })}
         />
       )}
     </div>

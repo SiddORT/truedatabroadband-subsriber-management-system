@@ -474,11 +474,12 @@ class SupportTicketService:
         if customer_email and (
             old_status != ticket.status or old_priority != ticket.priority
         ):
-            resolved_notes = (
-                "Your issue has been resolved." if ticket.status == TicketStatus.RESOLVED
-                else f"Status changed to {ticket.status.replace('_', ' ').title()}."
-            )
-            if ticket.status == TicketStatus.RESOLVED:
+            if ticket.status in (TicketStatus.RESOLVED, TicketStatus.CLOSED):
+                resolved_notes = (
+                    "Your ticket has been closed."
+                    if ticket.status == TicketStatus.CLOSED
+                    else "Your issue has been resolved."
+                )
                 self._send_support_email(
                     TemplateKey.SUPPORT_TICKET_RESOLVED.value,
                     customer_email,

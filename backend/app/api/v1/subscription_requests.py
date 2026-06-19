@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
@@ -22,6 +23,24 @@ router = APIRouter(prefix="/subscription-requests", tags=["subscription-requests
 
 class ReviewPayload(BaseModel):
     review_notes: str | None = None
+
+
+class ApproveRenewalPayload(ReviewPayload):
+    start_date: date | None = None
+    connection_name: str | None = None
+    installation_address: str | None = None
+    remarks: str | None = None
+
+
+class RenewalPreviewOut(BaseModel):
+    plan_name: str
+    billing_cycle: str
+    total_price: Decimal
+    start_date: date
+    connection_name: str | None
+    installation_address: str | None
+    remarks: str | None
+    current_expiry_date: date
 
 
 class RenewalRequestOut(BaseModel):
@@ -140,10 +159,64 @@ def list_renewal_requests(
     return result
 
 
+def _get_renewal_pricing(
+    db: Session,
+    sub: Subscription,
+    requested_billing_cycle: str,
+) -> PlanPricing:
+    pricing = (
+        db.query(PlanPricing)
+        .filter(
+            PlanPricing.plan_id == sub.plan_id,
+            PlanPricing.billing_cycle == requested_billing_cycle,
+            PlanPricing.deleted_at.is_(None),
+            PlanPricing.is_active.is_(True),
+        )
+        .first()
+    )
+    if pricing is None:
+        raise HTTPException(
+            status_code=409,
+            detail=f"No active pricing found for billing cycle '{requested_billing_cycle}' on the current plan.",
+        )
+    return pricing
+
+
+@router.get("/renewal/{request_id}/preview", response_model=RenewalPreviewOut)
+def preview_renewal(
+    request_id: uuid.UUID,
+    current_user: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+) -> RenewalPreviewOut:
+    req = db.get(RenewalRequest, request_id)
+    if not req or req.deleted_at:
+        raise HTTPException(status_code=404, detail="Request not found.")
+    if req.status != RenewalRequestStatus.PENDING:
+        raise HTTPException(status_code=409, detail="Only PENDING requests can be previewed.")
+
+    sub = db.get(Subscription, req.subscription_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found.")
+
+    pricing = _get_renewal_pricing(db, sub, req.requested_billing_cycle)
+    plan = db.get(Plan, sub.plan_id)
+
+    return RenewalPreviewOut(
+        plan_name=plan.name if plan else sub.plan_name_snapshot,
+        billing_cycle=req.requested_billing_cycle,
+        total_price=pricing.total_price,
+        start_date=sub.expiry_date + timedelta(days=1),
+        connection_name=sub.connection_name,
+        installation_address=sub.installation_address,
+        remarks=sub.remarks,
+        current_expiry_date=sub.expiry_date,
+    )
+
+
 @router.post("/renewal/{request_id}/approve", response_model=RenewalRequestOut)
 def approve_renewal(
     request_id: uuid.UUID,
-    payload: ReviewPayload,
+    payload: ApproveRenewalPayload,
     request: Request,
     current_user: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
@@ -159,32 +232,17 @@ def approve_renewal(
     if not sub or not cust:
         raise HTTPException(status_code=404, detail="Subscription or customer not found.")
 
-    # Find pricing for the same plan matching requested billing cycle
-    pricing = (
-        db.query(PlanPricing)
-        .filter(
-            PlanPricing.plan_id == sub.plan_id,
-            PlanPricing.billing_cycle == req.requested_billing_cycle,
-            PlanPricing.deleted_at.is_(None),
-            PlanPricing.is_active.is_(True),
-        )
-        .first()
-    )
-    if pricing is None:
-        raise HTTPException(
-            status_code=409,
-            detail=f"No active pricing found for billing cycle '{req.requested_billing_cycle}' on the current plan.",
-        )
+    pricing = _get_renewal_pricing(db, sub, req.requested_billing_cycle)
 
-    # Create a NEW subscription starting the day after the current one ends
-    new_start = sub.expiry_date + timedelta(days=1)
+    # Allow admin overrides; fall back to values from the expiring subscription
+    new_start = payload.start_date if payload.start_date else sub.expiry_date + timedelta(days=1)
     create_payload = SubscriptionCreate(
         customer_id=req.customer_id,
         plan_pricing_id=pricing.id,
         start_date=new_start,
-        connection_name=sub.connection_name,
-        installation_address=sub.installation_address,
-        remarks=sub.remarks,
+        connection_name=payload.connection_name if payload.connection_name is not None else sub.connection_name,
+        installation_address=payload.installation_address if payload.installation_address is not None else sub.installation_address,
+        remarks=payload.remarks if payload.remarks is not None else sub.remarks,
     )
     try:
         new_sub = SubscriptionService(db).create(
