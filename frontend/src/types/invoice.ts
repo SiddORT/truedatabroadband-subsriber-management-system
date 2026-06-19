@@ -90,6 +90,9 @@ export interface Invoice extends InvoiceListItem {
   terms_snapshot: string | null;
   customer_email_snapshot: string | null;
   customer_mobile_snapshot: string | null;
+  customer_type_snapshot: string | null;
+  customer_company_snapshot: string | null;
+  customer_gst_snapshot: string | null;
   installation_address_snapshot: string | null;
   plan_code_snapshot: string;
   plan_name_snapshot: string;

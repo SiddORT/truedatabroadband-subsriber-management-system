@@ -102,6 +102,9 @@ class Invoice(Base, BaseModelMixin):
     customer_name_snapshot: Mapped[str] = mapped_column(String(255), nullable=False)
     customer_email_snapshot: Mapped[str | None] = mapped_column(String(255), nullable=True)
     customer_mobile_snapshot: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    customer_type_snapshot: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    customer_company_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
+    customer_gst_snapshot: Mapped[str | None] = mapped_column(String(15), nullable=True)
 
     # ── Connection snapshots ───────────────────────────────────────────────
     connection_name_snapshot: Mapped[str] = mapped_column(String(100), nullable=False)

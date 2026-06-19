@@ -179,6 +179,9 @@ class InvoiceOut(BaseModel):
     customer_name_snapshot: str
     customer_email_snapshot: Optional[str] = None
     customer_mobile_snapshot: Optional[str] = None
+    customer_type_snapshot: Optional[str] = None
+    customer_company_snapshot: Optional[str] = None
+    customer_gst_snapshot: Optional[str] = None
 
     # Connection snapshots
     connection_name_snapshot: str

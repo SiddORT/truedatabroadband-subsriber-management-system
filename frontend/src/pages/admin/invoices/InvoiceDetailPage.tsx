@@ -484,12 +484,28 @@ export function InvoiceDetailPage() {
                       Billed To
                     </p>
                     <div className="space-y-1">
-                      <p className="font-semibold text-foreground">
-                        {inv.customer_name_snapshot}
-                      </p>
+                      {inv.customer_type_snapshot === "BUSINESS" && inv.customer_company_snapshot ? (
+                        <>
+                          <p className="font-semibold text-foreground">
+                            {inv.customer_company_snapshot}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Contact: {inv.customer_name_snapshot}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="font-semibold text-foreground">
+                          {inv.customer_name_snapshot}
+                        </p>
+                      )}
                       <p className="font-mono text-xs text-muted-foreground">
                         {inv.customer_code_snapshot}
                       </p>
+                      {inv.customer_gst_snapshot && (
+                        <p className="text-xs font-medium text-foreground">
+                          GSTIN: <span className="font-mono">{inv.customer_gst_snapshot}</span>
+                        </p>
+                      )}
                       {inv.installation_address_snapshot && (
                         <p className="text-xs text-muted-foreground">
                           {inv.installation_address_snapshot}

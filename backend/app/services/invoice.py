@@ -269,6 +269,9 @@ class InvoiceService:
             customer_name_snapshot=customer.full_name,
             customer_email_snapshot=getattr(customer, "email", None),
             customer_mobile_snapshot=getattr(customer, "mobile_number", None),
+            customer_type_snapshot=customer.customer_type.value if customer.customer_type else None,
+            customer_company_snapshot=getattr(customer, "company_name", None),
+            customer_gst_snapshot=getattr(customer, "gst_number", None),
             # Connection snapshots
             connection_name_snapshot=sub.connection_name or sub.subscription_code,
             installation_address_snapshot=sub.installation_address or self._build_installation_address(customer),
@@ -770,6 +773,9 @@ class InvoiceService:
             customer_name_snapshot=customer.full_name,
             customer_email_snapshot=getattr(customer, "email", None),
             customer_mobile_snapshot=getattr(customer, "mobile_number", None),
+            customer_type_snapshot=customer.customer_type.value if customer.customer_type else None,
+            customer_company_snapshot=getattr(customer, "company_name", None),
+            customer_gst_snapshot=getattr(customer, "gst_number", None),
             # Connection snapshots — use first sub's data
             connection_name_snapshot=(
                 f"{sub_count} connections"

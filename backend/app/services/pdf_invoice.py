@@ -338,12 +338,26 @@ def _sec_customer(invoice: "Invoice") -> list:
                 ))
         return items
 
-    bill_to = _card("BILL TO", [
-        ("",     invoice.customer_name_snapshot),
-        ("Code", invoice.customer_code_snapshot),
-        ("Email", getattr(invoice, "customer_email_snapshot", None)),
-        ("Mobile", getattr(invoice, "customer_mobile_snapshot", None)),
-    ])
+    customer_type = getattr(invoice, "customer_type_snapshot", None) or "INDIVIDUAL"
+    company_name  = getattr(invoice, "customer_company_snapshot", None)
+    gst_snap      = getattr(invoice, "customer_gst_snapshot", None)
+
+    if customer_type == "BUSINESS" and company_name:
+        bill_to = _card("BILL TO", [
+            ("",        company_name),
+            ("Contact", invoice.customer_name_snapshot),
+            ("Code",    invoice.customer_code_snapshot),
+            ("Email",   getattr(invoice, "customer_email_snapshot", None)),
+            ("Mobile",  getattr(invoice, "customer_mobile_snapshot", None)),
+            ("GSTIN",   gst_snap),
+        ])
+    else:
+        bill_to = _card("BILL TO", [
+            ("",      invoice.customer_name_snapshot),
+            ("Code",  invoice.customer_code_snapshot),
+            ("Email", getattr(invoice, "customer_email_snapshot", None)),
+            ("Mobile", getattr(invoice, "customer_mobile_snapshot", None)),
+        ])
 
     if invoice_type == "CONSOLIDATED":
         sub_count = len(getattr(invoice, "subscription_items", []) or [])
