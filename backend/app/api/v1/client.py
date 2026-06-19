@@ -1747,7 +1747,7 @@ def client_create_ticket(
     db: Session = Depends(get_db),
 ) -> ClientTicketOut:
     customer = _get_customer_or_403(current_user, db, request)
-    svc = SupportTicketService(db)
+    svc = SupportTicketService(db, request_origin=str(request.base_url).rstrip("/"))
     try:
         ticket = svc.create_ticket(
             payload,
@@ -1783,7 +1783,7 @@ def client_reply_ticket(
 ) -> TicketMessageOut:
     customer = _get_customer_or_403(current_user, db, request)
     ticket = _get_owned_ticket_or_404(ticket_id, customer.id, db, request, current_user.id)
-    svc = SupportTicketService(db)
+    svc = SupportTicketService(db, request_origin=str(request.base_url).rstrip("/"))
     try:
         msg = svc.client_reply(
             ticket,
@@ -1811,7 +1811,7 @@ def client_close_ticket(
     from app.models.support_ticket import TicketStatus
     from app.schemas.support_ticket import AdminTicketUpdate
     from app.services.support_ticket import SupportTicketService, SupportError
-    svc = SupportTicketService(db)
+    svc = SupportTicketService(db, request_origin=str(request.base_url).rstrip("/"))
     try:
         ticket = svc.admin_update_ticket(
             ticket,

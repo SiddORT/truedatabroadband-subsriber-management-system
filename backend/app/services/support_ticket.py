@@ -52,8 +52,9 @@ class SupportError(Exception):
 
 
 class SupportTicketService:
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: Session, request_origin: str | None = None) -> None:
         self.db = db
+        self._request_origin = request_origin
         self.repo = SupportTicketRepository(db)
         self.msg_repo = TicketMessageRepository(db)
         self.att_repo = TicketAttachmentRepository(db)
@@ -67,7 +68,7 @@ class SupportTicketService:
     # ------------------------------------------------------------------
 
     def _portal_url(self, path: str = "") -> str:
-        base = settings.SITE_URL.rstrip("/") if settings.SITE_URL else ""
+        base = (settings.SITE_URL or self._request_origin or "").rstrip("/")
         return f"{base}{path}" if base else path
 
     def _get_superadmins(self) -> list[User]:

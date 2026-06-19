@@ -259,7 +259,7 @@ def admin_update_ticket(
     ticket = repo.get_by_id(ticket_id)
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found.")
-    svc = SupportTicketService(db)
+    svc = SupportTicketService(db, request_origin=str(request.base_url).rstrip("/"))
     try:
         ticket = svc.admin_update_ticket(
             ticket,
@@ -285,7 +285,7 @@ def admin_reply(
     ticket = repo.get_by_id(ticket_id)
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found.")
-    svc = SupportTicketService(db)
+    svc = SupportTicketService(db, request_origin=str(request.base_url).rstrip("/"))
     try:
         msg = svc.admin_reply(
             ticket,
@@ -312,7 +312,7 @@ def admin_add_internal_note(
     ticket = repo.get_by_id(ticket_id)
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found.")
-    svc = SupportTicketService(db)
+    svc = SupportTicketService(db, request_origin=str(request.base_url).rstrip("/"))
     msg = svc.admin_reply(
         ticket,
         current_user.id,
@@ -358,7 +358,7 @@ async def admin_upload_attachment(
     )
     msg_repo.create(att_msg)
 
-    svc = SupportTicketService(db)
+    svc = SupportTicketService(db)  # attachment doesn't need portal_url
     att = svc.save_attachment(
         att_msg,
         ticket.ticket_number,

@@ -5,7 +5,6 @@ import {
   Menu,
   MessageSquare,
   User,
-  Monitor,
   Wifi,
 } from "lucide-react";
 import { useState } from "react";
@@ -54,12 +53,6 @@ const NAV_ITEMS: NavItem[] = [
     icon: MessageSquare,
     href: "/client/support",
     matchPrefix: "/client/support",
-  },
-  {
-    label: "Sessions",
-    icon: Monitor,
-    href: "/client/sessions",
-    matchPrefix: "/client/sessions",
   },
 ];
 

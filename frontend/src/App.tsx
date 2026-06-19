@@ -33,7 +33,6 @@ import { ClientInvoicePage } from "@/pages/client/ClientInvoicePage";
 import { ClientInvoiceDetailPage } from "@/pages/client/ClientInvoiceDetailPage";
 import { ClientPaymentPage } from "@/pages/client/ClientPaymentPage";
 import { ProfilePage } from "@/pages/client/ProfilePage";
-import { SessionsPage } from "@/pages/client/SessionsPage";
 import { ReportsIndexPage } from "@/pages/admin/reports/ReportsIndexPage";
 import { CustomerReportPage } from "@/pages/admin/reports/CustomerReportPage";
 import { SubscriptionReportPage } from "@/pages/admin/reports/SubscriptionReportPage";
@@ -212,9 +211,6 @@ export default function App() {
 
       {/* Profile */}
       <Route path="/client/profile" element={<ClientRoute><ProfilePage /></ClientRoute>} />
-
-      {/* Sessions */}
-      <Route path="/client/sessions" element={<ClientRoute><SessionsPage /></ClientRoute>} />
 
       {/* Catch-all */}
       <Route path="*" element={<Navigate to="/admin/login" replace />} />

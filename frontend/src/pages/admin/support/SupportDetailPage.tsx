@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  AlertTriangle,
   ArrowLeft,
   Clock,
   Loader2,
@@ -10,6 +11,7 @@ import {
   Paperclip,
   Send,
   User,
+  X,
 } from "lucide-react";
 import { AppLayout } from "@/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -122,6 +124,68 @@ function MessageBubble({ msg }: { msg: TicketMessage }) {
   );
 }
 
+function CloseTicketModal({
+  open,
+  onConfirm,
+  onCancel,
+  isPending,
+}: {
+  open: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isPending: boolean;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onCancel}
+      />
+      <div className="relative w-full max-w-sm rounded-2xl border border-border bg-surface shadow-2xl">
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100">
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+            </div>
+            <span className="text-sm font-semibold text-foreground">Close Ticket</span>
+          </div>
+          <button
+            onClick={onCancel}
+            className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4">
+          <p className="text-sm text-foreground">
+            Are you sure you want to close this ticket?
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            This action cannot be undone. The customer will no longer be able to reply.
+          </p>
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
+          <Button variant="outline" size="sm" onClick={onCancel} disabled={isPending}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            className="bg-red-600 text-white hover:bg-red-700"
+            onClick={onConfirm}
+            disabled={isPending}
+          >
+            {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            Close Ticket
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AdminSupportDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -130,6 +194,7 @@ export function AdminSupportDetailPage() {
   const [replyText, setReplyText] = useState("");
   const [noteText, setNoteText] = useState("");
   const [replyMode, setReplyMode] = useState<"reply" | "note">("reply");
+  const [showCloseModal, setShowCloseModal] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { data: ticket, isLoading } = useQuery({
@@ -151,10 +216,14 @@ export function AdminSupportDetailPage() {
   const closeTicket = useMutation({
     mutationFn: () => adminSupportApi.close(id!),
     onSuccess: () => {
+      setShowCloseModal(false);
       qc.invalidateQueries({ queryKey: ["admin-ticket", id] });
       showToast("Ticket closed.", "success");
     },
-    onError: () => showToast("Failed to close ticket.", "error"),
+    onError: () => {
+      setShowCloseModal(false);
+      showToast("Failed to close ticket.", "error");
+    },
   });
 
   const reply = useMutation({
@@ -210,6 +279,13 @@ export function AdminSupportDetailPage() {
 
   return (
     <AppLayout title={`Ticket ${ticket.ticket_number}`} portalLabel="Administration">
+      <CloseTicketModal
+        open={showCloseModal}
+        onConfirm={() => closeTicket.mutate()}
+        onCancel={() => setShowCloseModal(false)}
+        isPending={closeTicket.isPending}
+      />
+
       <div className="space-y-4">
         {/* Top bar */}
         <div className="flex flex-wrap items-start gap-3">
@@ -385,11 +461,7 @@ export function AdminSupportDetailPage() {
                     size="sm"
                     className="w-full border-red-200 text-red-600 hover:bg-red-50"
                     disabled={closeTicket.isPending}
-                    onClick={() => {
-                      if (confirm("Close this ticket? This action cannot be undone.")) {
-                        closeTicket.mutate();
-                      }
-                    }}
+                    onClick={() => setShowCloseModal(true)}
                   >
                     {closeTicket.isPending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
