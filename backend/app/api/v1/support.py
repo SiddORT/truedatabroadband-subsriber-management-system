@@ -70,16 +70,25 @@ def _user_display_name(db: Session, user_id: uuid.UUID | None) -> str:
     if not user_id:
         return ""
     user = db.get(User, user_id)
-    return user.email.split("@")[0] if user else ""
+    if not user:
+        return ""
+    try:
+        return user.email.split("@")[0]
+    except Exception:
+        return str(user_id)[:8]
 
 
 def _message_out(msg: TicketMessage, db: Session) -> TicketMessageOut:
     user = db.get(User, msg.sender_user_id) if msg.sender_user_id else None
+    try:
+        sender_name = user.email.split("@")[0] if user else ""
+    except Exception:
+        sender_name = str(msg.sender_user_id)[:8] if msg.sender_user_id else ""
     return TicketMessageOut(
         id=msg.id,
         ticket_id=msg.ticket_id,
         sender_user_id=msg.sender_user_id,
-        sender_name=user.email.split("@")[0] if user else "",
+        sender_name=sender_name,
         sender_role=user.role.value if user else "",
         message=msg.message,
         is_internal_note=msg.is_internal_note,

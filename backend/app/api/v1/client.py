@@ -1659,11 +1659,15 @@ _SUPPORT_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
 def _support_msg_out(msg: TicketMessage, db: Session) -> TicketMessageOut:
     from app.models.user import User as _User
     user = db.get(_User, msg.sender_user_id) if msg.sender_user_id else None
+    try:
+        sender_name = user.email.split("@")[0] if user else ""
+    except Exception:
+        sender_name = str(msg.sender_user_id)[:8] if msg.sender_user_id else ""
     return TicketMessageOut(
         id=msg.id,
         ticket_id=msg.ticket_id,
         sender_user_id=msg.sender_user_id,
-        sender_name=user.email.split("@")[0] if user else "",
+        sender_name=sender_name,
         sender_role=user.role.value if user else "",
         message=msg.message,
         is_internal_note=msg.is_internal_note,

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/contexts/ToastContext";
 import { clientSupportApi } from "@/services/support";
-import { api } from "@/services/api";
+import { getApiErrorMessage } from "@/services/api";
 
 const CATEGORIES = [
   { value: "NO_INTERNET", label: "No Internet" },
@@ -46,7 +46,7 @@ export function ClientSupportNewPage() {
       showToast(`Ticket ${ticket.ticket_number} created.`, "success");
       navigate(`/client/support/${ticket.id}`);
     },
-    onError: () => showToast("Failed to create ticket. Please try again.", "error"),
+    onError: (err) => showToast(getApiErrorMessage(err, "Failed to create ticket. Please try again."), "error"),
   });
 
   const isValid = subject.trim().length >= 5 && description.trim().length >= 10 && category;
