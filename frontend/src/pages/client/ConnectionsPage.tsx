@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { clientService } from "@/services/client";
 import type { ClientSubscriptionListItem } from "@/types/client";
+import { cn } from "@/lib/utils";
 
 const STATUS_COLORS: Record<string, string> = {
   ACTIVE: "bg-green-100 text-green-700",
@@ -89,8 +90,11 @@ function ConnectionCard({
     <div className="rounded-xl border bg-white shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between p-4 pb-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-            <Wifi className="h-5 w-5 text-primary" />
+          <div className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
+            isActive ? "bg-emerald-50" : "bg-gray-100",
+          )}>
+            <Wifi className={cn("h-5 w-5", isActive ? "text-emerald-500" : "text-gray-400")} />
           </div>
           <div>
             <p className="font-semibold text-foreground">

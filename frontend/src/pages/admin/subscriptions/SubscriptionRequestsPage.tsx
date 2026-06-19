@@ -170,10 +170,16 @@ function RenewalApprovalModal({
   );
 
   return (
-    <Dialog open={open} onClose={handleClose} title="Approve Renewal Request">
-      <div className="space-y-4 min-w-[480px]">
-        {/* Header info */}
-        <div className="rounded-lg bg-muted/40 px-4 py-3 text-sm space-y-1">
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      title="Approve Renewal Request"
+      className="max-w-lg w-full"
+    >
+      {/* Scrollable body */}
+      <div className="max-h-[70vh] overflow-y-auto space-y-4 pr-1">
+        {/* Request summary */}
+        <div className="rounded-lg bg-muted/40 px-4 py-3 text-sm space-y-1.5">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Customer</span>
             <span className="font-medium">{customerName}</span>
@@ -204,23 +210,23 @@ function RenewalApprovalModal({
 
         {preview && initialised && (
           <>
-            {/* Plan/price summary */}
-            <div className="rounded-lg border border-border bg-primary/5 px-4 py-3 text-sm space-y-1">
+            {/* Plan / price summary */}
+            <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm space-y-1.5">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Plan</span>
-                <span className="font-medium">{preview.plan_name}</span>
+                <span className="font-semibold">{preview.plan_name}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Price</span>
-                <span className="font-semibold text-primary">₹{Number(preview.total_price).toLocaleString("en-IN")}</span>
+                <span className="font-bold text-primary">₹{Number(preview.total_price).toLocaleString("en-IN")}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between border-t border-primary/10 pt-1.5">
                 <span className="text-muted-foreground">Current expiry</span>
-                <span>{fmt(preview.current_expiry_date)}</span>
+                <span className="font-medium">{fmt(preview.current_expiry_date)}</span>
               </div>
             </div>
 
-            <p className="text-xs text-muted-foreground -mt-1">
+            <p className="text-xs text-muted-foreground">
               Review the new subscription details below and adjust if needed before confirming.
             </p>
 
@@ -234,20 +240,21 @@ function RenewalApprovalModal({
             </div>
           </>
         )}
+      </div>
 
-        <div className="flex justify-end gap-2 border-t border-border pt-3">
-          <Button variant="outline" size="sm" onClick={handleClose} disabled={isPending}>
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            disabled={isPending || isLoading || isError || !initialised}
-            onClick={() => onConfirm(form)}
-          >
-            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-            Confirm Approval
-          </Button>
-        </div>
+      {/* Sticky footer */}
+      <div className="flex justify-end gap-2 border-t border-border pt-4 mt-4">
+        <Button variant="outline" size="sm" onClick={handleClose} disabled={isPending}>
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          disabled={isPending || isLoading || isError || !initialised}
+          onClick={() => onConfirm(form)}
+        >
+          {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+          Confirm Approval
+        </Button>
       </div>
     </Dialog>
   );
