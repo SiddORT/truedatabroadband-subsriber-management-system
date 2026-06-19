@@ -234,7 +234,7 @@ def delete_plan(
         select(func.count()).select_from(Subscription)
         .where(Subscription.plan_id == plan.id)
         .where(Subscription.deleted_at.is_(None))
-        .where(Subscription.status != SubscriptionStatus.CANCELLED)
+        .where(Subscription.status.in_([SubscriptionStatus.ACTIVE, SubscriptionStatus.SUSPENDED]))
     ) or 0
     if sub_count > 0:
         raise HTTPException(
