@@ -7,7 +7,6 @@ import {
   ExternalLink,
   Loader2,
   XCircle,
-  RefreshCw,
   AlertCircle,
 } from "lucide-react";
 import { AppLayout } from "@/layouts/AppLayout";

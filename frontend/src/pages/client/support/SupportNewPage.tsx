@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/contexts/ToastContext";
 import { clientSupportApi } from "@/services/support";
-import { getApiErrorMessage } from "@/services/api";
+import { api, getApiErrorMessage } from "@/services/api";
 
 const CATEGORIES = [
   { value: "NO_INTERNET", label: "No Internet" },
