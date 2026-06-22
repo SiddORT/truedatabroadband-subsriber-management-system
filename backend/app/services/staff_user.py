@@ -8,8 +8,6 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
-from fastapi import Request
-
 from app.core.security import hash_password
 from app.models.audit_log import (
     ACTION_STAFF_DEACTIVATED,
@@ -22,6 +20,7 @@ from app.models.audit_log import (
 from app.models.notification import TemplateKey
 from app.models.user import User, UserRole
 from app.repositories.audit_log import AuditLogRepository
+from app.repositories.company_settings import CompanySettingsRepository
 from app.repositories.role import RoleRepository
 from app.repositories.staff_user import StaffUserRepository
 from app.schemas.staff_user import StaffUserInvite, StaffUserUpdate
@@ -50,12 +49,12 @@ class StaffUserService:
         expires_at = datetime.now(timezone.utc) + timedelta(hours=INVITE_EXPIRY_HOURS)
         return token, expires_at
 
-    def _send_invite_email(self, user: User, token: str) -> None:
+    def _send_invite_email(self, user: User, token: str, base_url: str = "") -> None:
         try:
             cs = CompanySettingsRepository(self.db).get()
             company_name = cs.company_name if cs else "True Data Broadband"
-            app_url = (cs.portal_url or "").rstrip("/") if cs and hasattr(cs, "portal_url") else ""
-            invite_url = f"{app_url}/accept-invite?token={token}" if app_url else f"/accept-invite?token={token}"
+            base = base_url.rstrip("/")
+            invite_url = f"{base}/accept-invite?token={token}" if base else f"/accept-invite?token={token}"
             ns = NotificationService(self.db)
             ns.send(
                 TemplateKey.STAFF_INVITE,
@@ -77,6 +76,7 @@ class StaffUserService:
         payload: StaffUserInvite,
         *,
         actor_id: uuid.UUID,
+        base_url: str = "",
     ) -> User:
         # Validate role exists
         role = self.role_repo.get(payload.role_id)
@@ -102,11 +102,11 @@ class StaffUserService:
         )
         user = self.repo.add(user)
 
-        self._send_invite_email(user, token)
+        self._send_invite_email(user, token, base_url=base_url)
         self.audit.log(ACTION_STAFF_INVITED, user_id=actor_id)
         return user
 
-    def resend_invite(self, user_id: uuid.UUID, *, actor_id: uuid.UUID) -> User:
+    def resend_invite(self, user_id: uuid.UUID, *, actor_id: uuid.UUID, base_url: str = "") -> User:
         user = self.repo.get(user_id)
         if user is None or user.role != UserRole.STAFF:
             raise StaffUserError("Staff user not found")
@@ -118,7 +118,7 @@ class StaffUserService:
         user.invite_token_expires_at = expires_at
         user = self.repo.update(user)
 
-        self._send_invite_email(user, token)
+        self._send_invite_email(user, token, base_url=base_url)
         self.audit.log(ACTION_STAFF_INVITE_RESENT, user_id=actor_id)
         return user
 

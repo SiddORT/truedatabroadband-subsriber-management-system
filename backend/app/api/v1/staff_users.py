@@ -2,7 +2,7 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -10,6 +10,7 @@ from app.dependencies.auth import require_superadmin
 from app.models.user import User
 from app.schemas.staff_user import StaffUserInvite, StaffUserListResponse, StaffUserOut, StaffUserUpdate
 from app.services.staff_user import StaffUserError, StaffUserService
+from app.utils.portal import build_portal_url
 
 router = APIRouter(prefix="/staff-users", tags=["staff-users"])
 
@@ -48,13 +49,14 @@ def list_staff_users(
 
 @router.post("", response_model=StaffUserOut, status_code=status.HTTP_201_CREATED)
 def invite_staff_user(
+    request: Request,
     payload: StaffUserInvite,
     current_user: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ) -> StaffUserOut:
     svc = StaffUserService(db)
     try:
-        user = svc.invite(payload, actor_id=current_user.id)
+        user = svc.invite(payload, actor_id=current_user.id, base_url=build_portal_url(request))
     except StaffUserError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     return _to_out(user)
@@ -88,6 +90,7 @@ def update_staff_user(
 
 @router.post("/{user_id}/resend-invite", response_model=StaffUserOut)
 def resend_invite(
+    request: Request,
     user_id: uuid.UUID,
     current_user: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
@@ -95,7 +98,7 @@ def resend_invite(
     _get_or_404(user_id, db)
     svc = StaffUserService(db)
     try:
-        user = svc.resend_invite(user_id, actor_id=current_user.id)
+        user = svc.resend_invite(user_id, actor_id=current_user.id, base_url=build_portal_url(request))
     except StaffUserError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return _to_out(user)
