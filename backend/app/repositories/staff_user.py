@@ -17,6 +17,7 @@ class StaffUserRepository(BaseRepository[User]):
         stmt = (
             select(User)
             .where(User.email_hash == email_hash)
+            .where(User.role == UserRole.STAFF)
             .where(User.deleted_at.is_(None))
         )
         return self.db.scalars(stmt).first()
