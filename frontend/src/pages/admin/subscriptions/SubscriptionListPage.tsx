@@ -43,7 +43,8 @@ function fmtDate(d: string) {
 
 export function SubscriptionListPage() {
   const navigate = useNavigate();
-  const canAddSubscription = usePermission("subscriptions", "add");
+  const canAddSubscription    = usePermission("subscriptions", "add");
+  const canDeleteSubscription = usePermission("subscriptions", "delete");
   const qc = useQueryClient();
   const { showToast } = useToast();
 
@@ -197,14 +198,16 @@ export function SubscriptionListPage() {
               View
             </Button>
           </Tooltip>
-          <Tooltip label="Delete Subscription">
-            <button
-              onClick={() => setDeleteDialog({ open: true, sub: row })}
-              className="ml-1 rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </Tooltip>
+          {canDeleteSubscription && (
+            <Tooltip label="Delete Subscription">
+              <button
+                onClick={() => setDeleteDialog({ open: true, sub: row })}
+                className="ml-1 rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </Tooltip>
+          )}
         </div>
       ),
     },

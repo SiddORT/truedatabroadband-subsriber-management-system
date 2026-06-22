@@ -42,7 +42,8 @@ function fmtMoney(n: string | number) {
 
 export function PaymentListPage() {
   const navigate = useNavigate();
-  const canAddPayment = usePermission("payments", "add");
+  const canAddPayment    = usePermission("payments", "add");
+  const canDeletePayment = usePermission("payments", "delete");
   const qc = useQueryClient();
   const { showToast } = useToast();
 
@@ -161,14 +162,16 @@ export function PaymentListPage() {
       header: "",
       className: "w-14 text-right",
       render: (row) => (
-        <Tooltip label="Delete Payment">
-          <button
-            onClick={() => setDeleteDialog({ open: true, payment: row })}
-            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </Tooltip>
+        canDeletePayment ? (
+          <Tooltip label="Delete Payment">
+            <button
+              onClick={() => setDeleteDialog({ open: true, payment: row })}
+              className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </Tooltip>
+        ) : null
       ),
     },
   ];

@@ -68,7 +68,8 @@ const STATUS_FILTER_OPTIONS = [
 
 export function PlanListPage() {
   const navigate = useNavigate();
-  const canAddPlan = usePermission("plans", "add");
+  const canAddPlan    = usePermission("plans", "add");
+  const canDeletePlan = usePermission("plans", "delete");
   const qc = useQueryClient();
   const { showToast } = useToast();
 
@@ -225,14 +226,16 @@ export function PlanListPage() {
               View
             </Button>
           </Tooltip>
-          <Tooltip label="Delete Plan">
-            <button
-              onClick={() => setDeleteDialog({ open: true, plan: row })}
-              className="ml-1 rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </Tooltip>
+          {canDeletePlan && (
+            <Tooltip label="Delete Plan">
+              <button
+                onClick={() => setDeleteDialog({ open: true, plan: row })}
+                className="ml-1 rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </Tooltip>
+          )}
         </div>
       ),
     },

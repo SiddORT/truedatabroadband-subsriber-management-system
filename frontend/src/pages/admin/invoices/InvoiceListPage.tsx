@@ -51,7 +51,8 @@ function fmtMoney(n: string | number) {
 
 export function InvoiceListPage() {
   const navigate = useNavigate();
-  const canAddInvoice = usePermission("invoices", "add");
+  const canAddInvoice    = usePermission("invoices", "add");
+  const canDeleteInvoice = usePermission("invoices", "delete");
   const qc = useQueryClient();
   const { showToast } = useToast();
 
@@ -253,14 +254,16 @@ export function InvoiceListPage() {
               </Button>
             </Tooltip>
           )}
-          <Tooltip label="Delete Invoice">
-            <button
-              onClick={() => setDeleteDialog({ open: true, invoice: row })}
-              className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </Tooltip>
+          {canDeleteInvoice && (
+            <Tooltip label="Delete Invoice">
+              <button
+                onClick={() => setDeleteDialog({ open: true, invoice: row })}
+                className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </Tooltip>
+          )}
         </div>
       ),
     },

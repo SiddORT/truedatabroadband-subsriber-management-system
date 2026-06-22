@@ -30,7 +30,9 @@ const ALL_STATUSES: CustomerStatus[] = ["ACTIVE", "SUSPENDED", "DISCONNECTED"];
 
 export function CustomerListPage() {
   const navigate = useNavigate();
-  const canAddCustomer = usePermission("customers", "add");
+  const canAddCustomer    = usePermission("customers", "add");
+  const canEditCustomer   = usePermission("customers", "edit");
+  const canDeleteCustomer = usePermission("customers", "delete");
   const qc = useQueryClient();
   const { showToast } = useToast();
 
@@ -184,46 +186,54 @@ export function CustomerListPage() {
               <Eye className="h-4 w-4" />
             </button>
           </Tooltip>
-          <Tooltip label="Edit">
-            <button
-              onClick={() => navigate(`/admin/customers/${row.id}/edit`)}
-              className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <Edit className="h-4 w-4" />
-            </button>
-          </Tooltip>
-          <Tooltip label="Change Status">
-            <button
-              onClick={() =>
-                setStatusDialog({
-                  open: true,
-                  customer: row,
-                  newStatus: row.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE",
-                })
-              }
-              className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <ShieldOff className="h-4 w-4" />
-            </button>
-          </Tooltip>
-          <Tooltip label="Reset Password">
-            <button
-              onClick={() =>
-                setResetDialog({ open: true, customer: row, tempPassword: null })
-              }
-              className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <Key className="h-4 w-4" />
-            </button>
-          </Tooltip>
-          <Tooltip label="Delete Customer">
-            <button
-              onClick={() => setDeleteDialog({ open: true, customer: row })}
-              className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </Tooltip>
+          {canEditCustomer && (
+            <Tooltip label="Edit">
+              <button
+                onClick={() => navigate(`/admin/customers/${row.id}/edit`)}
+                className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <Edit className="h-4 w-4" />
+              </button>
+            </Tooltip>
+          )}
+          {canEditCustomer && (
+            <Tooltip label="Change Status">
+              <button
+                onClick={() =>
+                  setStatusDialog({
+                    open: true,
+                    customer: row,
+                    newStatus: row.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE",
+                  })
+                }
+                className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <ShieldOff className="h-4 w-4" />
+              </button>
+            </Tooltip>
+          )}
+          {canEditCustomer && (
+            <Tooltip label="Reset Password">
+              <button
+                onClick={() =>
+                  setResetDialog({ open: true, customer: row, tempPassword: null })
+                }
+                className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <Key className="h-4 w-4" />
+              </button>
+            </Tooltip>
+          )}
+          {canDeleteCustomer && (
+            <Tooltip label="Delete Customer">
+              <button
+                onClick={() => setDeleteDialog({ open: true, customer: row })}
+                className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </Tooltip>
+          )}
         </div>
       ),
     },
