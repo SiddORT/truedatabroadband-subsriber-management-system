@@ -8,6 +8,8 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
+from fastapi import Request
+
 from app.core.security import hash_password
 from app.models.audit_log import (
     ACTION_STAFF_DEACTIVATED,
@@ -20,7 +22,6 @@ from app.models.audit_log import (
 from app.models.notification import TemplateKey
 from app.models.user import User, UserRole
 from app.repositories.audit_log import AuditLogRepository
-from app.repositories.company_settings import CompanySettingsRepository
 from app.repositories.role import RoleRepository
 from app.repositories.staff_user import StaffUserRepository
 from app.schemas.staff_user import StaffUserInvite, StaffUserUpdate
