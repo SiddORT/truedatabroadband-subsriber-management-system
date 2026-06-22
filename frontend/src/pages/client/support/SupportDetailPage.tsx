@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, Lock, Paperclip, Send } from "lucide-react";
 import { ClientLayout } from "@/layouts/ClientLayout";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useToast } from "@/contexts/ToastContext";
 import { clientSupportApi, TicketMessage } from "@/services/support";
 import { cn } from "@/lib/utils";
@@ -75,6 +76,7 @@ export function ClientSupportDetailPage() {
   const { showToast } = useToast();
   const qc = useQueryClient();
   const [replyText, setReplyText] = useState("");
+  const [confirmClose, setConfirmClose] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { data: ticket, isLoading } = useQuery({
@@ -172,11 +174,7 @@ export function ClientSupportDetailPage() {
               size="sm"
               className="shrink-0 border-red-200 text-red-600 hover:bg-red-50"
               disabled={closeTicket.isPending}
-              onClick={() => {
-                if (confirm("Close this ticket? You won't be able to reply once it's closed.")) {
-                  closeTicket.mutate();
-                }
-              }}
+              onClick={() => setConfirmClose(true)}
             >
               {closeTicket.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -268,6 +266,20 @@ export function ClientSupportDetailPage() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmClose}
+        title="Close Ticket"
+        message="Close this ticket? You won't be able to reply once it's closed."
+        confirmLabel="Close Ticket"
+        variant="destructive"
+        loading={closeTicket.isPending}
+        onConfirm={() => {
+          closeTicket.mutate();
+          setConfirmClose(false);
+        }}
+        onCancel={() => setConfirmClose(false)}
+      />
     </ClientLayout>
   );
 }

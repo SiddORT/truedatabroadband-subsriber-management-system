@@ -10,7 +10,9 @@ import {
 } from "lucide-react";
 
 import { AppLayout } from "@/layouts/AppLayout";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { rolesService } from "@/services/roles";
+import { useToast } from "@/contexts/ToastContext";
 import type { Role, RoleCreate, RoleUpdate, PermissionMap } from "@/types/roles";
 import { PERMISSION_MODULES, PERMISSION_ACTIONS, emptyPermissions } from "@/types/roles";
 import { cn } from "@/lib/utils";
@@ -289,9 +291,11 @@ function RoleDialog({
 
 export function RolesPage() {
   const qc = useQueryClient();
+  const { showToast } = useToast();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Role | null>(null);
   const [viewPerms, setViewPerms] = useState<Role | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Role | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["roles"],
@@ -311,17 +315,21 @@ export function RolesPage() {
 
   const deleteMutation = useMutation({
     mutationFn: rolesService.delete,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["roles"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["roles"] });
+      setPendingDelete(null);
+    },
   });
 
   const handleDelete = (role: Role) => {
     if (role.user_count > 0) {
-      alert(`Cannot delete "${role.name}" — it has ${role.user_count} staff user(s) assigned.`);
+      showToast(
+        `Cannot delete "${role.name}" — it has ${role.user_count} staff user(s) assigned.`,
+        "error",
+      );
       return;
     }
-    if (confirm(`Delete role "${role.name}"? This cannot be undone.`)) {
-      deleteMutation.mutate(role.id);
-    }
+    setPendingDelete(role);
   };
 
   return (
@@ -437,6 +445,17 @@ export function RolesPage() {
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete Role"
+        message={`Delete role "${pendingDelete?.name}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        loading={deleteMutation.isPending}
+        onConfirm={() => pendingDelete && deleteMutation.mutate(pendingDelete.id)}
+        onCancel={() => setPendingDelete(null)}
+      />
 
       {/* View permissions drawer */}
       {viewPerms && (

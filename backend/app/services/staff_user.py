@@ -131,11 +131,10 @@ class StaffUserService:
             raise StaffUserError("This invite has already been used")
 
         # Validate password policy
-        from app.services.auth import AuthService
-        try:
-            AuthService._validate_password_policy(password)  # type: ignore[attr-defined]
-        except PasswordPolicyError:
-            raise
+        from app.services.auth import validate_password_policy
+        violations = validate_password_policy(password)
+        if violations:
+            raise PasswordPolicyError(violations)
 
         user.password_hash = hash_password(password)
         user.invite_token = None

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { clientService } from "@/services/client";
 import { tokenService } from "@/services/api";
+import { useToast } from "@/contexts/ToastContext";
 import type { ClientInvoiceDetail } from "@/types/client";
 import { PAYMENT_METHOD_LABELS, type PaymentMethod } from "@/types/payment";
 
@@ -76,6 +77,7 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
 export function ClientInvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [downloading, setDownloading] = useState(false);
 
   async function handleDownloadPdf() {
@@ -97,7 +99,7 @@ export function ClientInvoiceDetailPage() {
       a.remove();
       URL.revokeObjectURL(url);
     } catch {
-      alert("Failed to download PDF. Please try again.");
+      showToast("Failed to download PDF. Please try again.", "error");
     } finally {
       setDownloading(false);
     }

@@ -21,6 +21,7 @@ import {
 } from "@/components/DataTable";
 import { clientService } from "@/services/client";
 import { tokenService } from "@/services/api";
+import { useToast } from "@/contexts/ToastContext";
 import type { ClientInvoiceListItem } from "@/types/client";
 const INVOICE_STATUS_COLORS: Record<string, string> = {
   DRAFT: "bg-gray-100 text-gray-600",
@@ -100,6 +101,7 @@ function countFilters(f: Filters) {
 
 export function ClientInvoicePage() {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   async function handleDownloadPdf(id: string, invoiceNumber?: string) {
@@ -120,7 +122,7 @@ export function ClientInvoicePage() {
       a.remove();
       URL.revokeObjectURL(url);
     } catch {
-      alert("Failed to download PDF. Please try again.");
+      showToast("Failed to download PDF. Please try again.", "error");
     } finally {
       setDownloadingId(null);
     }

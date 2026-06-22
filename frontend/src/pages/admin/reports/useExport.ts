@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { reportsService } from "@/services/reports";
+import { useToast } from "@/contexts/ToastContext";
 
 export function useExport() {
   const [exporting, setExporting] = useState(false);
+  const { showToast } = useToast();
 
   const triggerExport = async (
     reportType: string,
@@ -20,7 +22,7 @@ export function useExport() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      alert("Export failed. Please try again.");
+      showToast("Export failed. Please try again.", "error");
     } finally {
       setExporting(false);
     }
