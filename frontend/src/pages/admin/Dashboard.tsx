@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { AppLayout } from "@/layouts/AppLayout";
+import { usePermission } from "@/hooks/usePermission";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { dashboardService } from "@/services/dashboard";
@@ -176,6 +177,10 @@ function ErrMsg({ height = 200 }: { height?: number }) {
 
 export function AdminDashboard() {
   const navigate = useNavigate();
+  const canAddCustomer      = usePermission("customers",     "add");
+  const canAddSubscription  = usePermission("subscriptions", "add");
+  const canAddInvoice       = usePermission("invoices",      "add");
+  const canAddPayment       = usePermission("payments",      "add");
   const [preset, setPreset] = useState<Preset>("this_month");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -282,18 +287,26 @@ export function AdminDashboard() {
             <p className="text-sm text-muted-foreground">Real-time business metrics for True Data Broadband</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={() => navigate("/admin/customers/new")}>
-              <Plus className="mr-1.5 h-3.5 w-3.5" />Add Customer
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => navigate("/admin/subscriptions/new")}>
-              <Plus className="mr-1.5 h-3.5 w-3.5" />Subscription
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => navigate("/admin/invoices/new")}>
-              <Plus className="mr-1.5 h-3.5 w-3.5" />Invoice
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => navigate("/admin/payments/new")}>
-              <Plus className="mr-1.5 h-3.5 w-3.5" />Payment
-            </Button>
+            {canAddCustomer && (
+              <Button size="sm" onClick={() => navigate("/admin/customers/new")}>
+                <Plus className="mr-1.5 h-3.5 w-3.5" />Add Customer
+              </Button>
+            )}
+            {canAddSubscription && (
+              <Button size="sm" variant="outline" onClick={() => navigate("/admin/subscriptions/new")}>
+                <Plus className="mr-1.5 h-3.5 w-3.5" />Subscription
+              </Button>
+            )}
+            {canAddInvoice && (
+              <Button size="sm" variant="outline" onClick={() => navigate("/admin/invoices/new")}>
+                <Plus className="mr-1.5 h-3.5 w-3.5" />Invoice
+              </Button>
+            )}
+            {canAddPayment && (
+              <Button size="sm" variant="outline" onClick={() => navigate("/admin/payments/new")}>
+                <Plus className="mr-1.5 h-3.5 w-3.5" />Payment
+              </Button>
+            )}
           </div>
         </div>
 

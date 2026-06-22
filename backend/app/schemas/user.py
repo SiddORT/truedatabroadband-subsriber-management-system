@@ -21,3 +21,5 @@ class UserOut(BaseModel):
     display_name: str | None = None
     role_id: uuid.UUID | None = None
     invite_status: str | None = None
+    staff_role_name: str | None = None
+    staff_permissions: dict | None = None

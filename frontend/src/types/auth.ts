@@ -9,6 +9,9 @@ export interface User {
   last_login_at: string | null;
   created_at: string;
   updated_at: string;
+  display_name?: string | null;
+  staff_role_name?: string | null;
+  staff_permissions?: Record<string, Record<string, boolean>> | null;
 }
 
 export interface TokenPair {

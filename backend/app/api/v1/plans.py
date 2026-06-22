@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.dependencies.auth import require_superadmin
+from app.dependencies.auth import require_permission
 from app.models.plan import Plan, PlanPricing
 from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.user import User
@@ -72,7 +72,7 @@ def list_plans(
     speed_min: int | None = Query(None, ge=0),
     speed_max: int | None = Query(None, ge=0),
     is_active: bool | None = Query(None),
-    _: User = Depends(require_superadmin),
+    _: User = Depends(require_permission("plans", "view")),
     db: Session = Depends(get_db),
 ) -> PlanListResponse:
     from app.models.plan import DataPolicy as DP
@@ -111,7 +111,7 @@ def list_plans(
 def create_plan(
     request: Request,
     payload: PlanCreate,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("plans", "add")),
     db: Session = Depends(get_db),
 ) -> PlanOut:
     svc = PlanService(db)
@@ -130,7 +130,7 @@ def create_plan(
 @router.get("/{plan_id}", response_model=PlanOut)
 def get_plan(
     plan_id: uuid.UUID,
-    _: User = Depends(require_superadmin),
+    _: User = Depends(require_permission("plans", "view")),
     db: Session = Depends(get_db),
 ) -> PlanOut:
     return _to_out(_get_plan_or_404(plan_id, db))
@@ -141,7 +141,7 @@ def update_plan(
     request: Request,
     plan_id: uuid.UUID,
     payload: PlanUpdate,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("plans", "edit")),
     db: Session = Depends(get_db),
 ) -> PlanOut:
     plan = _get_plan_or_404(plan_id, db)
@@ -160,7 +160,7 @@ def update_plan_status(
     request: Request,
     plan_id: uuid.UUID,
     payload: PlanStatusUpdate,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("plans", "edit")),
     db: Session = Depends(get_db),
 ) -> PlanOut:
     plan = _get_plan_or_404(plan_id, db)
@@ -184,7 +184,7 @@ def add_pricing(
     request: Request,
     plan_id: uuid.UUID,
     payload: PricingCreate,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("plans", "edit")),
     db: Session = Depends(get_db),
 ) -> PricingOut:
     plan = _get_plan_or_404(plan_id, db)
@@ -208,7 +208,7 @@ def update_pricing(
     plan_id: uuid.UUID,
     pricing_id: uuid.UUID,
     payload: PricingUpdate,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("plans", "edit")),
     db: Session = Depends(get_db),
 ) -> PricingOut:
     pricing = _get_pricing_or_404(plan_id, pricing_id, db)
@@ -226,7 +226,7 @@ def update_pricing(
 def delete_plan(
     request: Request,
     plan_id: uuid.UUID,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("plans", "delete")),
     db: Session = Depends(get_db),
 ) -> Response:
     plan = _get_plan_or_404(plan_id, db)
@@ -255,7 +255,7 @@ def delete_pricing(
     request: Request,
     plan_id: uuid.UUID,
     pricing_id: uuid.UUID,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("plans", "delete")),
     db: Session = Depends(get_db),
 ) -> Response:
     pricing = _get_pricing_or_404(plan_id, pricing_id, db)

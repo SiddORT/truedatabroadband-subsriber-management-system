@@ -287,7 +287,13 @@ export function AppLayout({ title, portalLabel, children }: AppLayoutProps) {
               <p className="text-sm font-medium text-foreground">
                 {user?.email}
               </p>
-              <p className="text-xs text-muted-foreground">{user?.role}</p>
+              <p className="text-xs text-muted-foreground">
+                {user?.role === "STAFF"
+                  ? (user?.staff_role_name ?? "Staff")
+                  : user?.role === "SUPERADMIN"
+                  ? "Administrator"
+                  : user?.role}
+              </p>
             </div>
 
             {/* Profile avatar + dropdown */}
@@ -308,7 +314,13 @@ export function AppLayout({ title, portalLabel, children }: AppLayoutProps) {
                   {/* User info */}
                   <div className="px-4 py-3 border-b border-border">
                     <p className="text-xs font-semibold text-foreground truncate">{user?.email}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{user?.role}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {user?.role === "STAFF"
+                        ? (user?.staff_role_name ?? "Staff")
+                        : user?.role === "SUPERADMIN"
+                        ? "Administrator"
+                        : user?.role}
+                    </p>
                   </div>
 
                   {/* Menu items — only shown for SUPERADMIN */}

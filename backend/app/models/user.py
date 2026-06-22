@@ -65,6 +65,14 @@ class User(Base, BaseModelMixin):
     )
 
     @property
+    def staff_role_name(self) -> "str | None":
+        return self.staff_role.name if self.staff_role else None
+
+    @property
+    def staff_permissions(self) -> "dict | None":
+        return self.staff_role.permissions if self.staff_role else None
+
+    @property
     def invite_status(self) -> str:
         if not self.is_active:
             return "INACTIVE"

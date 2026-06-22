@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.dependencies.auth import require_client, require_superadmin
+from app.dependencies.auth import require_client, require_permission
 from app.models.notification import NotificationLog, TemplateKey
 from app.models.user import User
 from app.repositories.customer import CustomerRepository
@@ -67,7 +67,7 @@ def list_invoices(
     due_date_from: date | None = Query(None),
     due_date_to: date | None = Query(None),
     quick_filter: str | None = Query(None),
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("invoices", "view")),
     db: Session = Depends(get_db),
 ) -> InvoiceListResponse:
     repo = InvoiceRepository(db)
@@ -102,7 +102,7 @@ def list_invoices(
 def create_invoice(
     payload: InvoiceCreate,
     request: Request,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("invoices", "add")),
     db: Session = Depends(get_db),
 ) -> InvoiceOut:
     svc = InvoiceService(db)
@@ -128,7 +128,7 @@ def create_invoice(
 def create_consolidated_invoice(
     payload: ConsolidatedInvoiceCreate,
     request: Request,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("invoices", "add")),
     db: Session = Depends(get_db),
 ) -> InvoiceOut:
     svc = InvoiceService(db)
@@ -149,7 +149,7 @@ def create_consolidated_invoice(
 @router.get("/{invoice_id}", response_model=InvoiceOut)
 def get_invoice(
     invoice_id: uuid.UUID,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("invoices", "view")),
     db: Session = Depends(get_db),
 ) -> InvoiceOut:
     invoice = InvoiceRepository(db).get(invoice_id)
@@ -164,7 +164,7 @@ def get_invoice(
 def update_invoice(
     invoice_id: uuid.UUID,
     payload: InvoiceUpdate,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("invoices", "edit")),
     db: Session = Depends(get_db),
 ) -> InvoiceOut:
     repo = InvoiceRepository(db)
@@ -185,7 +185,7 @@ def update_invoice(
 def update_invoice_status(
     invoice_id: uuid.UUID,
     payload: InvoiceStatusUpdate,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("invoices", "edit")),
     db: Session = Depends(get_db),
 ) -> InvoiceOut:
     repo = InvoiceRepository(db)
@@ -207,7 +207,7 @@ def update_invoice_status(
 @router.get("/{invoice_id}/pdf")
 def download_invoice_pdf(
     invoice_id: uuid.UUID,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("invoices", "view")),
     db: Session = Depends(get_db),
 ):
     invoice = InvoiceRepository(db).get(invoice_id)
@@ -233,7 +233,7 @@ def download_invoice_pdf(
 @router.get("/{invoice_id}/history")
 def get_invoice_history(
     invoice_id: uuid.UUID,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("invoices", "view")),
     db: Session = Depends(get_db),
 ):
     invoice = InvoiceRepository(db).get(invoice_id)
@@ -248,7 +248,7 @@ def get_invoice_history(
 @router.post("/{invoice_id}/send-email", response_model=MessageResponse)
 def admin_send_invoice_email(
     invoice_id: uuid.UUID,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("invoices", "edit")),
     db: Session = Depends(get_db),
 ) -> MessageResponse:
     invoice = InvoiceRepository(db).get(invoice_id)
@@ -320,7 +320,7 @@ def admin_send_invoice_email(
 def delete_invoice(
     request: Request,
     invoice_id: uuid.UUID,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("invoices", "delete")),
     db: Session = Depends(get_db),
 ) -> Response:
     invoice = InvoiceRepository(db).get(invoice_id)

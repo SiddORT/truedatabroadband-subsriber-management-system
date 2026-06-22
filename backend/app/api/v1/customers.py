@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.logging import get_logger
-from app.dependencies.auth import require_superadmin
+from app.dependencies.auth import require_permission
 from app.models.customer import Customer, CustomerStatus
 from app.models.notification import TemplateKey
 from app.models.user import User
@@ -88,7 +88,7 @@ def list_customers(
     city: str | None = Query(None),
     reference_source: str | None = Query(None),
     sales_person: str | None = Query(None),
-    _: User = Depends(require_superadmin),
+    _: User = Depends(require_permission("customers", "view")),
     db: Session = Depends(get_db),
 ) -> CustomerListResponse:
     from app.models.customer import CustomerType as CType
@@ -125,7 +125,7 @@ def list_customers(
 def create_customer(
     request: Request,
     payload: CustomerCreate,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("customers", "add")),
     db: Session = Depends(get_db),
 ) -> CustomerCreateResponse:
     service = CustomerService(db)
@@ -188,7 +188,7 @@ def create_customer(
 @router.get("/{customer_id}", response_model=CustomerOut)
 def get_customer(
     customer_id: uuid.UUID,
-    _: User = Depends(require_superadmin),
+    _: User = Depends(require_permission("customers", "view")),
     db: Session = Depends(get_db),
 ) -> CustomerOut:
     return _to_out(_get_customer_or_404(customer_id, db))
@@ -199,7 +199,7 @@ def update_customer(
     request: Request,
     customer_id: uuid.UUID,
     payload: CustomerUpdate,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("customers", "edit")),
     db: Session = Depends(get_db),
 ) -> CustomerOut:
     customer = _get_customer_or_404(customer_id, db)
@@ -222,7 +222,7 @@ def update_customer_status(
     request: Request,
     customer_id: uuid.UUID,
     payload: CustomerStatusUpdate,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("customers", "edit")),
     db: Session = Depends(get_db),
 ) -> CustomerOut:
     customer = _get_customer_or_404(customer_id, db)
@@ -240,7 +240,7 @@ def update_customer_status(
 def reset_customer_password(
     request: Request,
     customer_id: uuid.UUID,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("customers", "edit")),
     db: Session = Depends(get_db),
 ) -> CustomerPasswordResetResponse:
     customer = _get_customer_or_404(customer_id, db)
@@ -267,7 +267,7 @@ async def upload_document(
     customer_id: uuid.UUID,
     doc_type: str,
     file: UploadFile = File(...),
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("customers", "edit")),
     db: Session = Depends(get_db),
 ) -> CustomerOut:
     if doc_type not in _DOC_FIELD:
@@ -312,7 +312,7 @@ async def upload_document(
 def download_document(
     customer_id: uuid.UUID,
     doc_type: str,
-    _: User = Depends(require_superadmin),
+    _: User = Depends(require_permission("customers", "view")),
     db: Session = Depends(get_db),
 ) -> FileResponse:
     if doc_type not in _DOC_FIELD:
@@ -340,7 +340,7 @@ def download_document(
 def delete_customer(
     request: Request,
     customer_id: uuid.UUID,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("customers", "delete")),
     db: Session = Depends(get_db),
 ) -> Response:
     customer = _get_customer_or_404(customer_id, db)

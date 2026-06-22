@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.dependencies.auth import require_client, require_superadmin
+from app.dependencies.auth import require_client, require_permission
 from app.models.notification import TemplateKey
 from app.models.user import User
 from app.repositories.customer import CustomerRepository
@@ -32,7 +32,7 @@ def list_payments(
     sort_by: str = Query("payment_date"),
     sort_order: str = Query("desc"),
     invoice_id: uuid.UUID | None = Query(None),
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("payments", "view")),
     db: Session = Depends(get_db),
 ) -> PaymentListResponse:
     repo = PaymentRepository(db)
@@ -59,7 +59,7 @@ def list_payments(
 def record_payment(
     payload: PaymentCreate,
     request: Request,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("payments", "add")),
     db: Session = Depends(get_db),
 ) -> PaymentOut:
     svc = PaymentService(db)
@@ -105,7 +105,7 @@ def record_payment(
 @router.get("/{payment_id}", response_model=PaymentOut)
 def get_payment(
     payment_id: uuid.UUID,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("payments", "view")),
     db: Session = Depends(get_db),
 ) -> PaymentOut:
     payment = PaymentRepository(db).get(payment_id)
@@ -120,7 +120,7 @@ def get_payment(
 def delete_payment(
     request: Request,
     payment_id: uuid.UUID,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("payments", "delete")),
     db: Session = Depends(get_db),
 ) -> Response:
     payment = PaymentRepository(db).get(payment_id)

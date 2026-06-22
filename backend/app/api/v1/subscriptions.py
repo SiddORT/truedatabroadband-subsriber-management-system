@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.logging import get_logger
-from app.dependencies.auth import require_client, require_superadmin
+from app.dependencies.auth import require_client, require_permission
 from app.models.customer import Customer
 from app.models.invoice import InvoiceStatus
 from app.models.notification import TemplateKey
@@ -77,7 +77,7 @@ def list_subscriptions(
     expiry_date_from: date | None = Query(None),
     expiry_date_to: date | None = Query(None),
     quick_filter: str | None = Query(None),
-    _: User = Depends(require_superadmin),
+    _: User = Depends(require_permission("subscriptions", "view")),
     db: Session = Depends(get_db),
 ) -> SubscriptionListResponse:
     repo = SubscriptionRepository(db)
@@ -110,7 +110,7 @@ def create_subscription(
     request: Request,
     payload: SubscriptionCreate,
     force: bool = Query(False, description="Skip duplicate-address warning and create anyway"),
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("subscriptions", "add")),
     db: Session = Depends(get_db),
 ) -> SubscriptionOut:
     svc = SubscriptionService(db)
@@ -161,7 +161,7 @@ def create_subscription(
 @router.get("/customer/{customer_id}", response_model=list[SubscriptionOut])
 def list_customer_subscriptions(
     customer_id: uuid.UUID,
-    _: User = Depends(require_superadmin),
+    _: User = Depends(require_permission("subscriptions", "view")),
     db: Session = Depends(get_db),
 ) -> list[SubscriptionOut]:
     """All subscriptions for a specific customer (newest first)."""
@@ -188,7 +188,7 @@ def get_my_subscription(
 @router.get("/{sub_id}", response_model=SubscriptionOut)
 def get_subscription(
     sub_id: uuid.UUID,
-    _: User = Depends(require_superadmin),
+    _: User = Depends(require_permission("subscriptions", "view")),
     db: Session = Depends(get_db),
 ) -> SubscriptionOut:
     return _to_out(_get_sub_or_404(sub_id, db))
@@ -199,7 +199,7 @@ def update_subscription(
     request: Request,
     sub_id: uuid.UUID,
     payload: SubscriptionUpdate,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("subscriptions", "edit")),
     db: Session = Depends(get_db),
 ) -> SubscriptionOut:
     sub = _get_sub_or_404(sub_id, db)
@@ -219,7 +219,7 @@ def update_subscription(
 def renew_subscription(
     request: Request,
     sub_id: uuid.UUID,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("subscriptions", "edit")),
     db: Session = Depends(get_db),
 ) -> SubscriptionOut:
     sub = _get_sub_or_404(sub_id, db)
@@ -241,7 +241,7 @@ def update_subscription_status(
     request: Request,
     sub_id: uuid.UUID,
     payload: SubscriptionStatusUpdate,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("subscriptions", "edit")),
     db: Session = Depends(get_db),
 ) -> SubscriptionOut:
     sub = _get_sub_or_404(sub_id, db)
@@ -259,7 +259,7 @@ def update_subscription_status(
 def delete_subscription(
     request: Request,
     sub_id: uuid.UUID,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("subscriptions", "delete")),
     db: Session = Depends(get_db),
 ) -> Response:
     sub = _get_sub_or_404(sub_id, db)
@@ -290,7 +290,7 @@ def change_plan(
     request: Request,
     sub_id: uuid.UUID,
     payload: SubscriptionChangePlan,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("subscriptions", "edit")),
     db: Session = Depends(get_db),
 ) -> SubscriptionOut:
     sub = _get_sub_or_404(sub_id, db)

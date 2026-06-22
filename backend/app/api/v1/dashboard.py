@@ -11,7 +11,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.dependencies.auth import require_superadmin
+from app.dependencies.auth import require_staff_or_superadmin
 from app.models.audit_log import ACTION_DASHBOARD_VIEWED
 from app.models.customer import Customer, CustomerStatus, CustomerType
 from app.models.invoice import Invoice, InvoiceStatus
@@ -177,7 +177,7 @@ def get_summary(
     request: Request,
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_staff_or_superadmin),
     db: Session = Depends(get_db),
 ) -> SummaryOut:
     """KPI summary. Logs dashboard_viewed.  Snapshot counts are current state;
@@ -300,7 +300,7 @@ def get_summary(
 def get_revenue_trend(
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
-    _: User = Depends(require_superadmin),
+    _: User = Depends(require_staff_or_superadmin),
     db: Session = Depends(get_db),
 ) -> list[TrendPoint]:
     """Monthly revenue within the selected period (defaults: last 12 months)."""
@@ -333,7 +333,7 @@ def get_revenue_trend(
 def get_customer_growth(
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
-    _: User = Depends(require_superadmin),
+    _: User = Depends(require_staff_or_superadmin),
     db: Session = Depends(get_db),
 ) -> list[CustomerGrowthPoint]:
     """New customers per month within the selected period."""
@@ -365,7 +365,7 @@ def get_customer_growth(
 def get_subscription_growth(
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
-    _: User = Depends(require_superadmin),
+    _: User = Depends(require_staff_or_superadmin),
     db: Session = Depends(get_db),
 ) -> list[SubscriptionGrowthPoint]:
     """New subscriptions per month within the selected period."""
@@ -397,7 +397,7 @@ def get_subscription_growth(
 def get_plan_distribution(
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
-    _: User = Depends(require_superadmin),
+    _: User = Depends(require_staff_or_superadmin),
     db: Session = Depends(get_db),
 ) -> list[PlanDistributionItem]:
     """Active subscription count per plan.
@@ -449,7 +449,7 @@ def get_plan_distribution(
 def get_recent_customers(
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
-    _: User = Depends(require_superadmin),
+    _: User = Depends(require_staff_or_superadmin),
     db: Session = Depends(get_db),
 ) -> list[RecentCustomerOut]:
     """Latest 10 customers created within the period."""
@@ -480,7 +480,7 @@ def get_recent_customers(
 def get_recent_invoices(
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
-    _: User = Depends(require_superadmin),
+    _: User = Depends(require_staff_or_superadmin),
     db: Session = Depends(get_db),
 ) -> list[RecentInvoiceOut]:
     """Latest 10 invoices created within the period."""
@@ -512,7 +512,7 @@ def get_recent_invoices(
 def get_recent_payments(
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
-    _: User = Depends(require_superadmin),
+    _: User = Depends(require_staff_or_superadmin),
     db: Session = Depends(get_db),
 ) -> list[RecentPaymentOut]:
     """Latest 10 payments within the period."""
@@ -549,7 +549,7 @@ def get_expiring_subscriptions(
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
     days: int = Query(30, ge=1, le=365),
-    _: User = Depends(require_superadmin),
+    _: User = Depends(require_staff_or_superadmin),
     db: Session = Depends(get_db),
 ) -> list[ExpiringSubscriptionOut]:
     """Active subscriptions expiring within the period window.
@@ -598,7 +598,7 @@ def get_expiring_subscriptions(
 def get_overdue_invoices(
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
-    _: User = Depends(require_superadmin),
+    _: User = Depends(require_staff_or_superadmin),
     db: Session = Depends(get_db),
 ) -> list[OverdueInvoiceOut]:
     """Invoices past due with outstanding balance.
