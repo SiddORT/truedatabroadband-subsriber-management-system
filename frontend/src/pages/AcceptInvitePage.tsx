@@ -35,7 +35,7 @@ export function AcceptInvitePage() {
       const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
       if (typeof detail === "object" && detail !== null && "violations" in detail) {
         setViolations((detail as { violations: string[] }).violations);
-        setError((detail as { message: string }).message);
+        setError((detail as unknown as { message: string }).message);
       } else if (typeof detail === "string") {
         setError(detail);
       } else {
