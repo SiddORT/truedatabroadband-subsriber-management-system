@@ -148,6 +148,16 @@ export function CustomerListPage() {
       ),
     },
     { key: "full_name", header: "Full Name", sortable: true },
+    {
+      key: "company_name",
+      header: "Organization",
+      render: (row) =>
+        row.customer_type !== "INDIVIDUAL" && row.company_name ? (
+          <span className="text-sm text-foreground">{row.company_name}</span>
+        ) : (
+          <span className="text-sm text-muted-foreground">—</span>
+        ),
+    },
     { key: "mobile_number", header: "Mobile" },
     { key: "email", header: "Email" },
     {

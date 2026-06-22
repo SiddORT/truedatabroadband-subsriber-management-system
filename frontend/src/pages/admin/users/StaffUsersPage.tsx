@@ -454,11 +454,11 @@ export function StaffUsersPage() {
                           <button
                             onClick={() => resendMutation.mutate(user.id)}
                             disabled={resendMutation.isPending}
-                            className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                            className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary/70 hover:bg-primary/10 hover:text-primary active:bg-primary/20 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Resend invite"
                           >
-                            <RefreshCw className="h-3.5 w-3.5" />
-                            Resend
+                            <RefreshCw className={cn("h-3.5 w-3.5", resendMutation.isPending && "animate-spin")} />
+                            {resendMutation.isPending ? "Sending…" : "Resend"}
                           </button>
                         )}
                         <button
