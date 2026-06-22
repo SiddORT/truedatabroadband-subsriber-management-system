@@ -4,7 +4,11 @@ import { useAuth } from "@/hooks/useAuth";
 import type { UserRole } from "@/types/auth";
 
 interface ProtectedRouteProps {
-  role: UserRole;
+  /**
+   * Single required role OR an array of accepted roles.
+   * If an array is provided, the user's role must be in that list.
+   */
+  role: UserRole | UserRole[];
   loginPath: string;
   children: React.ReactNode;
 }
@@ -12,10 +16,10 @@ interface ProtectedRouteProps {
 /**
  * Guards a route by authentication + role.
  *
- * - Unauthenticated  → redirect to loginPath
- * - Wrong role       → redirect to /unauthorized
- * - must_change_password → redirect to /change-password (except on that page itself)
- * - Correct role     → render children
+ * - Unauthenticated              → redirect to loginPath
+ * - Role not in accepted list    → redirect to /unauthorized
+ * - must_change_password         → redirect to /change-password
+ * - All checks pass              → render children
  */
 export function ProtectedRoute({
   role,
@@ -34,9 +38,9 @@ export function ProtectedRoute({
 
   if (!user) return <Navigate to={loginPath} replace />;
 
-  if (user.role !== role) return <Navigate to="/unauthorized" replace />;
+  const accepted = Array.isArray(role) ? role : [role];
+  if (!accepted.includes(user.role)) return <Navigate to="/unauthorized" replace />;
 
-  // Force password-change wall — cannot bypass any protected route.
   if (mustChangePassword) {
     return <Navigate to="/change-password" replace />;
   }

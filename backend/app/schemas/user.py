@@ -17,3 +17,7 @@ class UserOut(BaseModel):
     last_login_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    # Staff fields (null for SUPERADMIN / CLIENT)
+    display_name: str | None = None
+    role_id: uuid.UUID | None = None
+    invite_status: str | None = None

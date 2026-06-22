@@ -101,6 +101,17 @@ ACTION_SUPPORT_EMAIL_FAILED = "support_email_failed"
 ACTION_SUPPORT_UNAUTHORIZED = "unauthorized_support_access_attempt"
 
 # Scheduled jobs domain
+# Staff / Role domain
+ACTION_ROLE_CREATED = "role_created"
+ACTION_ROLE_UPDATED = "role_updated"
+ACTION_ROLE_DELETED = "role_deleted"
+ACTION_STAFF_INVITED = "staff_invited"
+ACTION_STAFF_INVITE_RESENT = "staff_invite_resent"
+ACTION_STAFF_INVITE_ACCEPTED = "staff_invite_accepted"
+ACTION_STAFF_UPDATED = "staff_updated"
+ACTION_STAFF_DEACTIVATED = "staff_deactivated"
+ACTION_STAFF_REACTIVATED = "staff_reactivated"
+
 ACTION_SCHEDULED_JOB_UPDATED = "scheduled_job_updated"
 ACTION_SCHEDULED_JOB_ENABLED = "scheduled_job_enabled"
 ACTION_SCHEDULED_JOB_DISABLED = "scheduled_job_disabled"

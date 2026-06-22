@@ -13,7 +13,9 @@ import {
   ReceiptText,
   RefreshCw,
   Settings,
+  Shield,
   ShieldCheck,
+  UserCog,
   Users,
   Wifi,
 } from "lucide-react";
@@ -96,6 +98,20 @@ const NAV_ITEMS: NavItem[] = [
     icon: Headphones,
     href: "/admin/support",
     matchPrefix: "/admin/support",
+    roles: ["SUPERADMIN"],
+  },
+  {
+    label: "Staff Users",
+    icon: UserCog,
+    href: "/admin/users",
+    matchPrefix: "/admin/users",
+    roles: ["SUPERADMIN"],
+  },
+  {
+    label: "Roles",
+    icon: Shield,
+    href: "/admin/roles",
+    matchPrefix: "/admin/roles",
     roles: ["SUPERADMIN"],
   },
   // Client nav

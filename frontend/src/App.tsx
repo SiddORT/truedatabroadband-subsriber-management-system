@@ -52,6 +52,9 @@ import { AdminSupportDetailPage } from "@/pages/admin/support/SupportDetailPage"
 import { ClientSupportListPage } from "@/pages/client/support/SupportListPage";
 import { ClientSupportNewPage } from "@/pages/client/support/SupportNewPage";
 import { ClientSupportDetailPage } from "@/pages/client/support/SupportDetailPage";
+import { AcceptInvitePage } from "@/pages/AcceptInvitePage";
+import { RolesPage } from "@/pages/admin/users/RolesPage";
+import { StaffUsersPage } from "@/pages/admin/users/StaffUsersPage";
 
 /** Redirect to /change-password if logged in and forced, else to login. */
 function RootRedirect() {
@@ -69,6 +72,14 @@ function ClientRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
+  return (
+    <ProtectedRoute role={["SUPERADMIN", "STAFF"]} loginPath="/admin/login">
+      {children}
+    </ProtectedRoute>
+  );
+}
+
+function SuperAdminRoute({ children }: { children: React.ReactNode }) {
   return (
     <ProtectedRoute role="SUPERADMIN" loginPath="/admin/login">
       {children}
@@ -113,6 +124,9 @@ export default function App() {
 
       {/* Unauthorized */}
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
+
+      {/* Staff invite acceptance (public) */}
+      <Route path="/accept-invite" element={<AcceptInvitePage />} />
 
       {/* /admin → /admin/dashboard shortcut */}
       <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
@@ -175,8 +189,12 @@ export default function App() {
       <Route path="/admin/support/:id" element={<AdminRoute><AdminSupportDetailPage /></AdminRoute>} />
 
       {/* Settings */}
-      <Route path="/admin/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
-      <Route path="/admin/settings/communication" element={<AdminRoute><CommunicationSettingsPage /></AdminRoute>} />
+      <Route path="/admin/settings" element={<SuperAdminRoute><SettingsPage /></SuperAdminRoute>} />
+      <Route path="/admin/settings/communication" element={<SuperAdminRoute><CommunicationSettingsPage /></SuperAdminRoute>} />
+
+      {/* Users & Roles (SUPERADMIN only) */}
+      <Route path="/admin/roles" element={<SuperAdminRoute><RolesPage /></SuperAdminRoute>} />
+      <Route path="/admin/users" element={<SuperAdminRoute><StaffUsersPage /></SuperAdminRoute>} />
 
       {/* ------------------------------------------------------------------ */}
       {/* Client routes                                                       */}

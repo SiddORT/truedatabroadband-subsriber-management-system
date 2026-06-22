@@ -78,4 +78,31 @@ def require_roles(*roles: UserRole) -> Callable[[User], User]:
 
 
 require_superadmin = require_roles(UserRole.SUPERADMIN)
+require_staff_or_superadmin = require_roles(UserRole.SUPERADMIN, UserRole.STAFF)
 require_client = require_roles(UserRole.CLIENT)
+
+
+def require_permission(module: str, action: str):
+    """
+    Dependency factory: SUPERADMIN always passes.
+    STAFF must have the given module/action in their role's permissions.
+    """
+    def _dependency(
+        current_user: User = Depends(get_current_active_user),
+    ) -> User:
+        if current_user.role == UserRole.SUPERADMIN:
+            return current_user
+        if current_user.role != UserRole.STAFF:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
+        role = getattr(current_user, "staff_role", None)
+        if role is None or not role.has_permission(module, action):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission denied: {module}.{action}",
+            )
+        return current_user
+
+    return _dependency

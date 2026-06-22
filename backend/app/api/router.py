@@ -15,7 +15,9 @@ from app.api.v1 import (
     payments,
     plans,
     reports,
+    roles,
     settings,
+    staff_users,
     subscription_requests,
     subscriptions,
     support,
@@ -40,3 +42,5 @@ api_router.include_router(notifications.router)
 api_router.include_router(activity.router)
 api_router.include_router(jobs.router)
 api_router.include_router(support.router)
+api_router.include_router(roles.router)
+api_router.include_router(staff_users.router)

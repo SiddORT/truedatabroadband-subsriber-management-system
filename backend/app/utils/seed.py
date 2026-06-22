@@ -409,6 +409,33 @@ _DEFAULT_TEMPLATES: list[dict] = [
             "start_date", "expiry_date", "total_price", "portal_url", "connection_name",
         ],
     },
+    # ── STAFF_INVITE ────────────────────────────────────────────────────────
+    {
+        "template_key": TemplateKey.STAFF_INVITE,
+        "channel": NotificationChannel.EMAIL,
+        "subject": "You've been invited to join {company_name}",
+        "body": (
+            "<p>Hello <strong>{invitee_name}</strong>,</p>"
+            "<p>You have been invited to join the <strong>{company_name}</strong> admin portal.</p>"
+            "<div style='background:#f0f4f8;border-radius:10px;padding:20px 24px;margin:20px 0;'>"
+            "<p style='margin:0 0 12px;font-size:15px;font-weight:700;color:#1F4959;'>"
+            "&#128279; Accept Your Invitation</p>"
+            "<p style='margin:0 0 16px;color:#555;font-size:14px;'>"
+            "Click the button below to set your password and activate your account. "
+            "This link is valid for <strong>{expires_hours} hours</strong>.</p>"
+            "<a href='{invite_url}' style='background:#1F4959;color:#fff;"
+            "padding:10px 24px;border-radius:8px;text-decoration:none;"
+            "font-weight:600;display:inline-block;font-size:15px;'>"
+            "Accept Invitation &rarr;</a>"
+            "</div>"
+            "<p style='font-size:13px;color:#888;'>If you did not expect this invitation, "
+            "you can safely ignore this email.</p>"
+            "<p>Regards,<br>{company_name} Team</p>"
+        ),
+        "approved_variables": [
+            "company_name", "invitee_name", "invite_url", "expires_hours",
+        ],
+    },
 ]
 
 

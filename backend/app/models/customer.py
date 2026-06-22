@@ -120,9 +120,29 @@ class Customer(Base, BaseModelMixin):
     kyc_document_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     agreement_document_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
+    # ── Staff assignment ─────────────────────────────────────────────────────
+    assigned_staff_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    reference_partner_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     # ── Relationships ────────────────────────────────────────────────────────
     user: Mapped["User"] = relationship(  # type: ignore[name-defined]
         "User", foreign_keys=[user_id], lazy="select"
+    )
+    assigned_staff: Mapped["User | None"] = relationship(  # type: ignore[name-defined]
+        "User", foreign_keys=[assigned_staff_id], lazy="select"
+    )
+    reference_partner: Mapped["User | None"] = relationship(  # type: ignore[name-defined]
+        "User", foreign_keys=[reference_partner_id], lazy="select"
     )
 
     def __repr__(self) -> str:

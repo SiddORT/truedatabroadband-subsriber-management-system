@@ -9,9 +9,11 @@ from app.models.user import User
 from app.repositories.audit_log import AuditLogRepository
 from app.schemas.auth import LoginRequest, LogoutRequest, MessageResponse
 from app.schemas.password import ChangePasswordRequest
+from app.schemas.staff_user import AcceptInviteRequest
 from app.schemas.token import LoginResponse, RefreshRequest, TokenPair
 from app.schemas.user import UserOut
 from app.services.auth import AuthError, AuthService, PasswordPolicyError
+from app.services.staff_user import StaffUserError, StaffUserService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -138,3 +140,25 @@ def change_password(
 @router.get("/me", response_model=UserOut)
 def me(current_user: User = Depends(get_current_active_user)) -> User:
     return current_user
+
+
+@router.post("/accept-invite", response_model=MessageResponse)
+def accept_invite(
+    payload: AcceptInviteRequest,
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    """
+    Public endpoint — no auth required.
+    Validates the invite token and sets the user's password.
+    """
+    svc = StaffUserService(db)
+    try:
+        svc.accept_invite(payload.token, payload.password)
+    except StaffUserError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except PasswordPolicyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"message": "Password does not meet policy", "violations": exc.violations},
+        )
+    return MessageResponse(message="Password set successfully. You can now log in.")

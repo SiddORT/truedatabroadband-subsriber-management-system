@@ -2,7 +2,8 @@ import uuid
 import enum
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, String, event
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, event
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -12,14 +13,13 @@ from app.models.base import BaseModelMixin
 
 class UserRole(str, enum.Enum):
     SUPERADMIN = "SUPERADMIN"
+    STAFF = "STAFF"
     CLIENT = "CLIENT"
 
 
 class User(Base, BaseModelMixin):
     __tablename__ = "users"
 
-    # email is stored encrypted; email_hash is a keyed HMAC-SHA256 used for
-    # indexed lookups so we never need to scan and decrypt all rows.
     email: Mapped[str] = mapped_column(EncryptedString, nullable=False)
     email_hash: Mapped[str] = mapped_column(
         String(64), unique=True, index=True, nullable=False
@@ -38,17 +38,45 @@ class User(Base, BaseModelMixin):
         DateTime(timezone=True), nullable=True
     )
 
+    # Staff-specific fields
+    display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    role_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("roles.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    invite_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    invite_token_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    invite_accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(  # type: ignore[name-defined]
         "RefreshToken", back_populates="user", cascade="all, delete-orphan"
     )
+    staff_role: Mapped["Role | None"] = relationship(  # type: ignore[name-defined]
+        "Role",
+        back_populates="users",
+        foreign_keys=[role_id],
+        lazy="select",
+    )
+
+    @property
+    def invite_status(self) -> str:
+        if not self.is_active:
+            return "INACTIVE"
+        if self.invite_accepted_at is not None:
+            return "ACTIVE"
+        if self.invite_token is not None:
+            return "INVITED"
+        return "ACTIVE"
 
     def __repr__(self) -> str:
         return f"<User {self.email} ({self.role})>"
 
-
-# ---------------------------------------------------------------------------
-# Auto-compute email_hash before insert/update so callers only set .email
-# ---------------------------------------------------------------------------
 
 def _sync_email_hash(mapper: object, connection: object, target: User) -> None:  # noqa: ARG001
     if target.email is not None:
