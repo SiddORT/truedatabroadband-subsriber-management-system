@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { Eye, EyeOff } from "lucide-react";
 
 import { acceptInvite } from "@/services/roles";
 import { cn } from "@/lib/utils";
@@ -10,7 +11,9 @@ export function AcceptInvitePage() {
   const navigate = useNavigate();
 
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,16 +29,21 @@ export function AcceptInvitePage() {
       return;
     }
 
+    if (password !== confirmPwd) {
+      setError("Passwords do not match. Please check and try again.");
+      return;
+    }
+
     setLoading(true);
     try {
-      await acceptInvite({ token, password, confirm_password: confirm });
+      await acceptInvite({ token, password, confirm_password: confirmPwd });
       setSuccess(true);
       setTimeout(() => navigate("/admin/login", { replace: true }), 3000);
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
       if (typeof detail === "object" && detail !== null && "violations" in detail) {
         setViolations((detail as { violations: string[] }).violations);
-        setError((detail as unknown as { message: string }).message);
+        setError((detail as unknown as { message: string }).message ?? "Password does not meet requirements.");
       } else if (typeof detail === "string") {
         setError(detail);
       } else {
@@ -68,8 +76,14 @@ export function AcceptInvitePage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <img src="/logo-small.png" alt="True Data Broadband" className="mx-auto h-12 w-auto" />
-          <h1 className="mt-4 text-2xl font-bold text-foreground">Accept Your Invitation</h1>
+          <div className="mx-auto inline-flex items-center justify-center rounded-2xl bg-primary-dark px-5 py-3 shadow-md">
+            <img
+              src="/logo-small.png"
+              alt="True Data Broadband"
+              className="h-10 w-auto object-contain"
+            />
+          </div>
+          <h1 className="mt-5 text-2xl font-bold text-foreground">Accept Your Invitation</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Set a password to activate your staff account.
           </p>
@@ -107,29 +121,51 @@ export function AcceptInvitePage() {
                 <label className="block text-sm font-medium text-foreground mb-1.5">
                   New Password
                 </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoFocus
-                  className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="At least 8 characters"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    autoFocus
+                    className="w-full rounded-xl border border-border bg-background px-4 py-2.5 pr-11 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    placeholder="At least 8 characters"
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">
                   Confirm Password
                 </label>
-                <input
-                  type="password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  required
-                  className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="Re-enter your password"
-                />
+                <div className="relative">
+                  <input
+                    type={showConfirm ? "text" : "password"}
+                    value={confirmPwd}
+                    onChange={(e) => setConfirmPwd(e.target.value)}
+                    required
+                    className="w-full rounded-xl border border-border bg-background px-4 py-2.5 pr-11 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    placeholder="Re-enter your password"
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setShowConfirm((v) => !v)}
+                    className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label={showConfirm ? "Hide password" : "Show password"}
+                  >
+                    {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
 
               <button
