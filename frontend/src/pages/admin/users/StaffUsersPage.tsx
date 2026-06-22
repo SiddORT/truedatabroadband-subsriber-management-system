@@ -12,6 +12,8 @@ import {
 
 import { AppLayout } from "@/layouts/AppLayout";
 import { staffUsersService, rolesService } from "@/services/roles";
+import { getApiErrorMessage } from "@/services/api";
+import { useToast } from "@/contexts/ToastContext";
 import type { StaffUser, StaffUserInvite, StaffUserUpdate } from "@/types/roles";
 import { cn } from "@/lib/utils";
 
@@ -249,6 +251,7 @@ function EditDialog({
 
 export function StaffUsersPage() {
   const qc = useQueryClient();
+  const { showToast } = useToast();
   const [search, setSearch] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [editUser, setEditUser] = useState<StaffUser | null>(null);
@@ -285,6 +288,10 @@ export function StaffUsersPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["staff-users"] });
       setEditUser(null);
+      showToast("User updated successfully", "success");
+    },
+    onError: (err: unknown) => {
+      showToast(getApiErrorMessage(err), "error");
     },
   });
 
