@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { AppLayout } from "@/layouts/AppLayout";
+import { usePermission } from "@/hooks/usePermission";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/contexts/ToastContext";
 import { adminSupportApi, TicketMessage } from "@/services/support";
@@ -189,6 +190,7 @@ function CloseTicketModal({
 export function AdminSupportDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const canEditTicket = usePermission("support_tickets", "edit");
   const { showToast } = useToast();
   const qc = useQueryClient();
   const [replyText, setReplyText] = useState("");
@@ -324,7 +326,7 @@ export function AdminSupportDetailPage() {
               </div>
 
               {/* Reply / Note composer */}
-              {!isClosed && (
+              {!isClosed && canEditTicket && (
                 <div className="border-t border-border p-4">
                   <div className="mb-3 flex gap-2">
                     <button
@@ -428,7 +430,7 @@ export function AdminSupportDetailPage() {
           {/* Sidebar: info + actions */}
           <div className="space-y-4">
             {/* Ticket Actions */}
-            {!isClosed && (
+            {!isClosed && canEditTicket && (
               <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
                 <p className="mb-3 text-sm font-semibold">Actions</p>
                 <div className="space-y-3">

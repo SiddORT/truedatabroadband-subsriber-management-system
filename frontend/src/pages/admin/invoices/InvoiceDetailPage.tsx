@@ -17,6 +17,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { AppLayout } from "@/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { usePermission } from "@/hooks/usePermission";
 import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/contexts/ToastContext";
 import { invoicesService } from "@/services/invoices";
@@ -176,6 +177,8 @@ function EditChargeRowUI({ row, onUpdate, onRemove }: ChargeRowUIProps) {
 export function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const canEditInvoice  = usePermission("invoices", "edit");
+  const canAddPayment   = usePermission("payments", "add");
   const qc = useQueryClient();
   const { showToast } = useToast();
 
@@ -408,7 +411,7 @@ export function InvoiceDetailPage() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {isEditable && (
+            {isEditable && canEditInvoice && (
               <Button variant="outline" size="sm" onClick={openEditDialog}>
                 <Edit2 className="mr-1.5 h-4 w-4" />
                 Edit
@@ -418,13 +421,13 @@ export function InvoiceDetailPage() {
               <Download className="mr-1.5 h-4 w-4" />
               PDF
             </Button>
-            {canPay && (
+            {canPay && canAddPayment && (
               <Button size="sm" onClick={openPayDialog}>
                 <IndianRupee className="mr-1.5 h-4 w-4" />
                 Record Payment
               </Button>
             )}
-            {canCancel && (
+            {canCancel && canEditInvoice && (
               <Button
                 variant="outline"
                 size="sm"

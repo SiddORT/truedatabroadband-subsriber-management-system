@@ -12,6 +12,7 @@ import {
 import { AppLayout } from "@/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { usePermission } from "@/hooks/usePermission";
 import { Input } from "@/components/ui/input";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Dialog } from "@/components/ui/Dialog";
@@ -148,12 +149,14 @@ function PricingFormFields({
 // ── Pricing table row ─────────────────────────────────────────────────────────
 
 function PricingTableRow({
-  row, planId: _planId, onEdit, onDelete,
+  row, planId: _planId, onEdit, onDelete, canEdit, canDelete,
 }: {
   row: PlanPricing;
   planId: string;
   onEdit: (row: PlanPricing) => void;
   onDelete: (row: PlanPricing) => void;
+  canEdit: boolean;
+  canDelete: boolean;
 }) {
   return (
     <tr className="border-b border-border/40 last:border-0 hover:bg-muted/20 transition-colors">
@@ -178,20 +181,24 @@ function PricingTableRow({
       </td>
       <td className="px-3 py-3 text-right">
         <div className="flex items-center justify-end gap-1.5">
-          <Tooltip label="Edit Pricing">
-            <Button variant="outline" size="sm" onClick={() => onEdit(row)} className="h-7 px-2.5 text-xs">
-              <Edit className="h-3 w-3" />Edit
-            </Button>
-          </Tooltip>
-          <Tooltip label="Remove Pricing">
-            <Button
-              variant="outline" size="sm"
-              onClick={() => onDelete(row)}
-              className="h-7 px-2.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
-            >
-              <Trash2 className="h-3 w-3" />
-            </Button>
-          </Tooltip>
+          {canEdit && (
+            <Tooltip label="Edit Pricing">
+              <Button variant="outline" size="sm" onClick={() => onEdit(row)} className="h-7 px-2.5 text-xs">
+                <Edit className="h-3 w-3" />Edit
+              </Button>
+            </Tooltip>
+          )}
+          {canDelete && (
+            <Tooltip label="Remove Pricing">
+              <Button
+                variant="outline" size="sm"
+                onClick={() => onDelete(row)}
+                className="h-7 px-2.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </Tooltip>
+          )}
         </div>
       </td>
     </tr>
@@ -203,6 +210,8 @@ function PricingTableRow({
 export function PlanDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const canEditPlan   = usePermission("plans", "edit");
+  const canDeletePlan = usePermission("plans", "delete");
   const qc = useQueryClient();
   const { showToast } = useToast();
 
@@ -385,21 +394,23 @@ export function PlanDetailPage() {
               <p className="font-mono text-sm text-muted-foreground mt-0.5">{plan.plan_code}</p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={openEditPlan}>
-              <Edit className="h-4 w-4" />Edit Plan
-            </Button>
-            <Button
-              variant="outline" size="sm"
-              onClick={() => statusMutation.mutate(!plan.is_active)}
-              disabled={statusMutation.isPending}
-            >
-              {statusMutation.isPending
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : <Power className="h-4 w-4" />}
-              {plan.is_active ? "Deactivate" : "Activate"}
-            </Button>
-          </div>
+          {canEditPlan && (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={openEditPlan}>
+                <Edit className="h-4 w-4" />Edit Plan
+              </Button>
+              <Button
+                variant="outline" size="sm"
+                onClick={() => statusMutation.mutate(!plan.is_active)}
+                disabled={statusMutation.isPending}
+              >
+                {statusMutation.isPending
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <Power className="h-4 w-4" />}
+                {plan.is_active ? "Deactivate" : "Activate"}
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Plan info grid */}
@@ -479,7 +490,7 @@ export function PlanDetailPage() {
                 </div>
                 <span className="text-sm font-semibold">Pricing Matrix</span>
               </div>
-              {availableCycles.length > 0 && (
+              {availableCycles.length > 0 && canEditPlan && (
                 <Button variant="outline" size="sm" onClick={openAddPricing} className="gap-1.5">
                   <Plus className="h-3.5 w-3.5" />Add Cycle
                 </Button>
@@ -489,9 +500,11 @@ export function PlanDetailPage() {
               <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-border/60 py-10 text-center mb-5">
                 <IndianRupee className="h-8 w-8 text-muted-foreground/30" />
                 <p className="text-sm text-muted-foreground">No pricing rows yet</p>
-                <Button variant="outline" size="sm" onClick={openAddPricing} className="gap-1.5">
-                  <Plus className="h-3.5 w-3.5" />Add First Pricing
-                </Button>
+                {canEditPlan && (
+                  <Button variant="outline" size="sm" onClick={openAddPricing} className="gap-1.5">
+                    <Plus className="h-3.5 w-3.5" />Add First Pricing
+                  </Button>
+                )}
               </div>
             ) : (
               <table className="w-full text-left">
@@ -510,6 +523,7 @@ export function PlanDetailPage() {
                     <PricingTableRow
                       key={row.id} row={row} planId={plan.id}
                       onEdit={openEditPricing} onDelete={setDeletePricingRow}
+                      canEdit={canEditPlan} canDelete={canDeletePlan}
                     />
                   ))}
                 </tbody>

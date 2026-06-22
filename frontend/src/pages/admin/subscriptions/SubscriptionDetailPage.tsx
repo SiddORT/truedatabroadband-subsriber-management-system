@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/contexts/ToastContext";
+import { usePermission } from "@/hooks/usePermission";
 import { subscriptionsService } from "@/services/subscriptions";
 import { plansService } from "@/services/plans";
 import { getApiErrorMessage } from "@/services/api";
@@ -89,6 +90,7 @@ const STATUS_OPTIONS: SubscriptionStatus[] = [
 export function SubscriptionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const canEditSubscription = usePermission("subscriptions", "edit");
   const qc = useQueryClient();
   const { showToast } = useToast();
 
@@ -214,49 +216,51 @@ export function SubscriptionDetailPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {sub.status === "ACTIVE" && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => renewMutation.mutate()}
-                  disabled={renewMutation.isPending}
-                >
-                  {renewMutation.isPending ? (
-                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="mr-1.5 h-4 w-4" />
-                  )}
-                  Renew
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setNewPlanId("");
-                    setNewPricingId("");
-                    setNewStartDate(new Date().toISOString().split("T")[0]);
-                    setPlanDialog(true);
-                  }}
-                >
-                  <Zap className="mr-1.5 h-4 w-4" />
-                  Change Plan
-                </Button>
-              </>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setNewStatus(sub.status);
-                setStatusDialog(true);
-              }}
-            >
-              <ShieldOff className="mr-1.5 h-4 w-4" />
-              Change Status
-            </Button>
-          </div>
+          {canEditSubscription && (
+            <div className="flex items-center gap-2">
+              {sub.status === "ACTIVE" && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => renewMutation.mutate()}
+                    disabled={renewMutation.isPending}
+                  >
+                    {renewMutation.isPending ? (
+                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="mr-1.5 h-4 w-4" />
+                    )}
+                    Renew
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setNewPlanId("");
+                      setNewPricingId("");
+                      setNewStartDate(new Date().toISOString().split("T")[0]);
+                      setPlanDialog(true);
+                    }}
+                  >
+                    <Zap className="mr-1.5 h-4 w-4" />
+                    Change Plan
+                  </Button>
+                </>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setNewStatus(sub.status);
+                  setStatusDialog(true);
+                }}
+              >
+                <ShieldOff className="mr-1.5 h-4 w-4" />
+                Change Status
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

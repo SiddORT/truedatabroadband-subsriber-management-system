@@ -17,6 +17,7 @@ import { BILLING_CYCLE_LABELS } from "@/types/plan";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { usePermission } from "@/hooks/usePermission";
 import { Dialog } from "@/components/ui/Dialog";
 import { AppLayout } from "@/layouts/AppLayout";
 import { useToast } from "@/contexts/ToastContext";
@@ -543,6 +544,7 @@ const TABS: TabDef[] = [
 export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const canEditCustomer = usePermission("customers", "edit");
   const qc = useQueryClient();
   const { showToast } = useToast();
 
@@ -622,19 +624,21 @@ export function CustomerDetailPage() {
               <p className="font-mono text-sm text-muted-foreground mt-0.5">{customer.customer_code}</p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={() => navigate(`/admin/customers/${id}/edit`)}>
-              <Edit className="h-4 w-4" />Edit
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setStatusDialog({ open: true, newStatus: nextStatus })}>
-              {nextStatus === "ACTIVE" ? <ShieldCheck className="h-4 w-4" /> : <ShieldOff className="h-4 w-4" />}
-              Set {nextStatus}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => resetMutation.mutate()} disabled={resetMutation.isPending}>
-              {resetMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Key className="h-4 w-4" />}
-              Reset Password
-            </Button>
-          </div>
+          {canEditCustomer && (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => navigate(`/admin/customers/${id}/edit`)}>
+                <Edit className="h-4 w-4" />Edit
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setStatusDialog({ open: true, newStatus: nextStatus })}>
+                {nextStatus === "ACTIVE" ? <ShieldCheck className="h-4 w-4" /> : <ShieldOff className="h-4 w-4" />}
+                Set {nextStatus}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => resetMutation.mutate()} disabled={resetMutation.isPending}>
+                {resetMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Key className="h-4 w-4" />}
+                Reset Password
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Tabbed card */}
