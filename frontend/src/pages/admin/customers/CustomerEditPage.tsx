@@ -18,6 +18,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { customersService } from "@/services/customers";
 import type { DocType } from "@/services/customers";
 import { getApiErrorMessage } from "@/services/api";
+import { staffUsersService } from "@/services/roles";
 import type { Customer, CustomerUpdatePayload } from "@/types/customer";
 import { Field, PhoneField, PincodeAutoFillInput } from "@/components/customers/CustomerFormParts";
 
@@ -501,6 +502,14 @@ function Step2({ register, watch, errors, setValue }: { register: any; watch: an
 
 function Step3({ register, watch, errors }: { register: any; watch: any; errors: any }) {
   const refSource = watch("reference_source");
+
+  const { data: staffData } = useQuery({
+    queryKey: ["staff-users-active"],
+    queryFn: () => staffUsersService.list({ limit: 200 }),
+    staleTime: 60_000,
+  });
+  const salesStaff = (staffData?.items ?? []).filter((u) => u.invite_status === "ACTIVE");
+
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
       <div>
@@ -544,7 +553,21 @@ function Step3({ register, watch, errors }: { register: any; watch: any; errors:
             </Field>
           )}
           <Field label="Salesperson">
-            <Input placeholder="Assigned salesperson" {...register("sales_person")} />
+            {salesStaff.length > 0 ? (
+              <select {...register("sales_person")} className={SELECT_CLS}>
+                <option value="">— Select salesperson —</option>
+                {salesStaff.map((u) => {
+                  const name = u.display_name || u.email;
+                  return (
+                    <option key={u.id} value={name}>
+                      {name}{u.staff_role ? ` (${u.staff_role.name})` : ""}
+                    </option>
+                  );
+                })}
+              </select>
+            ) : (
+              <Input placeholder="No staff users available yet" {...register("sales_person")} />
+            )}
           </Field>
           <Field label="Internal Notes">
             <textarea rows={4} placeholder="Any notes or special instructions…" {...register("notes")}
