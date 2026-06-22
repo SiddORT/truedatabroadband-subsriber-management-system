@@ -29,6 +29,39 @@ const DATA_SCOPE_COLORS: Record<string, string> = {
 
 // ── Permission Matrix Component ───────────────────────────────────────────────
 
+function Checkbox({
+  checked,
+  onClick,
+  disabled = false,
+  label,
+}: {
+  checked: boolean;
+  onClick?: () => void;
+  disabled?: boolean;
+  label?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      className={cn(
+        "mx-auto flex h-5 w-5 items-center justify-center rounded border transition-colors",
+        checked ? "border-primary bg-primary text-white" : "border-border bg-background",
+        !disabled && "cursor-pointer hover:border-primary",
+        disabled && "cursor-default",
+      )}
+    >
+      {checked && (
+        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 function PermissionMatrix({
   permissions,
   onChange,
@@ -38,6 +71,10 @@ function PermissionMatrix({
   onChange?: (p: PermissionMap) => void;
   readOnly?: boolean;
 }) {
+  const allModulesAllOn = PERMISSION_MODULES.every(({ key }) =>
+    PERMISSION_ACTIONS.every((a) => permissions[key]?.[a]),
+  );
+
   const toggle = (module: string, action: string) => {
     if (readOnly || !onChange) return;
     onChange({
@@ -58,74 +95,69 @@ function PermissionMatrix({
     });
   };
 
+  const toggleAll = () => {
+    if (readOnly || !onChange) return;
+    const next = !allModulesAllOn;
+    const updated: PermissionMap = {};
+    for (const { key } of PERMISSION_MODULES) {
+      updated[key] = { view: next, add: next, edit: next, delete: next };
+    }
+    onChange(updated);
+  };
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr>
-            <th className="py-2 pr-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <tr className="border-b border-border">
+            <th className="py-2.5 pr-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Module
             </th>
             {PERMISSION_ACTIONS.map((a) => (
-              <th key={a} className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground capitalize">
+              <th key={a} className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground capitalize">
                 {a}
               </th>
             ))}
-            {!readOnly && (
-              <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                All
-              </th>
-            )}
+            <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {readOnly ? (
+                "All"
+              ) : (
+                <div className="flex flex-col items-center gap-1">
+                  <span>All</span>
+                  <Checkbox
+                    checked={allModulesAllOn}
+                    onClick={toggleAll}
+                    label="Grant full access to all modules"
+                  />
+                </div>
+              )}
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
           {PERMISSION_MODULES.map(({ key, label }) => {
-            const allOn = PERMISSION_ACTIONS.every((a) => permissions[key]?.[a]);
+            const rowAllOn = PERMISSION_ACTIONS.every((a) => permissions[key]?.[a]);
             return (
               <tr key={key} className="hover:bg-muted/30 transition-colors">
                 <td className="py-2.5 pr-4 font-medium text-foreground">{label}</td>
                 {PERMISSION_ACTIONS.map((action) => (
                   <td key={action} className="px-3 py-2.5 text-center">
-                    <button
-                      type="button"
+                    <Checkbox
+                      checked={!!permissions[key]?.[action as keyof typeof permissions[string]]}
                       onClick={() => toggle(key, action)}
                       disabled={readOnly}
-                      className={cn(
-                        "mx-auto flex h-5 w-5 items-center justify-center rounded border transition-colors",
-                        permissions[key]?.[action as keyof typeof permissions[string]]
-                          ? "border-primary bg-primary text-white"
-                          : "border-border bg-background",
-                        !readOnly && "hover:border-primary cursor-pointer",
-                        readOnly && "cursor-default",
-                      )}
-                      aria-label={`${label} ${action}`}
-                    >
-                      {permissions[key]?.[action as keyof typeof permissions[string]] && (
-                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </button>
+                      label={`${label} ${action}`}
+                    />
                   </td>
                 ))}
-                {!readOnly && (
-                  <td className="px-3 py-2.5 text-center">
-                    <button
-                      type="button"
-                      onClick={() => toggleRow(key)}
-                      className={cn(
-                        "mx-auto flex h-5 w-5 items-center justify-center rounded border transition-colors cursor-pointer",
-                        allOn ? "border-primary bg-primary text-white" : "border-border bg-background hover:border-primary",
-                      )}
-                    >
-                      {allOn && (
-                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </button>
-                  </td>
-                )}
+                <td className="px-3 py-2.5 text-center">
+                  <Checkbox
+                    checked={rowAllOn}
+                    onClick={() => toggleRow(key)}
+                    disabled={readOnly}
+                    label={`${label} full access`}
+                  />
+                </td>
               </tr>
             );
           })}
