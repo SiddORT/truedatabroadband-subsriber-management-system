@@ -121,7 +121,9 @@ export function LoginPage({ role, title, subtitle, redirectTo }: LoginPageProps)
     setServerError(null);
     try {
       const user = await login(values);
-      if (user.role !== role) {
+      const adminRoles: string[] = ["SUPERADMIN", "STAFF"];
+      const allowed = role === "SUPERADMIN" ? adminRoles.includes(user.role) : user.role === role;
+      if (!allowed) {
         setServerError(`This account is not authorized for the ${title}.`);
         return;
       }
@@ -166,7 +168,9 @@ export function LoginPage({ role, title, subtitle, redirectTo }: LoginPageProps)
       });
       tokenService.setTokens(data.access_token, data.refresh_token);
       const user = data.user;
-      if (user.role !== role) {
+      const adminRoles: string[] = ["SUPERADMIN", "STAFF"];
+      const allowed = role === "SUPERADMIN" ? adminRoles.includes(user.role) : user.role === role;
+      if (!allowed) {
         setServerError(`This account is not authorized for the ${title}.`);
         tokenService.clear();
         return;
