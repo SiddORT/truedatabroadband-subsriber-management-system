@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.dependencies.auth import require_superadmin
+from app.dependencies.auth import require_permission
 from app.models.admin_notification import AdminNotification
 from app.models.customer import Customer
 from app.models.invoice import Invoice, InvoiceStatus
@@ -185,7 +185,7 @@ def admin_list_tickets(
     assigned_to_user_id: uuid.UUID | None = Query(None),
     customer_id: uuid.UUID | None = Query(None),
     search: str | None = Query(None),
-    _: User = Depends(require_superadmin),
+    _: User = Depends(require_permission("support_tickets", "view")),
     db: Session = Depends(get_db),
 ) -> AdminTicketsPage:
     repo = SupportTicketRepository(db)
@@ -211,7 +211,7 @@ def admin_list_tickets(
 
 @router.get("/admin/support/dashboard-stats", response_model=SupportDashboardStats)
 def admin_support_dashboard_stats(
-    _: User = Depends(require_superadmin),
+    _: User = Depends(require_permission("support_tickets", "view")),
     db: Session = Depends(get_db),
 ) -> SupportDashboardStats:
     repo = SupportTicketRepository(db)
@@ -237,7 +237,7 @@ def admin_support_dashboard_stats(
 @router.get("/admin/support/{ticket_id}", response_model=AdminTicketOut)
 def admin_get_ticket(
     ticket_id: uuid.UUID,
-    _: User = Depends(require_superadmin),
+    _: User = Depends(require_permission("support_tickets", "view")),
     db: Session = Depends(get_db),
 ) -> AdminTicketOut:
     repo = SupportTicketRepository(db)
@@ -252,7 +252,7 @@ def admin_update_ticket(
     ticket_id: uuid.UUID,
     payload: AdminTicketUpdate,
     request: Request,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("support_tickets", "edit")),
     db: Session = Depends(get_db),
 ) -> AdminTicketOut:
     repo = SupportTicketRepository(db)
@@ -278,7 +278,7 @@ def admin_reply(
     ticket_id: uuid.UUID,
     payload: AdminReplyCreate,
     request: Request,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("support_tickets", "edit")),
     db: Session = Depends(get_db),
 ) -> TicketMessageOut:
     repo = SupportTicketRepository(db)
@@ -305,7 +305,7 @@ def admin_add_internal_note(
     ticket_id: uuid.UUID,
     payload: AdminReplyCreate,
     request: Request,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("support_tickets", "edit")),
     db: Session = Depends(get_db),
 ) -> TicketMessageOut:
     repo = SupportTicketRepository(db)
@@ -332,7 +332,7 @@ def admin_add_internal_note(
 async def admin_upload_attachment(
     ticket_id: uuid.UUID,
     file: UploadFile = File(...),
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("support_tickets", "edit")),
     db: Session = Depends(get_db),
     storage=Depends(get_storage_service),
 ) -> TicketAttachmentOut:
@@ -379,7 +379,7 @@ async def admin_upload_attachment(
 def list_admin_notifications(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=50),
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("support_tickets", "view")),
     db: Session = Depends(get_db),
 ) -> AdminNotificationsPage:
     repo = AdminNotificationRepository(db)
@@ -395,7 +395,7 @@ def list_admin_notifications(
 @router.patch("/admin/notifications/{notif_id}/read", response_model=AdminNotificationOut)
 def mark_notification_read(
     notif_id: uuid.UUID,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("support_tickets", "edit")),
     db: Session = Depends(get_db),
 ) -> AdminNotificationOut:
     repo = AdminNotificationRepository(db)
@@ -414,7 +414,7 @@ def mark_notification_read(
 
 @router.patch("/admin/notifications/read-all")
 def mark_all_notifications_read(
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("support_tickets", "edit")),
     db: Session = Depends(get_db),
 ) -> dict:
     repo = AdminNotificationRepository(db)

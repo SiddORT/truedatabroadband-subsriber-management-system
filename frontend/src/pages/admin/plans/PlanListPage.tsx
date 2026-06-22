@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { usePermission } from "@/hooks/usePermission";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Eye, Zap, Infinity, AlertCircle, Trash2 } from "lucide-react";
 
@@ -67,6 +68,7 @@ const STATUS_FILTER_OPTIONS = [
 
 export function PlanListPage() {
   const navigate = useNavigate();
+  const canAddPlan = usePermission("plans", "add");
   const qc = useQueryClient();
   const { showToast } = useToast();
 
@@ -249,13 +251,15 @@ export function PlanListPage() {
               Manage plans and configure billing cycle pricing.
             </p>
           </div>
-          <Button
-            onClick={() => navigate("/admin/plans/new")}
-            className="shrink-0"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            New Plan
-          </Button>
+          {canAddPlan && (
+            <Button
+              onClick={() => navigate("/admin/plans/new")}
+              className="shrink-0"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              New Plan
+            </Button>
+          )}
         </div>
 
         {/* ── Table card ───────────────────────────────────────────────── */}

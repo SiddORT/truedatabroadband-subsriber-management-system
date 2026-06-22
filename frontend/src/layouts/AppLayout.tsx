@@ -34,6 +34,8 @@ interface NavItem {
   href: string;
   matchPrefix: string;
   roles?: string[];
+  /** If set, STAFF users also need `view` permission on this module to see this item. */
+  permissionModule?: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -42,63 +44,72 @@ const NAV_ITEMS: NavItem[] = [
     icon: LayoutDashboard,
     href: "/admin/dashboard",
     matchPrefix: "/admin/dashboard",
-    roles: ["SUPERADMIN"],
+    roles: ["SUPERADMIN", "STAFF"],
+    // No permissionModule — dashboard visible to all staff
   },
   {
     label: "Customers",
     icon: Users,
     href: "/admin/customers",
     matchPrefix: "/admin/customers",
-    roles: ["SUPERADMIN"],
+    roles: ["SUPERADMIN", "STAFF"],
+    permissionModule: "customers",
   },
   {
     label: "Plans & Pricing",
     icon: Wifi,
     href: "/admin/plans",
     matchPrefix: "/admin/plans",
-    roles: ["SUPERADMIN"],
+    roles: ["SUPERADMIN", "STAFF"],
+    permissionModule: "plans",
   },
   {
     label: "Subscriptions",
     icon: RefreshCw,
     href: "/admin/subscriptions",
     matchPrefix: "/admin/subscriptions",
-    roles: ["SUPERADMIN"],
+    roles: ["SUPERADMIN", "STAFF"],
+    permissionModule: "subscriptions",
   },
   {
     label: "Requests",
     icon: ClipboardList,
     href: "/admin/subscription-requests",
     matchPrefix: "/admin/subscription-requests",
-    roles: ["SUPERADMIN"],
+    roles: ["SUPERADMIN", "STAFF"],
+    permissionModule: "subscriptions",
   },
   {
     label: "Invoices",
     icon: ReceiptText,
     href: "/admin/invoices",
     matchPrefix: "/admin/invoices",
-    roles: ["SUPERADMIN"],
+    roles: ["SUPERADMIN", "STAFF"],
+    permissionModule: "invoices",
   },
   {
     label: "Payments",
     icon: IndianRupee,
     href: "/admin/payments",
     matchPrefix: "/admin/payments",
-    roles: ["SUPERADMIN"],
+    roles: ["SUPERADMIN", "STAFF"],
+    permissionModule: "payments",
   },
   {
     label: "Reports",
     icon: BarChart3,
     href: "/admin/reports",
     matchPrefix: "/admin/reports",
-    roles: ["SUPERADMIN"],
+    roles: ["SUPERADMIN", "STAFF"],
+    permissionModule: "reports",
   },
   {
     label: "Support",
     icon: Headphones,
     href: "/admin/support",
     matchPrefix: "/admin/support",
-    roles: ["SUPERADMIN"],
+    roles: ["SUPERADMIN", "STAFF"],
+    permissionModule: "support_tickets",
   },
   {
     label: "Users",
@@ -190,9 +201,13 @@ export function AppLayout({ title, portalLabel, children }: AppLayoutProps) {
     setProfileOpen(false);
   }, [location.pathname]);
 
-  const visibleItems = NAV_ITEMS.filter(
-    (item) => !item.roles || item.roles.includes(user?.role ?? ""),
-  );
+  const visibleItems = NAV_ITEMS.filter((item) => {
+    if (item.roles && !item.roles.includes(user?.role ?? "")) return false;
+    if (user?.role === "STAFF" && item.permissionModule) {
+      return user?.staff_permissions?.[item.permissionModule]?.view === true;
+    }
+    return true;
+  });
 
   return (
     <div className="flex min-h-screen bg-background">

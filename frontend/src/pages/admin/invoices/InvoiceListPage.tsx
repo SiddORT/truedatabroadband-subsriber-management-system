@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { usePermission } from "@/hooks/usePermission";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Download, Eye, Plus, Trash2 } from "lucide-react";
 
@@ -50,6 +51,7 @@ function fmtMoney(n: string | number) {
 
 export function InvoiceListPage() {
   const navigate = useNavigate();
+  const canAddInvoice = usePermission("invoices", "add");
   const qc = useQueryClient();
   const { showToast } = useToast();
 
@@ -274,13 +276,15 @@ export function InvoiceListPage() {
               Generate and manage billing invoices for subscriptions.
             </p>
           </div>
-          <Button
-            onClick={() => navigate("/admin/invoices/new")}
-            className="shrink-0"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            New Invoice
-          </Button>
+          {canAddInvoice && (
+            <Button
+              onClick={() => navigate("/admin/invoices/new")}
+              className="shrink-0"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              New Invoice
+            </Button>
+          )}
         </div>
 
         <Card>

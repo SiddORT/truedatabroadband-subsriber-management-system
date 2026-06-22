@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.dependencies.auth import require_superadmin
+from app.dependencies.auth import require_permission
 from app.models.audit_log import ACTION_REPORT_EXPORTED, ACTION_REPORT_VIEWED
 from app.models.user import User
 from app.repositories.audit_log import AuditLogRepository
@@ -50,7 +50,7 @@ def report_customers(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("reports", "view")),
 ):
     repo = ReportsRepository(db)
     items, total, summary = repo.customers_report(
@@ -89,7 +89,7 @@ def report_subscriptions(
     expiry_date_to: date | None = Query(None),
     quick_filter: str | None = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("reports", "view")),
 ):
     repo = ReportsRepository(db)
     items, total, summary = repo.subscriptions_report(
@@ -129,7 +129,7 @@ def report_invoices(
     due_date_to: date | None = Query(None),
     quick_filter: str | None = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("reports", "view")),
 ):
     repo = ReportsRepository(db)
     items, total, summary = repo.invoices_report(
@@ -165,7 +165,7 @@ def report_payments(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("reports", "view")),
 ):
     repo = ReportsRepository(db)
     items, total, summary = repo.payments_report(
@@ -195,7 +195,7 @@ def report_revenue(
     customer_type: str | None = Query(None),
     city: str | None = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("reports", "view")),
 ):
     repo = ReportsRepository(db)
     data = repo.revenue_report(
@@ -222,7 +222,7 @@ def report_outstanding(
     city: str | None = Query(None),
     plan: str | None = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("reports", "view")),
 ):
     repo = ReportsRepository(db)
     items, total, summary = repo.outstanding_report(
@@ -247,7 +247,7 @@ def export_report(
     request: Request,
     payload: dict,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("reports", "add")),
 ):
     report_type = payload.get("report_type", "")
     filters = payload.get("filters", {})
@@ -290,7 +290,7 @@ def export_report(
 @router.get("/download/{filename}")
 def download_export(
     filename: str,
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_permission("reports", "view")),
 ):
     # Sanitise: no path traversal
     if "/" in filename or "\\" in filename or ".." in filename:

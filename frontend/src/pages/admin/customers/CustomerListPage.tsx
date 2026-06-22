@@ -14,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/Dialog";
 import { AppLayout } from "@/layouts/AppLayout";
+import { usePermission } from "@/hooks/usePermission";
 import { useToast } from "@/contexts/ToastContext";
 import { customersService } from "@/services/customers";
 import { getApiErrorMessage } from "@/services/api";
@@ -29,6 +30,7 @@ const ALL_STATUSES: CustomerStatus[] = ["ACTIVE", "SUSPENDED", "DISCONNECTED"];
 
 export function CustomerListPage() {
   const navigate = useNavigate();
+  const canAddCustomer = usePermission("customers", "add");
   const qc = useQueryClient();
   const { showToast } = useToast();
 
@@ -240,13 +242,15 @@ export function CustomerListPage() {
               Manage customer accounts and portal access.
             </p>
           </div>
-          <Button
-            onClick={() => navigate("/admin/customers/new")}
-            className="shrink-0"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            New Customer
-          </Button>
+          {canAddCustomer && (
+            <Button
+              onClick={() => navigate("/admin/customers/new")}
+              className="shrink-0"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              New Customer
+            </Button>
+          )}
         </div>
 
         {/* ── Table card ───────────────────────────────────────────────── */}

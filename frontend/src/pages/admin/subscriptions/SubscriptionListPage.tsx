@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Eye, Plus, Trash2 } from "lucide-react";
 
 import { AppLayout } from "@/layouts/AppLayout";
+import { usePermission } from "@/hooks/usePermission";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/Dialog";
@@ -42,6 +43,7 @@ function fmtDate(d: string) {
 
 export function SubscriptionListPage() {
   const navigate = useNavigate();
+  const canAddSubscription = usePermission("subscriptions", "add");
   const qc = useQueryClient();
   const { showToast } = useToast();
 
@@ -221,13 +223,15 @@ export function SubscriptionListPage() {
               Manage customer plan assignments and renewal cycles.
             </p>
           </div>
-          <Button
-            onClick={() => navigate("/admin/subscriptions/new")}
-            className="shrink-0"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            New Subscription
-          </Button>
+          {canAddSubscription && (
+            <Button
+              onClick={() => navigate("/admin/subscriptions/new")}
+              className="shrink-0"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              New Subscription
+            </Button>
+          )}
         </div>
 
         {/* ── Table card ───────────────────────────────────────────────── */}

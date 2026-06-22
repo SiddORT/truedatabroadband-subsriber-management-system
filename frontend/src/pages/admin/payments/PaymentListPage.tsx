@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { usePermission } from "@/hooks/usePermission";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Eye, Plus, Trash2 } from "lucide-react";
 
@@ -41,6 +42,7 @@ function fmtMoney(n: string | number) {
 
 export function PaymentListPage() {
   const navigate = useNavigate();
+  const canAddPayment = usePermission("payments", "add");
   const qc = useQueryClient();
   const { showToast } = useToast();
 
@@ -181,13 +183,15 @@ export function PaymentListPage() {
               All recorded payments across invoices.
             </p>
           </div>
-          <Button
-            onClick={() => navigate("/admin/payments/new")}
-            className="shrink-0"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Record Payment
-          </Button>
+          {canAddPayment && (
+            <Button
+              onClick={() => navigate("/admin/payments/new")}
+              className="shrink-0"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Record Payment
+            </Button>
+          )}
         </div>
 
         <Card>
