@@ -182,8 +182,8 @@ function RoleDialog({
 }) {
   const [name, setName] = useState(role?.name ?? "");
   const [description, setDescription] = useState(role?.description ?? "");
-  const [dataScope, setDataScope] = useState<"ALL" | "ASSIGNED" | "REFERENCE">(
-    (role?.data_scope as "ALL" | "ASSIGNED" | "REFERENCE") ?? "ALL",
+  const [dataScope, setDataScope] = useState<"ALL" | "ASSIGNED">(
+    (role?.data_scope === "ASSIGNED" ? "ASSIGNED" : "ALL"),
   );
   const [permissions, setPermissions] = useState<PermissionMap>(
     role?.permissions ?? emptyPermissions(),
@@ -230,7 +230,6 @@ function RoleDialog({
               >
                 <option value="ALL">All Customers</option>
                 <option value="ASSIGNED">Assigned Only</option>
-                <option value="REFERENCE">Reference Only</option>
               </select>
             </div>
           </div>
