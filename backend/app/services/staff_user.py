@@ -160,6 +160,11 @@ class StaffUserService:
 
         if payload.display_name is not None:
             user.display_name = payload.display_name
+        if payload.email is not None:
+            existing = self.repo.get_by_email(payload.email)
+            if existing and existing.id != user.id:
+                raise StaffUserError("A user with this email already exists")
+            user.email = payload.email
         if payload.role_id is not None:
             role = self.role_repo.get(payload.role_id)
             if role is None:

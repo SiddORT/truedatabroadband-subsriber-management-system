@@ -155,12 +155,18 @@ function EditDialog({
   loading: boolean;
 }) {
   const [displayName, setDisplayName] = useState(user.display_name ?? "");
+  const [email, setEmail] = useState(user.email ?? "");
   const [roleId, setRoleId] = useState(user.role_id ?? "");
   const [isActive, setIsActive] = useState(user.is_active);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({ display_name: displayName, role_id: roleId || undefined, is_active: isActive });
+    onSave({
+      display_name: displayName || undefined,
+      email: email || undefined,
+      role_id: roleId || undefined,
+      is_active: isActive,
+    });
   };
 
   return (
@@ -182,6 +188,17 @@ function EditDialog({
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Email Address</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              placeholder="staff@example.com"
             />
           </div>
 

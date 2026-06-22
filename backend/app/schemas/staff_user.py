@@ -31,8 +31,16 @@ class StaffUserInvite(BaseModel):
 
 class StaffUserUpdate(BaseModel):
     display_name: str | None = None
+    email: str | None = None
     role_id: uuid.UUID | None = None
     is_active: bool | None = None
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def lower_email(cls, v: str | None) -> str | None:
+        if v is None or v == "":
+            return None
+        return v.strip().lower()
 
 
 class AcceptInviteRequest(BaseModel):

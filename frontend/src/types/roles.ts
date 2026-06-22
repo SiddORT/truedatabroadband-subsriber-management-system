@@ -67,6 +67,7 @@ export interface StaffUserInvite {
 
 export interface StaffUserUpdate {
   display_name?: string;
+  email?: string;
   role_id?: string;
   is_active?: boolean;
 }
