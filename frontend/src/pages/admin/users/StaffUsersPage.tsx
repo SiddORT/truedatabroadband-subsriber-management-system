@@ -349,7 +349,13 @@ export function StaffUsersPage() {
 
   const resendMutation = useMutation({
     mutationFn: staffUsersService.resendInvite,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["staff-users"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["staff-users"] });
+      showToast("Invite email resent successfully", "success");
+    },
+    onError: (err: unknown) => {
+      showToast(getApiErrorMessage(err), "error");
+    },
   });
 
   const deleteMutation = useMutation({

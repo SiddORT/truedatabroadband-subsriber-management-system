@@ -14,7 +14,7 @@ from app.core.config import settings
 
 
 def build_portal_url(request: Request | None = None, path: str = "/client") -> str:
-    path = path.rstrip("/") or "/client"
+    path = path.rstrip("/")
 
     if settings.SITE_URL:
         return f"{settings.SITE_URL.rstrip('/')}{path}"
