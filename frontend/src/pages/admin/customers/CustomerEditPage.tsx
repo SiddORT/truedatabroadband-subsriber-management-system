@@ -553,21 +553,17 @@ function Step3({ register, watch, errors }: { register: any; watch: any; errors:
             </Field>
           )}
           <Field label="Salesperson">
-            {salesStaff.length > 0 ? (
-              <select {...register("sales_person")} className={SELECT_CLS}>
-                <option value="">— Select salesperson —</option>
-                {salesStaff.map((u) => {
-                  const name = u.display_name || u.email;
-                  return (
-                    <option key={u.id} value={name}>
-                      {name}{u.staff_role ? ` (${u.staff_role.name})` : ""}
-                    </option>
-                  );
-                })}
-              </select>
-            ) : (
-              <Input placeholder="No staff users available yet" {...register("sales_person")} />
-            )}
+            <select {...register("sales_person")} className={SELECT_CLS}>
+              <option value="">— Select salesperson —</option>
+              {salesStaff.map((u) => {
+                const name = u.display_name || u.email;
+                return (
+                  <option key={u.id} value={name}>
+                    {name}{u.staff_role ? ` (${u.staff_role.name})` : ""}
+                  </option>
+                );
+              })}
+            </select>
           </Field>
           <Field label="Internal Notes">
             <textarea rows={4} placeholder="Any notes or special instructions…" {...register("notes")}

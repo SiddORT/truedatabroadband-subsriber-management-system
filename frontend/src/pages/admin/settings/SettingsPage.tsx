@@ -476,9 +476,10 @@ export function SettingsPage() {
                     min={0}
                     max={365}
                     value={(form.invoice_due_days as number) ?? 7}
-                    onChange={(e) =>
-                      set("invoice_due_days", parseInt(e.target.value, 10))
-                    }
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value, 10);
+                      set("invoice_due_days", isNaN(v) ? 0 : v);
+                    }}
                     className={inputCls(errors.invoice_due_days)}
                   />
                 </Field>
