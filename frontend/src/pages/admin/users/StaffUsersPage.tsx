@@ -279,11 +279,11 @@ export function StaffUsersPage() {
   const items = data?.items ?? [];
 
   return (
-    <AppLayout title="Staff Users" portalLabel="Admin Portal">
+    <AppLayout title="Users" portalLabel="Admin Portal">
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Staff Users</h2>
+            <h2 className="text-lg font-semibold text-foreground">Users</h2>
             <p className="text-sm text-muted-foreground">Manage admin portal access for your team</p>
           </div>
           <button
@@ -322,6 +322,7 @@ export function StaffUsersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-12">#</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name / Email</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Role</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
@@ -330,8 +331,9 @@ export function StaffUsersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {items.map((user) => (
+                {items.map((user, idx) => (
                   <tr key={user.id} className="hover:bg-muted/20 transition-colors">
+                    <td className="px-4 py-3 text-sm text-muted-foreground tabular-nums">{idx + 1}</td>
                     <td className="px-4 py-3">
                       <p className="font-medium text-foreground">{user.display_name ?? "—"}</p>
                       <p className="text-xs text-muted-foreground">{user.email}</p>

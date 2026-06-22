@@ -101,14 +101,14 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["SUPERADMIN"],
   },
   {
-    label: "Staff Users",
+    label: "Users",
     icon: UserCog,
     href: "/admin/users",
     matchPrefix: "/admin/users",
     roles: ["SUPERADMIN"],
   },
   {
-    label: "Roles",
+    label: "Roles & Permissions",
     icon: Shield,
     href: "/admin/roles",
     matchPrefix: "/admin/roles",
