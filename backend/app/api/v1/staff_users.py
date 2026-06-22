@@ -56,7 +56,7 @@ def invite_staff_user(
 ) -> StaffUserOut:
     svc = StaffUserService(db)
     try:
-        user = svc.invite(payload, actor_id=current_user.id, base_url=build_portal_url(request))
+        user = svc.invite(payload, actor_id=current_user.id, base_url=build_portal_url(request, path=""))
     except StaffUserError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     return _to_out(user)
@@ -88,6 +88,20 @@ def update_staff_user(
     return _to_out(user)
 
 
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_staff_user(
+    user_id: uuid.UUID,
+    current_user: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+) -> None:
+    _get_or_404(user_id, db)
+    svc = StaffUserService(db)
+    try:
+        svc.delete(user_id, actor_id=current_user.id)
+    except StaffUserError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
 @router.post("/{user_id}/resend-invite", response_model=StaffUserOut)
 def resend_invite(
     request: Request,
@@ -98,7 +112,7 @@ def resend_invite(
     _get_or_404(user_id, db)
     svc = StaffUserService(db)
     try:
-        user = svc.resend_invite(user_id, actor_id=current_user.id, base_url=build_portal_url(request))
+        user = svc.resend_invite(user_id, actor_id=current_user.id, base_url=build_portal_url(request, path=""))
     except StaffUserError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return _to_out(user)

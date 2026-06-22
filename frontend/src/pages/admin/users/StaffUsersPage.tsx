@@ -8,6 +8,7 @@ import {
   Pencil,
   Search,
   Mail,
+  Trash2,
 } from "lucide-react";
 
 import { AppLayout } from "@/layouts/AppLayout";
@@ -247,6 +248,56 @@ function EditDialog({
   );
 }
 
+// ── Delete Confirm Dialog ──────────────────────────────────────────────────────
+
+function DeleteConfirmDialog({
+  user,
+  onClose,
+  onConfirm,
+  loading,
+}: {
+  user: StaffUser;
+  onClose: () => void;
+  onConfirm: () => void;
+  loading: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-sm rounded-2xl border border-border bg-surface shadow-xl">
+        <div className="p-6 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+            <Trash2 className="h-6 w-6 text-destructive" />
+          </div>
+          <h2 className="text-base font-semibold text-foreground">Delete User?</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">{user.display_name ?? user.email}</span> will be permanently removed and will no longer be able to log in. This cannot be undone.
+          </p>
+        </div>
+        <div className="flex gap-3 border-t border-border px-6 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-xl border border-border py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={loading}
+            className={cn(
+              "flex-1 rounded-xl bg-destructive py-2 text-sm font-semibold text-white transition-opacity",
+              loading ? "opacity-60 cursor-not-allowed" : "hover:opacity-90",
+            )}
+          >
+            {loading ? "Deleting…" : "Delete"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function StaffUsersPage() {
@@ -255,6 +306,7 @@ export function StaffUsersPage() {
   const [search, setSearch] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [editUser, setEditUser] = useState<StaffUser | null>(null);
+  const [deleteUser, setDeleteUser] = useState<StaffUser | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -298,6 +350,18 @@ export function StaffUsersPage() {
   const resendMutation = useMutation({
     mutationFn: staffUsersService.resendInvite,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["staff-users"] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => staffUsersService.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["staff-users"] });
+      setDeleteUser(null);
+      showToast("User deleted", "success");
+    },
+    onError: (err: unknown) => {
+      showToast(getApiErrorMessage(err), "error");
+    },
   });
 
   const items = data?.items ?? [];
@@ -408,6 +472,13 @@ export function StaffUsersPage() {
                             : <UserCheck className="h-3.5 w-3.5 text-green-600" />
                           }
                         </button>
+                        <button
+                          onClick={() => setDeleteUser(user)}
+                          className="rounded-lg p-1.5 hover:bg-destructive/10 transition-colors"
+                          title="Delete user"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-destructive/70" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -435,6 +506,15 @@ export function StaffUsersPage() {
           onClose={() => setEditUser(null)}
           onSave={(data) => updateMutation.mutate({ id: editUser.id, payload: data })}
           loading={updateMutation.isPending}
+        />
+      )}
+
+      {deleteUser && (
+        <DeleteConfirmDialog
+          user={deleteUser}
+          onClose={() => setDeleteUser(null)}
+          onConfirm={() => deleteMutation.mutate(deleteUser.id)}
+          loading={deleteMutation.isPending}
         />
       )}
     </AppLayout>

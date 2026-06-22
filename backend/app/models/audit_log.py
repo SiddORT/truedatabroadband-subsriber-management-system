@@ -111,6 +111,7 @@ ACTION_STAFF_INVITE_ACCEPTED = "staff_invite_accepted"
 ACTION_STAFF_UPDATED = "staff_updated"
 ACTION_STAFF_DEACTIVATED = "staff_deactivated"
 ACTION_STAFF_REACTIVATED = "staff_reactivated"
+ACTION_STAFF_DELETED = "staff_deleted"
 
 ACTION_SCHEDULED_JOB_UPDATED = "scheduled_job_updated"
 ACTION_SCHEDULED_JOB_ENABLED = "scheduled_job_enabled"

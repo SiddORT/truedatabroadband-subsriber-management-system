@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.security import hash_password
 from app.models.audit_log import (
     ACTION_STAFF_DEACTIVATED,
+    ACTION_STAFF_DELETED,
     ACTION_STAFF_INVITE_ACCEPTED,
     ACTION_STAFF_INVITE_RESENT,
     ACTION_STAFF_INVITED,
@@ -182,6 +183,16 @@ class StaffUserService:
             action = ACTION_STAFF_UPDATED
         self.audit.log(action, user_id=actor_id)
         return user
+
+    def delete(self, user_id: uuid.UUID, *, actor_id: uuid.UUID) -> None:
+        user = self.repo.get(user_id)
+        if user is None or user.role != UserRole.STAFF:
+            raise StaffUserError("Staff user not found")
+        from datetime import datetime, timezone
+        user.deleted_at = datetime.now(timezone.utc)
+        user.is_active = False
+        self.repo.update(user)
+        self.audit.log(ACTION_STAFF_DELETED, user_id=actor_id)
 
     def list_staff(
         self,

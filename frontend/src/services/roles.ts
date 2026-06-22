@@ -50,6 +50,9 @@ export const staffUsersService = {
 
   resendInvite: (id: string) =>
     apiClient.post<StaffUser>(`/staff-users/${id}/resend-invite`).then((r) => r.data),
+
+  delete: (id: string) =>
+    apiClient.delete(`/staff-users/${id}`),
 };
 
 // ── Accept Invite (public) ───────────────────────────────────────────────────
