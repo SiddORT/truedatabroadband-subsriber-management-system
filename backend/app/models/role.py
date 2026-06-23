@@ -20,6 +20,8 @@ PERMISSION_MODULES = [
     "reports",
     "support_tickets",
     "users",
+    "settings",
+    "logs",
 ]
 
 # Valid data_scope values

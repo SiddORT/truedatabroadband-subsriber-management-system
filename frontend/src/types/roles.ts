@@ -81,6 +81,8 @@ export const PERMISSION_MODULES = [
   { key: "reports", label: "Reports" },
   { key: "support_tickets", label: "Support Tickets" },
   { key: "users", label: "Users & Roles" },
+  { key: "settings", label: "Settings" },
+  { key: "logs", label: "Activity Logs" },
 ] as const;
 
 export const PERMISSION_ACTIONS = ["view", "add", "edit", "delete"] as const;

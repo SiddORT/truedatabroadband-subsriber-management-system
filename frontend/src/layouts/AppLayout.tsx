@@ -112,6 +112,22 @@ const NAV_ITEMS: NavItem[] = [
     permissionModule: "support_tickets",
   },
   {
+    label: "Settings",
+    icon: Settings,
+    href: "/admin/settings",
+    matchPrefix: "/admin/settings",
+    roles: ["SUPERADMIN", "STAFF"],
+    permissionModule: "settings",
+  },
+  {
+    label: "Activity Logs",
+    icon: ShieldCheck,
+    href: "/admin/activity",
+    matchPrefix: "/admin/activity",
+    roles: ["SUPERADMIN", "STAFF"],
+    permissionModule: "logs",
+  },
+  {
     label: "Users",
     icon: UserCog,
     href: "/admin/users",
@@ -165,9 +181,7 @@ const NAV_ITEMS: NavItem[] = [
 
 // Items shown only in the profile dropdown (superadmin only)
 const PROFILE_MENU_ITEMS = [
-  { label: "Settings", icon: Settings, href: "/admin/settings" },
   { label: "Scheduled Jobs", icon: CalendarClock, href: "/admin/jobs" },
-  { label: "Activity Logs", icon: ShieldCheck, href: "/admin/activity" },
   { label: "Notifications", icon: Bell, href: "/admin/notifications/templates" },
   { label: "Communications", icon: MessageSquare, href: "/admin/communications" },
 ];
