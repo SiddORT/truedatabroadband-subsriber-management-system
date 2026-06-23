@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Loader2, ArrowLeft, ArrowRight, Upload, CheckCircle2, Check,
   Users, User, Building2, CreditCard, MapPin, Receipt,
-  UserCheck, Info, FolderUp, FileText,
+  UserCheck, Info, FolderUp, FileText, Plus, Trash2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -53,7 +53,7 @@ const STEPS = [
 
 const STEP_FIELDS: Record<number, string[]> = {
   0: ["customer_type","company_name","gst_number","full_name","mobile_number","alternate_mobile_number","email"],
-  1: ["kyc_type","kyc_number","installation_address","address_line_2","landmark",
+  1: ["installation_address","address_line_2","landmark",
       "pincode","district","city","state",
       "billing_same_as_installation","billing_address_line_1","billing_city","billing_state","billing_pincode"],
   2: ["spokesperson_name","spokesperson_mobile","spokesperson_email","spokesperson_designation",
@@ -72,8 +72,6 @@ const schema = z
     mobile_number: z.string().regex(/^\d{10}$/, "Must be exactly 10 digits"),
     alternate_mobile_number: z.string().regex(/^\d{10}$/, "Must be 10 digits").or(z.literal("")).optional(),
     email: z.string().email("Invalid email address"),
-    kyc_type: z.string().optional(),
-    kyc_number: z.string().optional(),
     installation_address: z.string().min(3, "Address is required"),
     address_line_2: z.string().optional(),
     landmark: z.string().optional(),
@@ -109,9 +107,13 @@ const schema = z
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Required", path: ["billing_city"] });
       if (!d.billing_state?.trim())
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Required", path: ["billing_state"] });
-      if (d.billing_pincode && !/^\d{6}$/.test(d.billing_pincode))
+      if (!d.billing_pincode?.trim())
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Required", path: ["billing_pincode"] });
+      else if (!/^\d{6}$/.test(d.billing_pincode))
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Must be 6 digits", path: ["billing_pincode"] });
     }
+    if (d.reference_source === "Other" && !d.reference_source_other?.trim())
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Please specify the reference source", path: ["reference_source_other"] });
   });
 
 type FormValues = z.infer<typeof schema>;
@@ -121,8 +123,12 @@ const SELECT_CLS =
 
 // ── Payload builder ───────────────────────────────────────────────────────────
 
-function buildPayload(v: FormValues): CustomerUpdatePayload {
+function buildPayload(
+  v: FormValues,
+  kycDocs: Array<{ kyc_type: string; kyc_number: string }>,
+): CustomerUpdatePayload {
   const d = !v.billing_same_as_installation;
+  const validKycDocs = kycDocs.filter((doc) => doc.kyc_type && doc.kyc_number);
   return {
     customer_type: v.customer_type,
     company_name:  v.company_name  || undefined,
@@ -131,8 +137,7 @@ function buildPayload(v: FormValues): CustomerUpdatePayload {
     mobile_number: v.mobile_number,
     alternate_mobile_number:  v.alternate_mobile_number  || undefined,
     email: v.email,
-    kyc_type:   (v.kyc_type as any) || undefined,
-    kyc_number:  v.kyc_number  || undefined,
+    kyc_documents: validKycDocs.length > 0 ? (validKycDocs as any) : [],
     installation_address: v.installation_address,
     address_line_2: v.address_line_2 || undefined,
     landmark:       v.landmark       || undefined,
@@ -449,23 +454,69 @@ function Step1({ register, watch, errors }: { register: any; watch: any; errors:
   );
 }
 
-function Step2({ register, watch, errors, setValue }: { register: any; watch: any; errors: any; setValue: any }) {
+function Step2({
+  register, watch, errors, setValue, kycDocs, setKycDocs,
+}: {
+  register: any; watch: any; errors: any; setValue: any;
+  kycDocs: Array<{ kyc_type: string; kyc_number: string }>;
+  setKycDocs: React.Dispatch<React.SetStateAction<Array<{ kyc_type: string; kyc_number: string }>>>;
+}) {
   const billingSame = watch("billing_same_as_installation");
+
+  const addKycDoc = () => setKycDocs((prev) => [...prev, { kyc_type: "", kyc_number: "" }]);
+  const removeKycDoc = (idx: number) => setKycDocs((prev) => prev.filter((_, i) => i !== idx));
+  const updateKycDoc = (idx: number, field: "kyc_type" | "kyc_number", val: string) =>
+    setKycDocs((prev) => prev.map((d, i) => (i === idx ? { ...d, [field]: val } : d)));
+
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
       <div className="space-y-6">
         <div>
-          <SectionTitle icon={CreditCard} title="Identity / KYC" />
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Document Type" error={errors.kyc_type?.message}>
-              <select {...register("kyc_type")} className={SELECT_CLS}>
-                <option value="">— Select —</option>
-                {KYC_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </Field>
-            <Field label="Document Number" error={errors.kyc_number?.message}>
-              <Input placeholder="e.g. 1234 5678 9012" {...register("kyc_number")} />
-            </Field>
+          <SectionTitle icon={CreditCard} title="Identity / KYC Documents" />
+          <div className="space-y-2">
+            {kycDocs.length > 0 && (
+              <div className="grid grid-cols-[1fr_1fr_32px] gap-2">
+                <span className="text-xs font-medium text-muted-foreground">Document Type</span>
+                <span className="text-xs font-medium text-muted-foreground">Document Number</span>
+                <span />
+              </div>
+            )}
+            {kycDocs.map((doc, idx) => (
+              <div key={idx} className="grid grid-cols-[1fr_1fr_32px] gap-2 items-center">
+                <select
+                  value={doc.kyc_type}
+                  onChange={(e) => updateKycDoc(idx, "kyc_type", e.target.value)}
+                  className={SELECT_CLS}
+                >
+                  <option value="">— Select type —</option>
+                  {KYC_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                <Input
+                  value={doc.kyc_number}
+                  onChange={(e) => updateKycDoc(idx, "kyc_number", e.target.value)}
+                  placeholder="e.g. 1234 5678 9012"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeKycDoc(idx)}
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+            {kycDocs.length === 0 && (
+              <p className="py-1 text-xs italic text-muted-foreground">No KYC documents added yet.</p>
+            )}
+            <button
+              type="button"
+              onClick={addKycDoc}
+              className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-primary/40 px-3 py-2 text-sm text-primary transition-colors hover:bg-primary/5"
+            >
+              <Plus className="h-3.5 w-3.5" />Add KYC Document
+            </button>
           </div>
         </div>
         <div>
@@ -624,6 +675,7 @@ export function CustomerEditPage() {
   const kycRef       = useRef<HTMLInputElement>(null);
   const agreementRef = useRef<HTMLInputElement>(null);
   const [fileNames, setFileNames] = useState({ profile_photo: "", kyc_document: "", agreement_document: "" });
+  const [kycDocs, setKycDocs] = useState<Array<{ kyc_type: string; kyc_number: string }>>([]);
 
   const { data: customer, isLoading } = useQuery<Customer>({
     queryKey: ["customers", id],
@@ -638,6 +690,9 @@ export function CustomerEditPage() {
 
   useEffect(() => {
     if (!customer) return;
+    setKycDocs(
+      customer.kyc_documents?.map((d: any) => ({ kyc_type: d.kyc_type ?? "", kyc_number: d.kyc_number ?? "" })) ?? [],
+    );
     reset({
       customer_type:            customer.customer_type,
       company_name:             customer.company_name             ?? "",
@@ -646,8 +701,6 @@ export function CustomerEditPage() {
       mobile_number:            customer.mobile_number,
       alternate_mobile_number:  customer.alternate_mobile_number  ?? "",
       email:                    customer.email,
-      kyc_type:                 customer.kyc_type                 ?? "",
-      kyc_number:               customer.kyc_number               ?? "",
       installation_address:     customer.installation_address,
       address_line_2:           customer.address_line_2           ?? "",
       landmark:                 customer.landmark                 ?? "",
@@ -680,7 +733,7 @@ export function CustomerEditPage() {
   }, [customer, reset]);
 
   const updateMutation = useMutation({
-    mutationFn: (values: FormValues) => customersService.update(id!, buildPayload(values)),
+    mutationFn: (values: FormValues) => customersService.update(id!, buildPayload(values, kycDocs)),
     onSuccess: async () => {
       const uploads: Array<[DocType, React.RefObject<HTMLInputElement>]> = [
         ["profile_photo",      profileRef],
@@ -703,6 +756,13 @@ export function CustomerEditPage() {
 
   const isLastStep = step === STEPS.length - 1;
   const handleNext = async () => {
+    if (step === 1) {
+      const incomplete = kycDocs.some((d) => (d.kyc_type && !d.kyc_number) || (!d.kyc_type && d.kyc_number));
+      if (incomplete) {
+        showToast("Complete all KYC entries — both document type and number are required", "error");
+        return;
+      }
+    }
     const fields = STEP_FIELDS[step] as (keyof FormValues)[];
     if (fields.length > 0) { const valid = await trigger(fields); if (!valid) return; }
     setStep((s) => s + 1);
@@ -758,7 +818,7 @@ export function CustomerEditPage() {
                 ? handleSubmit((v) => updateMutation.mutate(v))
                 : (e) => { e.preventDefault(); handleNext(); }}>
               {step === 0 && <Step1 register={register} watch={watch} errors={errors} />}
-              {step === 1 && <Step2 register={register} watch={watch} errors={errors} setValue={setValue} />}
+              {step === 1 && <Step2 register={register} watch={watch} errors={errors} setValue={setValue} kycDocs={kycDocs} setKycDocs={setKycDocs} />}
               {step === 2 && <Step3 register={register} watch={watch} errors={errors} />}
               {step === 3 && (
                 <Step4Docs customer={customer}

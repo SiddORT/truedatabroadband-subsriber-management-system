@@ -52,8 +52,8 @@ export function CustomerListPage() {
   const [statusDialog, setStatusDialog] = useState<{
     open: boolean;
     customer: Customer | null;
-    newStatus: CustomerStatus | null;
-  }>({ open: false, customer: null, newStatus: null });
+    selectedStatus: CustomerStatus;
+  }>({ open: false, customer: null, selectedStatus: "SUSPENDED" });
 
   const [resetDialog, setResetDialog] = useState<{
     open: boolean;
@@ -103,7 +103,7 @@ export function CustomerListPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["customers"] });
       showToast("Status updated successfully", "success");
-      setStatusDialog({ open: false, customer: null, newStatus: null });
+      setStatusDialog((d) => ({ ...d, open: false }));
     },
     onError: (err) => showToast(getApiErrorMessage(err), "error"),
   });
@@ -213,7 +213,7 @@ export function CustomerListPage() {
                   setStatusDialog({
                     open: true,
                     customer: row,
-                    newStatus: row.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE",
+                    selectedStatus: row.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE",
                   })
                 }
                 className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -303,7 +303,6 @@ export function CustomerListPage() {
                     <option value="">All Types</option>
                     <option value="INDIVIDUAL">Individual</option>
                     <option value="BUSINESS">Business</option>
-                    <option value="GOVERNMENT">Government</option>
                   </select>
                   <input
                     type="text"
@@ -345,44 +344,55 @@ export function CustomerListPage() {
       {/* ── Status change dialog ─────────────────────────────────────── */}
       <Dialog
         open={statusDialog.open}
-        onClose={() =>
-          setStatusDialog({ open: false, customer: null, newStatus: null })
-        }
+        onClose={() => setStatusDialog((d) => ({ ...d, open: false }))}
         title="Change Customer Status"
       >
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Change <strong>{statusDialog.customer?.full_name}</strong> status
-            to <strong>{statusDialog.newStatus}</strong>?
-            {statusDialog.newStatus === "DISCONNECTED" && (
-              <span className="mt-1 block text-red-600">
-                This will disable the customer's login access.
-              </span>
-            )}
+            Select a new status for <strong>{statusDialog.customer?.full_name}</strong>:
           </p>
+          <div className="space-y-2">
+            {(["ACTIVE", "SUSPENDED", "DISCONNECTED"] as CustomerStatus[]).map((s) => (
+              <label
+                key={s}
+                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors select-none
+                  ${statusDialog.selectedStatus === s ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40"}
+                  ${s === statusDialog.customer?.status ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="new-status"
+                  value={s}
+                  checked={statusDialog.selectedStatus === s}
+                  disabled={s === statusDialog.customer?.status}
+                  onChange={() => setStatusDialog((d) => ({ ...d, selectedStatus: s }))}
+                  className="sr-only"
+                />
+                <span className={`inline-flex h-2.5 w-2.5 shrink-0 rounded-full
+                  ${s === "ACTIVE" ? "bg-green-500" : s === "SUSPENDED" ? "bg-amber-500" : "bg-red-500"}`} />
+                <span className="text-sm font-medium">
+                  {s.charAt(0) + s.slice(1).toLowerCase()}
+                  {s === statusDialog.customer?.status && " (current)"}
+                </span>
+              </label>
+            ))}
+          </div>
+          {statusDialog.selectedStatus === "DISCONNECTED" && statusDialog.customer?.status !== "DISCONNECTED" && (
+            <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+              This will disable the customer's portal login access.
+            </p>
+          )}
           <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() =>
-                setStatusDialog({
-                  open: false,
-                  customer: null,
-                  newStatus: null,
-                })
-              }
-            >
+            <Button variant="outline" onClick={() => setStatusDialog((d) => ({ ...d, open: false }))}>
               Cancel
             </Button>
             <Button
               onClick={() => {
-                if (statusDialog.customer && statusDialog.newStatus) {
-                  statusMutation.mutate({
-                    id: statusDialog.customer.id,
-                    status: statusDialog.newStatus,
-                  });
+                if (statusDialog.customer) {
+                  statusMutation.mutate({ id: statusDialog.customer.id, status: statusDialog.selectedStatus });
                 }
               }}
-              disabled={statusMutation.isPending}
+              disabled={statusMutation.isPending || statusDialog.selectedStatus === statusDialog.customer?.status}
             >
               Confirm
             </Button>

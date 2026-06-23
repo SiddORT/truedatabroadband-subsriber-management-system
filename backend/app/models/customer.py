@@ -3,7 +3,7 @@ import uuid
 from datetime import date
 
 from sqlalchemy import Boolean, Date, Enum, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -74,6 +74,8 @@ class Customer(Base, BaseModelMixin):
         Enum(KycType, name="kyc_type"), nullable=True
     )
     kyc_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # Multi-document list: [{"kyc_type": "AADHAAR", "kyc_number": "1234..."}]
+    kyc_documents: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
     # ── Installation address ─────────────────────────────────────────────────
     installation_address: Mapped[str] = mapped_column(Text, nullable=False)

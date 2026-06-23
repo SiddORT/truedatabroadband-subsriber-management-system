@@ -25,7 +25,7 @@ import { customersService } from "@/services/customers";
 import type { DocType } from "@/services/customers";
 import { getApiErrorMessage } from "@/services/api";
 import { tokenService } from "@/services/tokenService";
-import type { Customer, CustomerStatus } from "@/types/customer";
+import type { Customer, CustomerStatus, KycDocumentItem } from "@/types/customer";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -292,12 +292,23 @@ function AddressesTab({ customer }: { customer: Customer }) {
 }
 
 function IdentityDocsTab({ customer }: { customer: Customer }) {
+  const kycDocs: KycDocumentItem[] = customer.kyc_documents ?? [];
+  const hasLegacyKyc = kycDocs.length === 0 && (customer.kyc_type || customer.kyc_number);
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-border/60 bg-muted/10 p-4 sm:col-span-2 lg:col-span-1">
           <SectionTitle icon={CreditCard} title="KYC / Identity" />
-          {customer.kyc_type || customer.kyc_number ? (
+          {kycDocs.length > 0 ? (
+            <div className="space-y-0">
+              {kycDocs.map((doc, i) => (
+                <div key={i} className={`py-2.5 ${i < kycDocs.length - 1 ? "border-b border-border/40" : ""}`}>
+                  <p className="text-xs text-muted-foreground">{KYC_LABELS[doc.kyc_type] ?? doc.kyc_type}</p>
+                  <p className="mt-0.5 text-sm font-medium">{doc.kyc_number || "—"}</p>
+                </div>
+              ))}
+            </div>
+          ) : hasLegacyKyc ? (
             <dl>
               <InfoRow label="Document Type" value={customer.kyc_type ? (KYC_LABELS[customer.kyc_type] ?? customer.kyc_type) : null} />
               <InfoRow label="Document Number" value={customer.kyc_number} />

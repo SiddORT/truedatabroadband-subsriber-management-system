@@ -7,6 +7,11 @@ export type KycType =
   | "VOTER_ID"
   | "DRIVING_LICENSE";
 
+export interface KycDocumentItem {
+  kyc_type: KycType;
+  kyc_number: string;
+}
+
 export interface Customer {
   id: string;
   customer_code: string;
@@ -26,6 +31,7 @@ export interface Customer {
   // Identity
   kyc_type: KycType | null;
   kyc_number: string | null;
+  kyc_documents: KycDocumentItem[] | null;
 
   // Installation address
   installation_address: string;
@@ -96,8 +102,7 @@ export interface CustomerCreatePayload {
   alternate_mobile_number?: string;
   email: string;
 
-  kyc_type?: KycType | "";
-  kyc_number?: string;
+  kyc_documents?: KycDocumentItem[];
 
   installation_address: string;
   address_line_2?: string;

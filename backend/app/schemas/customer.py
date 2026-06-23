@@ -38,6 +38,23 @@ def _check_gst(v: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# KYC sub-document
+# ---------------------------------------------------------------------------
+
+class KycDocumentItem(BaseModel):
+    kyc_type: KycType
+    kyc_number: str
+
+    @field_validator("kyc_number")
+    @classmethod
+    def validate_kyc_number(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("KYC document number is required")
+        return v
+
+
+# ---------------------------------------------------------------------------
 # Request schemas
 # ---------------------------------------------------------------------------
 
@@ -53,9 +70,8 @@ class CustomerCreate(BaseModel):
     alternate_mobile_number: Optional[str] = None
     email: str
 
-    # Identity
-    kyc_type: Optional[KycType] = None
-    kyc_number: Optional[str] = None
+    # Identity — multi-document list (replaces legacy single kyc_type/kyc_number)
+    kyc_documents: Optional[list[KycDocumentItem]] = None
 
     # Installation address
     installation_address: str
@@ -173,9 +189,8 @@ class CustomerUpdate(BaseModel):
     alternate_mobile_number: Optional[str] = None
     email: Optional[str] = None
 
-    # Identity
-    kyc_type: Optional[KycType] = None
-    kyc_number: Optional[str] = None
+    # Identity — multi-document list
+    kyc_documents: Optional[list[KycDocumentItem]] = None
 
     # Installation address
     installation_address: Optional[str] = None
@@ -285,9 +300,8 @@ class CustomerOut(BaseModel):
     alternate_mobile_number: Optional[str] = None
     email: str
 
-    # Identity
-    kyc_type: Optional[KycType] = None
-    kyc_number: Optional[str] = None
+    # Identity — multi-document list
+    kyc_documents: Optional[list[dict]] = None
 
     # Installation address
     installation_address: str
