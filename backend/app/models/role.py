@@ -22,6 +22,9 @@ PERMISSION_MODULES = [
     "users",
     "settings",
     "logs",
+    "communications",
+    "notifications",
+    "scheduled_jobs",
 ]
 
 # Valid data_scope values
