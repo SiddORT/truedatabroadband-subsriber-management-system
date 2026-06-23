@@ -469,62 +469,65 @@ function Step2({
     setKycDocs((prev) => prev.map((d, i) => (i === idx ? { ...d, [field]: val } : d)));
 
   return (
-    <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-      <div className="space-y-6">
-        <div>
-          <SectionTitle icon={CreditCard} title="Identity / KYC Documents" />
-          <div className="space-y-2">
-            {kycDocs.length > 0 && (
-              <div className="grid grid-cols-[1fr_1fr_32px] gap-2">
-                <span className="text-xs font-medium text-muted-foreground">Document Type</span>
-                <span className="text-xs font-medium text-muted-foreground">Document Number</span>
-                <span />
-              </div>
-            )}
-            {kycDocs.map((doc, idx) => (
-              <div key={idx} className="grid grid-cols-[1fr_1fr_32px] gap-2 items-center">
-                <select
-                  value={doc.kyc_type}
-                  onChange={(e) => updateKycDoc(idx, "kyc_type", e.target.value)}
-                  className={SELECT_CLS}
-                >
-                  <option value="">— Select type —</option>
-                  {KYC_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-                <Input
-                  value={doc.kyc_number}
-                  onChange={(e) => updateKycDoc(idx, "kyc_number", e.target.value)}
-                  placeholder="e.g. 1234 5678 9012"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeKycDoc(idx)}
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
-            {kycDocs.length === 0 && (
-              <p className="py-1 text-xs italic text-muted-foreground">No KYC documents added yet.</p>
-            )}
-            <button
-              type="button"
-              onClick={addKycDoc}
-              className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-primary/40 px-3 py-2 text-sm text-primary transition-colors hover:bg-primary/5"
-            >
-              <Plus className="h-3.5 w-3.5" />Add KYC Document
-            </button>
-          </div>
-        </div>
-        <div>
-          <SectionTitle icon={MapPin} title="Installation Address" />
-          <AddressFields isBilling={false} register={register} errors={errors} setValue={setValue}
-            stateListId="edit-install-state" />
+    <div className="space-y-8">
+      {/* ── KYC Documents ─────────────────────────────────────────────────── */}
+      <div>
+        <SectionTitle icon={CreditCard} title="Identity / KYC Documents" />
+        <div className="space-y-2">
+          {kycDocs.length > 0 && (
+            <div className="grid grid-cols-[1fr_1fr_32px] gap-2 sm:grid-cols-[240px_1fr_32px]">
+              <span className="text-xs font-medium text-muted-foreground">Document Type</span>
+              <span className="text-xs font-medium text-muted-foreground">Document Number</span>
+              <span />
+            </div>
+          )}
+          {kycDocs.map((doc, idx) => (
+            <div key={idx} className="grid grid-cols-[1fr_1fr_32px] gap-2 items-center sm:grid-cols-[240px_1fr_32px]">
+              <select
+                value={doc.kyc_type}
+                onChange={(e) => updateKycDoc(idx, "kyc_type", e.target.value)}
+                className={SELECT_CLS}
+              >
+                <option value="">— Select type —</option>
+                {KYC_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              <Input
+                value={doc.kyc_number}
+                onChange={(e) => updateKycDoc(idx, "kyc_number", e.target.value)}
+                placeholder="e.g. 1234 5678 9012"
+              />
+              <button
+                type="button"
+                onClick={() => removeKycDoc(idx)}
+                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+          {kycDocs.length === 0 && (
+            <p className="py-1 text-xs italic text-muted-foreground">No KYC documents added yet.</p>
+          )}
+          <button
+            type="button"
+            onClick={addKycDoc}
+            className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-primary/40 px-3 py-2 text-sm text-primary transition-colors hover:bg-primary/5"
+          >
+            <Plus className="h-3.5 w-3.5" />Add KYC Document
+          </button>
         </div>
       </div>
+
+      {/* ── Installation Address ───────────────────────────────────────────── */}
+      <div>
+        <SectionTitle icon={MapPin} title="Installation Address" />
+        <AddressFields isBilling={false} register={register} errors={errors} setValue={setValue}
+          stateListId="edit-install-state" />
+      </div>
+
+      {/* ── Billing Address ────────────────────────────────────────────────── */}
       <div>
         <SectionTitle icon={Receipt} title="Billing Address" />
         <div className="space-y-3">
