@@ -1027,13 +1027,16 @@ def _has_bank_details(invoice: "Invoice") -> bool:
 
 def _sec_terms(invoice: "Invoice") -> list:
     terms = invoice.terms_snapshot or ""
-    lines = [ln.strip() for ln in terms.splitlines() if ln.strip()][:5]
-    bullet_html = "".join(f"\u2022 {ln}<br/>" for ln in lines)
-    return [
+    lines = [ln.strip().lstrip("-").strip() for ln in terms.splitlines() if ln.strip()]
+    bullet_html = "".join(f"\u2022 &nbsp;{ln}<br/>" for ln in lines)
+    block = KeepTogether([
         _p("TERMS &amp; CONDITIONS",
-           _s("termsh", fontName=_FB, fontSize=7.5, textColor=C_DARK, spaceAfter=3)),
-        _p(bullet_html, _s("termsb", fontSize=7.5, textColor=C_GREY, leading=12)),
-    ]
+           _s("termsh", fontName=_FB, fontSize=8, textColor=C_DARK,
+              spaceBefore=4, spaceAfter=4)),
+        _p(bullet_html,
+           _s("termsb", fontSize=7.5, textColor=C_GREY, leading=13, spaceAfter=2)),
+    ])
+    return [block]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
