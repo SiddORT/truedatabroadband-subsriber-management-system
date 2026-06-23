@@ -14,6 +14,7 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import (
     HRFlowable,
+    Image as RLImage,
     KeepTogether,
     Paragraph,
     SimpleDocTemplate,
@@ -910,8 +911,31 @@ def _sec_amount_words(invoice: "Invoice") -> list:
     return [tbl]
 
 
+def _make_upi_qr(upi_id: str, size_pts: float) -> "RLImage | None":
+    """Generate a UPI payment QR code as a ReportLab Image. Returns None on failure."""
+    try:
+        import io as _io
+        import qrcode
+        from qrcode.image.pil import PilImage
+        upi_url = f"upi://pay?pa={upi_id}&cu=INR"
+        qr = qrcode.QRCode(
+            box_size=10, border=2,
+            error_correction=qrcode.constants.ERROR_CORRECT_M,
+        )
+        qr.add_data(upi_url)
+        qr.make(fit=True)
+        pil_img = qr.make_image(image_factory=PilImage,
+                                fill_color="black", back_color="white")
+        buf = _io.BytesIO()
+        pil_img.save(buf, format="PNG")
+        buf.seek(0)
+        return RLImage(buf, width=size_pts, height=size_pts)
+    except Exception:
+        return None
+
+
 def _sec_payment_instructions(invoice: "Invoice") -> list:
-    """Bank details left + QR placeholder right."""
+    """Bank details (left) + UPI QR code (right, only when UPI ID is set)."""
     bank   = getattr(invoice, "bank_name_snapshot",      None)
     acname = getattr(invoice, "account_name_snapshot",   None)
     acnum  = getattr(invoice, "account_number_snapshot", None)
@@ -919,38 +943,78 @@ def _sec_payment_instructions(invoice: "Invoice") -> list:
     upi    = getattr(invoice, "upi_id_snapshot",         None)
     gpay   = getattr(invoice, "gpay_number_snapshot",    None)
 
-    hd_s = _s("pdh", fontName=_FB, fontSize=7, textColor=C_PRIMARY)
-    lbl_s = _s("pdl", fontSize=7, textColor=C_GREY)
-    val_s = _s("pdv", fontName=_FB, fontSize=7.5, textColor=C_DARK)
+    hd_s  = _s("pdh2", fontName=_FB, fontSize=7,   textColor=C_PRIMARY)
+    lbl_s = _s("pdl2", fontSize=6.5, textColor=C_GREY)
+    val_s = _s("pdv2", fontName=_FB,  fontSize=7.5, textColor=C_DARK)
 
-    bank_rows: list[object] = [_p("PAYMENT DETAILS", hd_s), Spacer(1, 3 * mm)]
-    for lbl, val in [("Bank", bank), ("Account Name", acname), ("Account No.", acnum),
-                     ("IFSC Code", ifsc), ("UPI ID", upi), ("GPay No.", gpay)]:
-        if val:
-            bank_rows.append(_p(lbl, lbl_s))
-            bank_rows.append(_p(val, val_s))
-            bank_rows.append(Spacer(1, 1 * mm))
-
-    qr_rows: list[object] = [
-        _p("QR CODE", _s("qrh", fontName=_FB, fontSize=7, textColor=C_PRIMARY)),
-        Spacer(1, 3 * mm),
-        _p("Online payment QR code\nwill appear here.",
-           _s("qrb", fontSize=8, textColor=C_GREY, alignment=TA_CENTER, leading=12)),
+    # ── label | value rows (side-by-side mini-table inside left cell) ──────
+    fields = [
+        ("Bank",         bank),
+        ("Account Name", acname),
+        ("Account No.",  acnum),
+        ("IFSC Code",    ifsc),
+        ("UPI ID",       upi),
+        ("GPay No.",     gpay),
     ]
+    detail_rows = [[_p(lbl, lbl_s), _p(val, val_s)]
+                   for lbl, val in fields if val]
 
-    col_w = (CW - 4 * mm) / 2
-    tbl = Table([[bank_rows, qr_rows]], colWidths=[col_w, col_w])
-    tbl.setStyle(TableStyle([
-        ("BOX",           (0, 0), (0, 0), 0.5, C_BORDER),
-        ("BOX",           (1, 0), (1, 0), 0.5, C_BORDER),
-        ("BACKGROUND",    (1, 0), (1, 0), C_LIGHT),
-        ("VALIGN",        (0, 0), (-1, -1), "TOP"),
-        ("ALIGN",         (1, 0), (1, 0),   "CENTER"),
-        ("LEFTPADDING",   (0, 0), (-1, -1), 10),
-        ("RIGHTPADDING",  (0, 0), (-1, -1), 10),
-        ("TOPPADDING",    (0, 0), (-1, -1), 10),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+    # header spanning both label/value cols
+    header_cell = _p("PAYMENT DETAILS", hd_s)
+
+    detail_tbl = Table(
+        [[header_cell, ""]] + detail_rows,
+        colWidths=[55 * mm, None],
+    )
+    detail_tbl.setStyle(TableStyle([
+        ("SPAN",          (0, 0), (1, 0)),
+        ("BOTTOMPADDING", (0, 0), (1, 0), 6),
+        ("TOPPADDING",    (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 1), (-1, -1), 3),
+        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 4),
     ]))
+
+    # ── QR code (only when UPI is set) ────────────────────────────────────
+    qr_size = 34 * mm
+    qr_img  = _make_upi_qr(upi, qr_size) if upi else None
+
+    if qr_img:
+        qr_label = _p("SCAN TO PAY",
+                      _s("qrh2", fontName=_FB, fontSize=6.5,
+                         textColor=C_PRIMARY, alignment=TA_CENTER))
+        qr_cell  = [qr_label, Spacer(1, 3 * mm), qr_img]
+        col_bank = CW - qr_size - 12 * mm
+        col_qr   = qr_size + 8 * mm
+        row_data  = [[detail_tbl, qr_cell]]
+        col_widths = [col_bank, col_qr]
+        tbl_style = TableStyle([
+            ("BOX",           (0, 0), (0, 0), 0.5, C_BORDER),
+            ("BOX",           (1, 0), (1, 0), 0.5, C_BORDER),
+            ("BACKGROUND",    (1, 0), (1, 0), C_LIGHT),
+            ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+            ("ALIGN",         (1, 0), (1, 0),   "CENTER"),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 10),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 10),
+            ("TOPPADDING",    (0, 0), (-1, -1), 10),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+        ])
+    else:
+        # bank details only — full width, single box
+        row_data   = [[detail_tbl]]
+        col_widths = [CW]
+        tbl_style  = TableStyle([
+            ("BOX",           (0, 0), (0, 0), 0.5, C_BORDER),
+            ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 10),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 10),
+            ("TOPPADDING",    (0, 0), (-1, -1), 10),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+        ])
+
+    tbl = Table(row_data, colWidths=col_widths)
+    tbl.setStyle(tbl_style)
     return [tbl]
 
 
