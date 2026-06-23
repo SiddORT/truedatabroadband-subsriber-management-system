@@ -313,6 +313,7 @@ class InvoiceService:
             account_number_snapshot=getattr(cs, "account_number", None),
             ifsc_code_snapshot=getattr(cs, "ifsc_code", None),
             upi_id_snapshot=getattr(cs, "upi_id", None),
+            gpay_number_snapshot=getattr(cs, "gpay_number", None),
         )
         invoice = self.repo.create(invoice)
 
@@ -819,6 +820,7 @@ class InvoiceService:
             account_number_snapshot=getattr(cs, "account_number", None),
             ifsc_code_snapshot=getattr(cs, "ifsc_code", None),
             upi_id_snapshot=getattr(cs, "upi_id", None),
+            gpay_number_snapshot=getattr(cs, "gpay_number", None),
         )
         invoice = self.repo.create(invoice)
 

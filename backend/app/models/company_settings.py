@@ -68,6 +68,7 @@ class CompanySettings(Base):
     account_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
     ifsc_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
     upi_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    gpay_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # ── SMS Provider ────────────────────────────────────────────────────────
     sms_is_enabled: Mapped[bool] = mapped_column(

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
   Check,
+  CreditCard,
   Image,
   Loader2,
   MapPin,
@@ -24,11 +25,12 @@ import type { CompanySettingsUpdate } from "@/types/settings";
 
 // ── Tab definition ────────────────────────────────────────────────────────────
 
-type TabKey = "company" | "address" | "invoice" | "branding";
+type TabKey = "company" | "address" | "bank" | "invoice" | "branding";
 
 const TABS: { key: TabKey; label: string; icon: typeof Building2 }[] = [
   { key: "company", label: "Company Information", icon: Building2 },
   { key: "address", label: "Address", icon: MapPin },
+  { key: "bank", label: "Bank & Payments", icon: CreditCard },
   { key: "invoice", label: "Invoice Settings", icon: Receipt },
   { key: "branding", label: "Branding", icon: Image },
 ];
@@ -105,6 +107,12 @@ export function SettingsPage() {
       state: settings.state ?? "",
       pincode: settings.pincode ?? "",
       country: settings.country ?? "India",
+      bank_name: settings.bank_name ?? "",
+      account_name: settings.account_name ?? "",
+      account_number: settings.account_number ?? "",
+      ifsc_code: settings.ifsc_code ?? "",
+      upi_id: settings.upi_id ?? "",
+      gpay_number: settings.gpay_number ?? "",
       invoice_prefix: settings.invoice_prefix ?? "TDB-INV",
       invoice_due_days: settings.invoice_due_days ?? 7,
       default_gst_percentage: settings.default_gst_percentage ?? "18.00",
@@ -445,7 +453,119 @@ export function SettingsPage() {
           </Card>
         )}
 
-        {/* Tab 3 — Invoice Settings */}
+        {/* Tab 3 — Bank & Payments */}
+        {activeTab === "bank" && (
+          <Card>
+            <CardContent className="space-y-6 pt-6">
+              <div>
+                <p className="text-sm font-medium text-foreground">Bank Account Details</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  These details will be printed on every invoice under "Payment Details".
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <Field label="Bank Name" error={errors.bank_name}>
+                  <input
+                    type="text"
+                    value={(form.bank_name as string) ?? ""}
+                    onChange={(e) => set("bank_name", e.target.value)}
+                    placeholder="State Bank of India"
+                    maxLength={100}
+                    className={inputCls(errors.bank_name)}
+                  />
+                </Field>
+
+                <Field label="Account Holder Name" error={errors.account_name}>
+                  <input
+                    type="text"
+                    value={(form.account_name as string) ?? ""}
+                    onChange={(e) => set("account_name", e.target.value)}
+                    placeholder="True Data Broadband Pvt. Ltd."
+                    maxLength={100}
+                    className={inputCls(errors.account_name)}
+                  />
+                </Field>
+
+                <Field label="Account Number" error={errors.account_number}>
+                  <input
+                    type="text"
+                    value={(form.account_number as string) ?? ""}
+                    onChange={(e) => set("account_number", e.target.value)}
+                    placeholder="00000011223344"
+                    maxLength={50}
+                    className={inputCls(errors.account_number)}
+                  />
+                </Field>
+
+                <Field
+                  label="IFSC Code"
+                  error={errors.ifsc_code}
+                  hint="11-character bank branch code"
+                >
+                  <input
+                    type="text"
+                    value={(form.ifsc_code as string) ?? ""}
+                    onChange={(e) =>
+                      set("ifsc_code", e.target.value.toUpperCase())
+                    }
+                    placeholder="SBIN0001234"
+                    maxLength={20}
+                    className={inputCls(errors.ifsc_code)}
+                  />
+                </Field>
+              </div>
+
+              <div className="border-t border-border pt-5">
+                <p className="mb-4 text-sm font-medium text-foreground">UPI &amp; GPay</p>
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                  <Field
+                    label="UPI ID"
+                    error={errors.upi_id}
+                    hint="e.g. truedatabroadband@okaxis"
+                  >
+                    <input
+                      type="text"
+                      value={(form.upi_id as string) ?? ""}
+                      onChange={(e) => set("upi_id", e.target.value)}
+                      placeholder="truedatabroadband@okaxis"
+                      maxLength={100}
+                      className={inputCls(errors.upi_id)}
+                    />
+                  </Field>
+
+                  <Field
+                    label="GPay Number"
+                    error={errors.gpay_number}
+                    hint="Mobile number linked to Google Pay"
+                  >
+                    <input
+                      type="tel"
+                      value={(form.gpay_number as string) ?? ""}
+                      onChange={(e) => set("gpay_number", e.target.value)}
+                      placeholder="9876543210"
+                      maxLength={50}
+                      className={inputCls(errors.gpay_number)}
+                    />
+                  </Field>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <Button onClick={() => saveMutation.mutate()} disabled={isBusy}>
+                  {isBusy ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
+                  Save
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Tab 4 — Invoice Settings */}
         {activeTab === "invoice" && (
           <Card>
             <CardContent className="space-y-6 pt-6">

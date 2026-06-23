@@ -63,6 +63,13 @@ class CompanySettingsUpdate(BaseModel):
     pincode: Optional[str] = Field(None, max_length=10)
     country: Optional[str] = Field(None, max_length=100)
 
+    bank_name: Optional[str] = Field(None, max_length=100)
+    account_name: Optional[str] = Field(None, max_length=100)
+    account_number: Optional[str] = Field(None, max_length=50)
+    ifsc_code: Optional[str] = Field(None, max_length=20)
+    upi_id: Optional[str] = Field(None, max_length=100)
+    gpay_number: Optional[str] = Field(None, max_length=50)
+
     invoice_prefix: Optional[str] = Field(None, min_length=1, max_length=20)
     invoice_due_days: Optional[int] = Field(None, ge=0, le=365)
     default_gst_percentage: Optional[Decimal] = Field(None, ge=0, le=100)
@@ -182,6 +189,13 @@ class CompanySettingsOut(BaseModel):
 
     logo_path: Optional[str] = None
     logo_url: Optional[str] = None
+
+    bank_name: Optional[str] = None
+    account_name: Optional[str] = None
+    account_number: Optional[str] = None
+    ifsc_code: Optional[str] = None
+    upi_id: Optional[str] = None
+    gpay_number: Optional[str] = None
 
     invoice_prefix: str = "TDB-INV"
     invoice_due_days: int = 7

@@ -15,6 +15,12 @@ export interface CompanySettings {
   country: string;
   logo_path: string | null;
   logo_url: string | null;
+  bank_name: string | null;
+  account_name: string | null;
+  account_number: string | null;
+  ifsc_code: string | null;
+  upi_id: string | null;
+  gpay_number: string | null;
   invoice_prefix: string;
   invoice_due_days: number;
   default_gst_percentage: string;
@@ -38,6 +44,12 @@ export interface CompanySettingsUpdate {
   state?: string | null;
   pincode?: string | null;
   country?: string;
+  bank_name?: string | null;
+  account_name?: string | null;
+  account_number?: string | null;
+  ifsc_code?: string | null;
+  upi_id?: string | null;
+  gpay_number?: string | null;
   invoice_prefix?: string;
   invoice_due_days?: number;
   default_gst_percentage?: string | number;

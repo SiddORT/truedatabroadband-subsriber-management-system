@@ -171,6 +171,7 @@ class Invoice(Base, BaseModelMixin):
     account_number_snapshot: Mapped[str | None] = mapped_column(String(50), nullable=True)
     ifsc_code_snapshot: Mapped[str | None] = mapped_column(String(20), nullable=True)
     upi_id_snapshot: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    gpay_number_snapshot: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # ── Relationships ──────────────────────────────────────────────────────
     subscription: Mapped["Subscription | None"] = relationship(  # type: ignore[name-defined]

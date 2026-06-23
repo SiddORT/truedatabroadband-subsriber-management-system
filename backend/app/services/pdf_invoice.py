@@ -917,6 +917,7 @@ def _sec_payment_instructions(invoice: "Invoice") -> list:
     acnum  = getattr(invoice, "account_number_snapshot", None)
     ifsc   = getattr(invoice, "ifsc_code_snapshot",      None)
     upi    = getattr(invoice, "upi_id_snapshot",         None)
+    gpay   = getattr(invoice, "gpay_number_snapshot",    None)
 
     hd_s = _s("pdh", fontName=_FB, fontSize=7, textColor=C_PRIMARY)
     lbl_s = _s("pdl", fontSize=7, textColor=C_GREY)
@@ -924,7 +925,7 @@ def _sec_payment_instructions(invoice: "Invoice") -> list:
 
     bank_rows: list[object] = [_p("PAYMENT DETAILS", hd_s), Spacer(1, 3 * mm)]
     for lbl, val in [("Bank", bank), ("Account Name", acname), ("Account No.", acnum),
-                     ("IFSC Code", ifsc), ("UPI ID", upi)]:
+                     ("IFSC Code", ifsc), ("UPI ID", upi), ("GPay No.", gpay)]:
         if val:
             bank_rows.append(_p(lbl, lbl_s))
             bank_rows.append(_p(val, val_s))
@@ -956,7 +957,7 @@ def _sec_payment_instructions(invoice: "Invoice") -> list:
 def _has_bank_details(invoice: "Invoice") -> bool:
     return any(
         getattr(invoice, f, None)
-        for f in ("bank_name_snapshot", "account_number_snapshot", "ifsc_code_snapshot", "upi_id_snapshot")
+        for f in ("bank_name_snapshot", "account_number_snapshot", "ifsc_code_snapshot", "upi_id_snapshot", "gpay_number_snapshot")
     )
 
 
