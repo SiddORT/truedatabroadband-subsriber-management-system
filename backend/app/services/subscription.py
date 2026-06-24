@@ -188,21 +188,49 @@ class SubscriptionService:
         if sub.status != SubscriptionStatus.ACTIVE:
             raise SubscriptionError("Only ACTIVE subscriptions can be renewed")
 
-        new_expiry = _compute_expiry(sub.renewal_date, sub.billing_cycle_snapshot)
-        sub.renewal_date = new_expiry
-        sub.expiry_date = new_expiry
+        # New subscription starts the day the old one expires
+        new_start = sub.renewal_date
+        new_expiry = _compute_expiry(new_start, sub.billing_cycle_snapshot)
+        new_code = self.subs.generate_next_code()
+
+        new_sub = Subscription(
+            subscription_code=new_code,
+            customer_id=sub.customer_id,
+            plan_id=sub.plan_id,
+            plan_pricing_id=sub.plan_pricing_id,
+            plan_name_snapshot=sub.plan_name_snapshot,
+            plan_code_snapshot=sub.plan_code_snapshot,
+            speed_mbps_snapshot=sub.speed_mbps_snapshot,
+            billing_cycle_snapshot=sub.billing_cycle_snapshot,
+            base_price_snapshot=sub.base_price_snapshot,
+            gst_percentage_snapshot=sub.gst_percentage_snapshot,
+            total_price_snapshot=sub.total_price_snapshot,
+            start_date=new_start,
+            renewal_date=new_expiry,
+            expiry_date=new_expiry,
+            status=SubscriptionStatus.ACTIVE,
+            connection_name=sub.connection_name,
+            installation_address=sub.installation_address,
+            remarks=sub.remarks,
+        )
+        self.db.add(new_sub)
+
+        # Mark the old subscription as expired
+        sub.status = SubscriptionStatus.EXPIRED
         self.db.commit()
-        self.db.refresh(sub)
+        self.db.refresh(new_sub)
+
         self.audit.log(
             ACTION_SUBSCRIPTION_RENEWED,
             user_id=actor_id,
             ip_address=ip_address,
             user_agent=user_agent,
             entity_type="subscription",
-            entity_id=str(sub.id),
-            entity_name=sub.subscription_code,
+            entity_id=str(new_sub.id),
+            entity_name=new_sub.subscription_code,
+            remarks=f"Renewed from {sub.subscription_code}",
         )
-        return sub
+        return new_sub
 
     # ------------------------------------------------------------------
     # Status change

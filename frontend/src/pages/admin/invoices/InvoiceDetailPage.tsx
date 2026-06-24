@@ -161,6 +161,15 @@ function EditChargeRowUI({ row, onUpdate, onRemove }: ChargeRowUIProps) {
             className="w-full rounded-lg border border-input bg-background py-2 pl-7 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
+        <div className="relative w-16 shrink-0">
+          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">G%</span>
+          <input type="number" min="0" max="100" step="0.01"
+            value={row.gstPercentage}
+            onChange={(e) => onUpdate({ gstPercentage: e.target.value })}
+            placeholder="0"
+            className="w-full rounded-lg border border-input bg-background py-2 pl-7 pr-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+        </div>
         <div className="flex shrink-0 gap-1">{discBtn("", "None")}{discBtn("percentage", "%")}{discBtn("fixed", "₹")}</div>
         {row.discountType && (
           <div className="relative w-20 shrink-0">
