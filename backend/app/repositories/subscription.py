@@ -78,6 +78,16 @@ class SubscriptionRepository(BaseRepository[Subscription]):
         )
         return list(self.db.scalars(stmt).all())
 
+    def list_active_expired_as_of(self, as_of: "date") -> list[Subscription]:
+        """ACTIVE subscriptions whose expiry_date is before the given date (for auto-expiry job)."""
+        stmt = (
+            select(Subscription)
+            .where(Subscription.expiry_date < as_of)
+            .where(Subscription.deleted_at.is_(None))
+            .where(Subscription.status == SubscriptionStatus.ACTIVE)
+        )
+        return list(self.db.scalars(stmt).all())
+
     def list_by_expiry_date(self, expiry_date: "date") -> list[Subscription]:
         """ACTIVE subscriptions whose expiry_date matches the given date (used by scheduler)."""
         from datetime import date as _date

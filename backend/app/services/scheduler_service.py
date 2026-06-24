@@ -74,6 +74,13 @@ _DEFAULT_JOBS: list[dict] = [
         "cron_expression": "30 2 * * *",
         "max_retries": 3,
     },
+    {
+        "job_key": "subscription_expiry_job",
+        "job_name": "Subscription Auto-Expiry",
+        "description": "Marks ACTIVE subscriptions as EXPIRED when their expiry_date has passed.",
+        "cron_expression": "0 0 * * *",
+        "max_retries": 3,
+    },
 ]
 
 # Future placeholder keys — not registered with APScheduler yet
@@ -100,6 +107,9 @@ def _get_job_fn(job_key: str) -> Callable[[], dict] | None:
     if job_key == "notification_cleanup_job":
         from app.services.jobs.notification_cleanup_job import NotificationCleanupJob
         return NotificationCleanupJob().run
+    if job_key == "subscription_expiry_job":
+        from app.services.jobs.subscription_expiry_job import SubscriptionExpiryJob
+        return SubscriptionExpiryJob().run
     return None
 
 

@@ -595,123 +595,86 @@ export function InvoiceCreatePage() {
           ))}
         </div>
 
-        {/* Two-column body */}
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-
-          {/* Left: form steps */}
-          <div className="space-y-5 lg:col-span-2">
-
-            {/* ── Step 1: Subscription / Customer + Billing Period ── */}
-            <Card>
-              <CardContent className="space-y-4 pt-5">
-                <StepBadge
-                  step={1}
-                  label={invoiceType === "SINGLE" ? "Subscription & Billing Period" : "Select Customer"}
-                  done={step1Done}
-                />
-
-                {invoiceType === "SINGLE" ? (
-                  <>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-sm font-medium">
-                        Active Subscription <span className="text-red-500">*</span>
-                      </label>
-                      <SubscriptionCombobox
-                        value={selectedSub}
-                        onChange={(s) => setSelectedSub(s)}
-                        placeholder="Search by subscription code, customer name or mobile…"
-                      />
-                    </div>
-
-                    {selectedSub && (
-                      <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-3 text-sm sm:grid-cols-4">
-                        <div><p className="text-xs text-muted-foreground">Customer Code</p><p className="font-mono font-semibold">{selectedSub.customer_code}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Customer</p><p className="font-medium">{selectedSub.customer_name}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Plan</p><p className="font-medium">{selectedSub.plan_name_snapshot}</p><p className="text-xs text-muted-foreground">{selectedSub.speed_mbps_snapshot} Mbps</p></div>
-                        <div><p className="text-xs text-muted-foreground">Cycle</p><p className="font-medium">{selectedSub.billing_cycle_snapshot?.replace(/_/g, " ")}</p></div>
-                      </div>
-                    )}
-
-                    {/* Billing period inline */}
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-sm font-medium">Period Start <span className="text-red-500">*</span></label>
-                        <input type="date" value={billingStart} onChange={(e) => setBillingStart(e.target.value)} className={INPUT_CLS} />
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-sm font-medium">Period End <span className="text-red-500">*</span></label>
-                        <input type="date" value={billingEnd} onChange={(e) => setBillingEnd(e.target.value)} className={INPUT_CLS} />
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-sm font-medium">Customer <span className="text-red-500">*</span></label>
-                      <CustomerCombobox
-                        value={selectedConsolidatedCustomer}
-                        onChange={(c) => {
-                          setSelectedConsolidatedCustomer(c);
-                          setCustomerId(c?.id ?? "");
-                          setConsolidatedSubs([]);
-                        }}
-                        placeholder="Search customer by name, code or mobile…"
-                      />
-                    </div>
-                    {selectedConsolidatedCustomer && (
-                      <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-3 text-sm sm:grid-cols-3">
-                        <div><p className="text-xs text-muted-foreground">Code</p><p className="font-mono font-semibold">{selectedConsolidatedCustomer.customer_code}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Name</p><p className="font-medium">{selectedConsolidatedCustomer.full_name}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Mobile</p><p className="font-medium">{selectedConsolidatedCustomer.mobile_number}</p></div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* ── Step 2: Invoice Date & Notes (shared) ── */}
-            <Card>
-              <CardContent className="space-y-4 pt-5">
-                <StepBadge step={2} label="Invoice Date & Notes" done={step2Done} />
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-sm font-medium">Invoice Date <span className="text-red-500">*</span></label>
-                    <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className={INPUT_CLS} />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-sm font-medium">Due Date <span className="text-xs text-muted-foreground">(auto if blank)</span></label>
-                    <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={INPUT_CLS} />
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-medium">Remarks</label>
-                  <textarea
-                    value={remarks} onChange={(e) => setRemarks(e.target.value)}
-                    rows={3} placeholder="Optional notes…"
-                    className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* ── Step 3 ── */}
-            {invoiceType === "SINGLE" ? (
+        {/* ── SINGLE mode ─────────────────────────────────────────────────────── */}
+        {invoiceType === "SINGLE" && (
+          <>
+            {/* Row 1: Subscription & Billing Period | Invoice Date & Notes */}
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
               <Card>
-                <CardContent className="space-y-5 pt-5">
-                  <StepBadge step={3} label="Charges & Discount" done={false} />
-
-                  {/* Unified charges grid */}
-                  <div>
-                    <div className="mb-3 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Charges &amp; Items</p>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">Each row: amount · then choose None / % / ₹ discount</p>
-                      </div>
-                      <Button variant="outline" size="sm" type="button" onClick={addChargeRow}>
-                        <Plus className="mr-1.5 h-3.5 w-3.5" />Add Row
-                      </Button>
+                <CardContent className="space-y-4 pt-5">
+                  <p className="text-sm font-semibold text-foreground">Subscription & Billing Period</p>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-medium">Active Subscription <span className="text-red-500">*</span></label>
+                    <SubscriptionCombobox
+                      value={selectedSub}
+                      onChange={(s) => setSelectedSub(s)}
+                      placeholder="Search by subscription code, customer name or mobile…"
+                    />
+                  </div>
+                  {selectedSub && (
+                    <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-3 text-sm sm:grid-cols-4">
+                      <div><p className="text-xs text-muted-foreground">Customer Code</p><p className="font-mono font-semibold">{selectedSub.customer_code}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Customer</p><p className="font-medium">{selectedSub.customer_name}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Plan</p><p className="font-medium">{selectedSub.plan_name_snapshot}</p><p className="text-xs text-muted-foreground">{selectedSub.speed_mbps_snapshot} Mbps</p></div>
+                      <div><p className="text-xs text-muted-foreground">Cycle</p><p className="font-medium">{selectedSub.billing_cycle_snapshot?.replace(/_/g, " ")}</p></div>
                     </div>
+                  )}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-medium">Period Start <span className="text-red-500">*</span></label>
+                      <input type="date" value={billingStart} onChange={(e) => setBillingStart(e.target.value)} className={INPUT_CLS} />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-medium">Period End <span className="text-red-500">*</span></label>
+                      <input type="date" value={billingEnd} onChange={(e) => setBillingEnd(e.target.value)} className={INPUT_CLS} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="space-y-4 pt-5">
+                  <p className="text-sm font-semibold text-foreground">Invoice Date & Notes</p>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-medium">Invoice Date <span className="text-red-500">*</span></label>
+                      <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className={INPUT_CLS} />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-medium">Due Date <span className="text-xs text-muted-foreground">(auto if blank)</span></label>
+                      <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={INPUT_CLS} />
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-medium">Remarks</label>
+                    <textarea
+                      value={remarks} onChange={(e) => setRemarks(e.target.value)}
+                      rows={4} placeholder="Optional notes…"
+                      className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Row 2: Charges & Discount (full width) */}
+            <Card>
+              <CardContent className="space-y-5 pt-5">
+                <div>
+                  <div className="mb-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Charges & Items</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">Each row: amount · then choose None / % / ₹ discount</p>
+                    </div>
+                    <Button variant="outline" size="sm" type="button" onClick={addChargeRow}>
+                      <Plus className="mr-1.5 h-3.5 w-3.5" />Add Row
+                    </Button>
+                  </div>
+                  {chargeRows.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-border py-5 text-center text-sm text-muted-foreground">
+                      No additional charges. Click "Add Row" to add one.
+                    </p>
+                  ) : (
                     <div className="space-y-2">
                       {chargeRows.map((row) => (
                         <ChargeRowUI
@@ -722,167 +685,207 @@ export function InvoiceCreatePage() {
                         />
                       ))}
                     </div>
-                  </div>
+                  )}
+                </div>
 
-                  {/* Invoice-level discount */}
-                  {selectedSub && (
-                    <div className="rounded-xl border border-border bg-muted/10 p-4">
-                      <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Invoice-Level Discount</p>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="flex gap-1">
-                          {discBtn("", "None")}
-                          {discBtn("percentage", "% Discount")}
-                          {discBtn("fixed", "₹ Discount")}
-                        </div>
-                        {discountType && (
-                          <>
-                            <div className="flex gap-1">
-                              <button type="button" onClick={() => setDiscountScope("base")}
-                                className={`rounded border px-2 py-1 text-[11px] font-semibold transition-colors ${discountScope === "base" ? "border-primary bg-primary text-white" : "border-border bg-muted/40 text-foreground hover:bg-muted"}`}>
-                                On Base
-                              </button>
-                              <button type="button" onClick={() => setDiscountScope("overall")}
-                                className={`rounded border px-2 py-1 text-[11px] font-semibold transition-colors ${discountScope === "overall" ? "border-primary bg-primary text-white" : "border-border bg-muted/40 text-foreground hover:bg-muted"}`}>
-                                On Total
-                              </button>
-                            </div>
-                            <input
-                              type="number" min="0" step="0.01" max={discountType === "percentage" ? "100" : undefined}
-                              value={discountValue}
-                              onChange={(e) => setDiscountValue(e.target.value)}
-                              placeholder={discountType === "percentage" ? "%" : "₹"}
-                              className="w-24 rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            />
-                            <input
-                              type="text" value={discountLabel} onChange={(e) => setDiscountLabel(e.target.value)}
-                              placeholder="Discount label (optional)"
-                              className="min-w-[160px] flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            />
-                          </>
-                        )}
+                {selectedSub && (
+                  <div className="rounded-xl border border-border bg-muted/10 p-4">
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Invoice-Level Discount</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex gap-1">
+                        {discBtn("", "None")}
+                        {discBtn("percentage", "% Discount")}
+                        {discBtn("fixed", "₹ Discount")}
                       </div>
+                      {discountType && (
+                        <>
+                          <div className="flex gap-1">
+                            <button type="button" onClick={() => setDiscountScope("base")}
+                              className={`rounded border px-2 py-1 text-[11px] font-semibold transition-colors ${discountScope === "base" ? "border-primary bg-primary text-white" : "border-border bg-muted/40 text-foreground hover:bg-muted"}`}>
+                              On Base
+                            </button>
+                            <button type="button" onClick={() => setDiscountScope("overall")}
+                              className={`rounded border px-2 py-1 text-[11px] font-semibold transition-colors ${discountScope === "overall" ? "border-primary bg-primary text-white" : "border-border bg-muted/40 text-foreground hover:bg-muted"}`}>
+                              On Total
+                            </button>
+                          </div>
+                          <input
+                            type="number" min="0" step="0.01" max={discountType === "percentage" ? "100" : undefined}
+                            value={discountValue} onChange={(e) => setDiscountValue(e.target.value)}
+                            placeholder={discountType === "percentage" ? "%" : "₹"}
+                            className="w-24 rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          />
+                          <input
+                            type="text" value={discountLabel} onChange={(e) => setDiscountLabel(e.target.value)}
+                            placeholder="Discount label (optional)"
+                            className="min-w-[160px] flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          />
+                        </>
+                      )}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardContent className="space-y-4 pt-5">
-                  <div className="flex items-center justify-between">
-                    <StepBadge step={3} label="Per-Subscription Charges" done={step3Done} />
-                    {customerId && !customerSubsLoading && (
-                      <span className="text-xs text-muted-foreground">
-                        {enabledSubs.length} of {consolidatedSubs.length} subscriptions included
-                      </span>
-                    )}
                   </div>
+                )}
+              </CardContent>
+            </Card>
 
-                  {!customerId ? (
-                    <p className="text-sm text-muted-foreground">Select a customer above to see their active subscriptions.</p>
-                  ) : customerSubsLoading ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />Loading subscriptions…
+            {/* Row 3: Invoice Summary (full width) */}
+            {selectedSub && (
+              <Card>
+                <CardContent className="pt-5">
+                  <p className="mb-4 text-sm font-semibold text-foreground">Invoice Summary</p>
+                  <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-2 text-sm">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <span>Subtotal</span>
+                      <span className="font-semibold text-foreground">₹{fmtMoney(baseAmt + singleLit)}</span>
                     </div>
-                  ) : consolidatedSubs.length === 0 ? (
-                    <div className="rounded-lg border border-border bg-muted/20 p-4 text-center text-sm text-muted-foreground">
-                      No active subscriptions found for this customer.
+                    {singleDiscountAmt > 0 && (
+                      <div className="flex items-center gap-2 text-accent">
+                        <span>− Discount</span>
+                        <span className="font-semibold">₹{fmtMoney(singleDiscountAmt)}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <span>+ GST ({gstPct}%)</span>
+                      <span className="font-semibold text-foreground">₹{fmtMoney(singleGstAmt)}</span>
                     </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {consolidatedSubs.map((subState, idx) => (
-                        <SubChargeCard
-                          key={subState.sub.id}
-                          subState={subState}
-                          subIdx={idx}
-                          onToggle={() => toggleSub(idx)}
-                          onAddRow={() => addSubRow(idx)}
-                          onRemoveRow={(rowId) => removeSubRow(idx, rowId)}
-                          onUpdateRow={(rowId, patch) => updateSubRow(idx, rowId, patch)}
-                          onBillingChange={(start, end) => updateSubBillingDates(idx, start, end)}
-                        />
-                      ))}
+                    <div className="flex items-center gap-3 rounded-lg bg-primary px-5 py-2.5 font-bold text-white">
+                      <span>Grand Total</span>
+                      <span className="text-base">₹{fmtMoney(singleTotalAmt)}</span>
                     </div>
-                  )}
+                  </div>
                 </CardContent>
               </Card>
             )}
-          </div>
+          </>
+        )}
 
-          {/* Right: summary panel */}
-          <div className="space-y-4">
-            <Card>
-              <CardContent className="pt-5">
-                <p className="mb-4 text-sm font-semibold text-foreground">Invoice Summary</p>
+        {/* ── CONSOLIDATED mode ───────────────────────────────────────────────── */}
+        {invoiceType === "CONSOLIDATED" && (
+          <>
+            {/* Row 1: Customer | Invoice Date & Notes */}
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+              <Card>
+                <CardContent className="space-y-4 pt-5">
+                  <p className="text-sm font-semibold text-foreground">Select Customer</p>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-medium">Customer <span className="text-red-500">*</span></label>
+                    <CustomerCombobox
+                      value={selectedConsolidatedCustomer}
+                      onChange={(c) => {
+                        setSelectedConsolidatedCustomer(c);
+                        setCustomerId(c?.id ?? "");
+                        setConsolidatedSubs([]);
+                      }}
+                      placeholder="Search customer by name, code or mobile…"
+                    />
+                  </div>
+                  {selectedConsolidatedCustomer && (
+                    <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-3 text-sm sm:grid-cols-3">
+                      <div><p className="text-xs text-muted-foreground">Code</p><p className="font-mono font-semibold">{selectedConsolidatedCustomer.customer_code}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Name</p><p className="font-medium">{selectedConsolidatedCustomer.full_name}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Mobile</p><p className="font-medium">{selectedConsolidatedCustomer.mobile_number}</p></div>
+                    </div>
+                  )}
+                  {customerId && !customerSubsLoading && consolidatedSubs.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {enabledSubs.length} of {consolidatedSubs.length} subscription{consolidatedSubs.length > 1 ? "s" : ""} included
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
 
-                {invoiceType === "SINGLE" && selectedSub ? (
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Plan Base</span>
-                      <span>₹{fmtMoney(baseAmt)}</span>
+              <Card>
+                <CardContent className="space-y-4 pt-5">
+                  <p className="text-sm font-semibold text-foreground">Invoice Date & Notes</p>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-medium">Invoice Date <span className="text-red-500">*</span></label>
+                      <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className={INPUT_CLS} />
                     </div>
-                    {singleDiscountAmt > 0 && (
-                      <div className="flex justify-between text-accent">
-                        <span>Discount</span>
-                        <span>−₹{fmtMoney(singleDiscountAmt)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>GST ({gstPct}%)</span>
-                      <span>₹{fmtMoney(singleGstAmt)}</span>
-                    </div>
-                    {singleLit > 0 && (
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>Other Charges</span>
-                        <span>₹{fmtMoney(singleLit)}</span>
-                      </div>
-                    )}
-                    <div className="mt-3 flex justify-between rounded-lg bg-primary/5 px-3 py-2.5 font-bold text-foreground">
-                      <span>Total</span>
-                      <span>₹{fmtMoney(singleTotalAmt)}</span>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-medium">Due Date <span className="text-xs text-muted-foreground">(auto if blank)</span></label>
+                      <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={INPUT_CLS} />
                     </div>
                   </div>
-                ) : invoiceType === "CONSOLIDATED" && enabledSubs.length > 0 ? (
-                  <div className="space-y-3 text-sm">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-medium">Remarks</label>
+                    <textarea
+                      value={remarks} onChange={(e) => setRemarks(e.target.value)}
+                      rows={4} placeholder="Optional notes…"
+                      className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Per-subscription charge cards (full width each) */}
+            {!customerId ? (
+              <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                Select a customer above to see their active subscriptions.
+              </div>
+            ) : customerSubsLoading ? (
+              <div className="flex items-center gap-2 rounded-lg border border-border p-4 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />Loading subscriptions…
+              </div>
+            ) : consolidatedSubs.length === 0 ? (
+              <div className="rounded-lg border border-border bg-muted/20 p-4 text-center text-sm text-muted-foreground">
+                No active subscriptions found for this customer.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {consolidatedSubs.map((subState, idx) => (
+                  <SubChargeCard
+                    key={subState.sub.id}
+                    subState={subState}
+                    subIdx={idx}
+                    onToggle={() => toggleSub(idx)}
+                    onAddRow={() => addSubRow(idx)}
+                    onRemoveRow={(rowId) => removeSubRow(idx, rowId)}
+                    onUpdateRow={(rowId, patch) => updateSubRow(idx, rowId, patch)}
+                    onBillingChange={(start, end) => updateSubBillingDates(idx, start, end)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Invoice Summary (full width at bottom) */}
+            {enabledSubs.length > 0 && (
+              <Card>
+                <CardContent className="pt-5">
+                  <p className="mb-4 text-sm font-semibold text-foreground">Invoice Summary</p>
+                  <div className="space-y-2">
                     {enabledSubs.map((s) => {
                       const { base, gst, lit, total } = computeSubTotal(s);
                       return (
-                        <div key={s.sub.id} className="rounded-lg border border-border p-3">
-                          <p className="mb-1.5 font-semibold text-foreground text-xs">{s.sub.subscription_code}</p>
-                          <div className="space-y-0.5 text-xs text-muted-foreground">
-                            <div className="flex justify-between"><span>Plan</span><span>₹{fmtMoney(base)}</span></div>
-                            <div className="flex justify-between"><span>GST</span><span>₹{fmtMoney(gst)}</span></div>
-                            {lit > 0 && <div className="flex justify-between"><span>Charges</span><span>₹{fmtMoney(lit)}</span></div>}
-                            <div className="flex justify-between font-semibold text-foreground pt-1 border-t border-border mt-1">
-                              <span>Sub-total</span><span>₹{fmtMoney(total)}</span>
+                        <div key={s.sub.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border px-4 py-3 text-sm">
+                          <div>
+                            <p className="font-semibold text-foreground">{s.sub.subscription_code}</p>
+                            <p className="text-xs text-muted-foreground">{s.sub.plan_name_snapshot} · {s.billingStart || "—"} → {s.billingEnd || "—"}</p>
+                          </div>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <div className="text-right"><p>Plan</p><p className="font-medium text-foreground">₹{fmtMoney(base)}</p></div>
+                            <div className="text-right"><p>GST</p><p className="font-medium text-foreground">₹{fmtMoney(gst)}</p></div>
+                            {lit > 0 && <div className="text-right"><p>Charges</p><p className="font-medium text-foreground">₹{fmtMoney(lit)}</p></div>}
+                            <div className="rounded-lg bg-primary/10 px-3 py-1.5 text-right">
+                              <p className="text-muted-foreground">Sub-total</p>
+                              <p className="font-bold text-foreground">₹{fmtMoney(total)}</p>
                             </div>
                           </div>
                         </div>
                       );
                     })}
-                    <div className="flex justify-between rounded-lg bg-primary/5 px-3 py-2.5 font-bold text-foreground">
-                      <span>Grand Total</span>
-                      <span>₹{fmtMoney(consolidatedTotal)}</span>
+                    <div className="flex items-center justify-between rounded-lg bg-primary px-5 py-3 font-bold text-white">
+                      <span>Grand Total ({enabledSubs.length} subscription{enabledSubs.length > 1 ? "s" : ""})</span>
+                      <span className="text-base">₹{fmtMoney(consolidatedTotal)}</span>
                     </div>
                   </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    {invoiceType === "SINGLE" ? "Select a subscription to see the summary." : "Select a customer and subscriptions to see the summary."}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Billing period preview */}
-            {(billingStart || billingEnd) && (
-              <Card>
-                <CardContent className="pt-5">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Billing Period</p>
-                  <p className="text-sm font-medium text-foreground">{billingStart || "—"} → {billingEnd || "—"}</p>
                 </CardContent>
               </Card>
             )}
-          </div>
-        </div>
+          </>
+        )}
+
       </div>
     </AppLayout>
   );

@@ -545,8 +545,10 @@ def _sec_charges(invoice: "Invoice") -> list:
     bal  = getattr(invoice, "balance_amount", None) or Decimal("0")
     lit  = getattr(invoice, "line_items_total", None) or Decimal("0")
 
+    combined_subtotal = invoice.base_amount + lit
+
     t_rows: list = [
-        [_p("Subtotal",                   tl), _p(_cur(invoice.base_amount), tv)],
+        [_p("Subtotal", tl), _p(_cur(combined_subtotal), tv)],
     ]
     if discount_amount > 0:
         t_rows.append([
@@ -554,9 +556,7 @@ def _sec_charges(invoice: "Invoice") -> list:
             _p(f"\u2212{_cur(discount_amount)}",
                _s("dv2", fontSize=8, textColor=C_ACCENT, alignment=TA_RIGHT)),
         ])
-    t_rows.append([_p(f"GST ({float(invoice.gst_percentage):.0f}%)", tl), _p(_cur(invoice.gst_amount), tv)])
-    if float(lit) > 0:
-        t_rows.append([_p("Other Charges", tl), _p(_cur(lit), tv)])
+    t_rows.append([_p("Total GST", tl), _p(_cur(invoice.gst_amount), tv)])
     if float(paid) > 0:
         t_rows.append([
             _p("Paid Amount", tl),
@@ -745,12 +745,12 @@ def _sec_consolidated_totals(invoice: "Invoice") -> list:
     disc = getattr(invoice, "discount_amount", Decimal("0")) or Decimal("0")
     base = getattr(invoice, "base_amount", Decimal("0")) or Decimal("0")
 
+    combined_subtotal = base + lit
+
     t_rows: list = [
-        [_p("Total Plan Charges", tl), _p(_cur(base), tv)],
-        [_p("Total GST",          tl), _p(_cur(gst),  tv)],
+        [_p("Subtotal",  tl), _p(_cur(combined_subtotal), tv)],
+        [_p("Total GST", tl), _p(_cur(gst), tv)],
     ]
-    if float(lit) > 0:
-        t_rows.append([_p("Other Charges", tl), _p(_cur(lit), tv)])
     if float(disc) > 0:
         t_rows.append([
             _p("Total Discounts", tl),
