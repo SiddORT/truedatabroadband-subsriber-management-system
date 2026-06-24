@@ -311,15 +311,57 @@ function SubChargeCard({ subState, subIdx: _subIdx, onToggle, onAddRow, onRemove
               />
             ))}
           </div>
-          {/* Sub-total preview */}
-          <div className="flex items-center justify-between rounded-lg bg-primary/5 px-4 py-2.5 text-sm">
-            <div className="space-y-0.5">
-              <p className="text-xs text-muted-foreground">Plan ₹{fmtMoney(baseAmt)} + GST ({gstPct}%) ₹{fmtMoney(gstAmt)}{lit > 0 ? ` + Charges ₹${fmtMoney(lit)}` : ""}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">Sub-total</p>
-              <p className="font-bold text-foreground">₹{fmtMoney(subTotal)}</p>
-            </div>
+          {/* Sub-total preview table */}
+          <div className="overflow-x-auto rounded-lg border border-border text-xs">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-muted/40">
+                  <th className="px-2 py-1.5 text-left font-semibold uppercase tracking-wider text-muted-foreground">Description</th>
+                  <th className="px-2 py-1.5 text-right font-semibold uppercase tracking-wider text-muted-foreground">Price</th>
+                  <th className="px-2 py-1.5 text-right font-semibold uppercase tracking-wider text-muted-foreground">GST</th>
+                  <th className="px-2 py-1.5 text-right font-semibold uppercase tracking-wider text-muted-foreground">Discount</th>
+                  <th className="px-2 py-1.5 text-right font-semibold uppercase tracking-wider text-muted-foreground">Final Rate</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                <tr>
+                  <td className="px-2 py-1.5 font-medium text-foreground">{sub.plan_name_snapshot}</td>
+                  <td className="px-2 py-1.5 text-right">₹{fmtMoney(baseAmt)}</td>
+                  <td className="px-2 py-1.5 text-right text-muted-foreground">
+                    {gstPct > 0 ? `₹${fmtMoney(gstAmt)} (${gstPct}%)` : "—"}
+                  </td>
+                  <td className="px-2 py-1.5 text-right text-muted-foreground">—</td>
+                  <td className="px-2 py-1.5 text-right font-semibold">₹{fmtMoney(baseAmt + gstAmt)}</td>
+                </tr>
+                {chargeRows.filter(r => rowGross(r) > 0 && r.description.trim()).map(row => {
+                  const g = rowGross(row); const d = rowItemDisc(row); const n = rowNet(row);
+                  const rp = Number(row.gstPercentage) || 0; const ra = Math.round(g * rp) / 100;
+                  return (
+                    <tr key={row.id}>
+                      <td className="px-2 py-1.5 font-medium text-foreground">{row.description}</td>
+                      <td className="px-2 py-1.5 text-right">₹{fmtMoney(g)}</td>
+                      <td className="px-2 py-1.5 text-right text-muted-foreground">{rp > 0 ? `₹${fmtMoney(ra)} (${rp}%)` : "—"}</td>
+                      <td className="px-2 py-1.5 text-right text-accent">{d > 0 ? `−₹${fmtMoney(d)}` : "—"}</td>
+                      <td className="px-2 py-1.5 text-right font-semibold">₹{fmtMoney(n)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="border-t-2 border-border bg-muted/20">
+                <tr>
+                  <td colSpan={4} className="px-2 py-1.5 text-right text-muted-foreground">Subtotal</td>
+                  <td className="px-2 py-1.5 text-right font-medium">₹{fmtMoney(baseAmt + lit)}</td>
+                </tr>
+                <tr>
+                  <td colSpan={4} className="px-2 py-1.5 text-right text-muted-foreground">Total GST</td>
+                  <td className="px-2 py-1.5 text-right font-medium">₹{fmtMoney(gstAmt)}</td>
+                </tr>
+                <tr className="bg-primary/10 font-bold text-primary">
+                  <td colSpan={4} className="px-2 py-1.5 text-right">Sub-total</td>
+                  <td className="px-2 py-1.5 text-right">₹{fmtMoney(subTotal)}</td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         </div>
       )}
@@ -728,30 +770,93 @@ export function InvoiceCreatePage() {
               </CardContent>
             </Card>
 
-            {/* Row 3: Invoice Summary (full width) */}
+            {/* Row 3: Invoice Preview Table (full width) */}
             {selectedSub && (
               <Card>
                 <CardContent className="pt-5">
-                  <p className="mb-4 text-sm font-semibold text-foreground">Invoice Summary</p>
-                  <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-2 text-sm">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <span>Subtotal</span>
-                      <span className="font-semibold text-foreground">₹{fmtMoney(baseAmt + singleLit)}</span>
-                    </div>
-                    {singleDiscountAmt > 0 && (
-                      <div className="flex items-center gap-2 text-accent">
-                        <span>− Discount</span>
-                        <span className="font-semibold">₹{fmtMoney(singleDiscountAmt)}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <span>+ GST ({gstPct}%)</span>
-                      <span className="font-semibold text-foreground">₹{fmtMoney(singleGstAmt)}</span>
-                    </div>
-                    <div className="flex items-center gap-3 rounded-lg bg-primary px-5 py-2.5 font-bold text-white">
-                      <span>Grand Total</span>
-                      <span className="text-base">₹{fmtMoney(singleTotalAmt)}</span>
-                    </div>
+                  <p className="mb-4 text-sm font-semibold text-foreground">Invoice Preview</p>
+                  <div className="overflow-x-auto rounded-lg border border-border">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/40">
+                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Description</th>
+                          <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Price</th>
+                          <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">GST</th>
+                          <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Discount</th>
+                          <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Final Rate</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {/* Plan row */}
+                        <tr className="bg-background">
+                          <td className="px-3 py-2.5">
+                            <p className="font-medium text-foreground">{selectedSub.plan_name_snapshot}</p>
+                            {billingStart && billingEnd && (
+                              <p className="text-xs text-muted-foreground">{billingStart} → {billingEnd}</p>
+                            )}
+                          </td>
+                          <td className="px-3 py-2.5 text-right text-foreground">₹{fmtMoney(baseAmt)}</td>
+                          <td className="px-3 py-2.5 text-right text-muted-foreground">
+                            {gstPct > 0 ? (
+                              <span>₹{fmtMoney(singleGstAmt)}<span className="ml-1 text-xs">({gstPct}%)</span></span>
+                            ) : "—"}
+                          </td>
+                          <td className="px-3 py-2.5 text-right text-accent">
+                            {singleDiscountAmt > 0 && discountScope === "base"
+                              ? `−₹${fmtMoney(singleDiscountAmt)}`
+                              : "—"}
+                          </td>
+                          <td className="px-3 py-2.5 text-right font-semibold text-foreground">
+                            ₹{fmtMoney(effectiveBase + singleGstAmt)}
+                          </td>
+                        </tr>
+                        {/* Charge rows */}
+                        {chargeRows.filter(r => rowGross(r) > 0 && r.description.trim()).map(row => {
+                          const gross = rowGross(row);
+                          const disc  = rowItemDisc(row);
+                          const net   = rowNet(row);
+                          const rowGstPct = Number(row.gstPercentage) || 0;
+                          const rowGstAmt = Math.round(gross * rowGstPct) / 100;
+                          return (
+                            <tr key={row.id} className="bg-background">
+                              <td className="px-3 py-2.5 font-medium text-foreground">{row.description}</td>
+                              <td className="px-3 py-2.5 text-right text-foreground">₹{fmtMoney(gross)}</td>
+                              <td className="px-3 py-2.5 text-right text-muted-foreground">
+                                {rowGstPct > 0 ? (
+                                  <span>₹{fmtMoney(rowGstAmt)}<span className="ml-1 text-xs">({rowGstPct}%)</span></span>
+                                ) : "—"}
+                              </td>
+                              <td className="px-3 py-2.5 text-right text-accent">
+                                {disc > 0 ? `−₹${fmtMoney(disc)}` : "—"}
+                              </td>
+                              <td className="px-3 py-2.5 text-right font-semibold text-foreground">₹{fmtMoney(net)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot className="border-t-2 border-border bg-muted/20">
+                        <tr>
+                          <td colSpan={4} className="px-3 py-2 text-right text-xs text-muted-foreground">Subtotal</td>
+                          <td className="px-3 py-2 text-right text-sm font-medium text-foreground">₹{fmtMoney(baseAmt + singleLit)}</td>
+                        </tr>
+                        <tr>
+                          <td colSpan={4} className="px-3 py-2 text-right text-xs text-muted-foreground">Total GST</td>
+                          <td className="px-3 py-2 text-right text-sm font-medium text-foreground">₹{fmtMoney(singleGstAmt)}</td>
+                        </tr>
+                        {singleDiscountAmt > 0 && discountScope === "overall" && (
+                          <tr>
+                            <td colSpan={4} className="px-3 py-2 text-right text-xs text-accent">
+                              {discountLabel ? discountLabel : "Discount"}
+                            </td>
+                            <td className="px-3 py-2 text-right text-sm font-medium text-accent">−₹{fmtMoney(singleDiscountAmt)}</td>
+                          </tr>
+                        )}
+                        <tr className="bg-primary text-white">
+                          <td colSpan={4} className="px-3 py-3 text-right text-sm font-bold">Grand Total</td>
+                          <td className="px-3 py-3 text-right text-base font-bold">₹{fmtMoney(singleTotalAmt)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
                   </div>
                 </CardContent>
               </Card>
@@ -849,29 +954,79 @@ export function InvoiceCreatePage() {
               </div>
             )}
 
-            {/* Invoice Summary (full width at bottom) */}
+            {/* Invoice Preview Table (full width at bottom) */}
             {enabledSubs.length > 0 && (
               <Card>
                 <CardContent className="pt-5">
-                  <p className="mb-4 text-sm font-semibold text-foreground">Invoice Summary</p>
-                  <div className="space-y-2">
+                  <p className="mb-4 text-sm font-semibold text-foreground">Invoice Preview</p>
+                  <div className="space-y-4">
                     {enabledSubs.map((s) => {
-                      const { base, gst, lit, total } = computeSubTotal(s);
+                      const subBase = Number(s.sub.base_price_snapshot ?? 0);
+                      const subGstPct = Number(s.sub.gst_percentage_snapshot ?? 0);
+                      const subGst = Math.round(subBase * subGstPct) / 100;
+                      const subLit = lineItemsTotal(s.chargeRows);
+                      const subTotal = subBase + subGst + subLit;
                       return (
-                        <div key={s.sub.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border px-4 py-3 text-sm">
-                          <div>
-                            <p className="font-semibold text-foreground">{s.sub.subscription_code}</p>
-                            <p className="text-xs text-muted-foreground">{s.sub.plan_name_snapshot} · {s.billingStart || "—"} → {s.billingEnd || "—"}</p>
+                        <div key={s.sub.id} className="overflow-x-auto rounded-lg border border-border">
+                          {/* Sub header */}
+                          <div className="border-b border-border bg-primary/5 px-3 py-2">
+                            <p className="text-xs font-semibold text-foreground">{s.sub.subscription_code} — {s.sub.plan_name_snapshot}</p>
+                            <p className="text-xs text-muted-foreground">{s.billingStart || "—"} → {s.billingEnd || "—"}</p>
                           </div>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <div className="text-right"><p>Plan</p><p className="font-medium text-foreground">₹{fmtMoney(base)}</p></div>
-                            <div className="text-right"><p>GST</p><p className="font-medium text-foreground">₹{fmtMoney(gst)}</p></div>
-                            {lit > 0 && <div className="text-right"><p>Charges</p><p className="font-medium text-foreground">₹{fmtMoney(lit)}</p></div>}
-                            <div className="rounded-lg bg-primary/10 px-3 py-1.5 text-right">
-                              <p className="text-muted-foreground">Sub-total</p>
-                              <p className="font-bold text-foreground">₹{fmtMoney(total)}</p>
-                            </div>
-                          </div>
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-border bg-muted/40">
+                                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Description</th>
+                                <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Price</th>
+                                <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">GST</th>
+                                <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Discount</th>
+                                <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Final Rate</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border">
+                              <tr className="bg-background">
+                                <td className="px-3 py-2.5 font-medium text-foreground">{s.sub.plan_name_snapshot}</td>
+                                <td className="px-3 py-2.5 text-right text-foreground">₹{fmtMoney(subBase)}</td>
+                                <td className="px-3 py-2.5 text-right text-muted-foreground">
+                                  {subGstPct > 0 ? <span>₹{fmtMoney(subGst)}<span className="ml-1 text-xs">({subGstPct}%)</span></span> : "—"}
+                                </td>
+                                <td className="px-3 py-2.5 text-right text-muted-foreground">—</td>
+                                <td className="px-3 py-2.5 text-right font-semibold text-foreground">₹{fmtMoney(subBase + subGst)}</td>
+                              </tr>
+                              {s.chargeRows.filter(r => rowGross(r) > 0 && r.description.trim()).map(row => {
+                                const gross = rowGross(row);
+                                const disc  = rowItemDisc(row);
+                                const net   = rowNet(row);
+                                const rgp   = Number(row.gstPercentage) || 0;
+                                const rga   = Math.round(gross * rgp) / 100;
+                                return (
+                                  <tr key={row.id} className="bg-background">
+                                    <td className="px-3 py-2.5 font-medium text-foreground">{row.description}</td>
+                                    <td className="px-3 py-2.5 text-right text-foreground">₹{fmtMoney(gross)}</td>
+                                    <td className="px-3 py-2.5 text-right text-muted-foreground">
+                                      {rgp > 0 ? <span>₹{fmtMoney(rga)}<span className="ml-1 text-xs">({rgp}%)</span></span> : "—"}
+                                    </td>
+                                    <td className="px-3 py-2.5 text-right text-accent">{disc > 0 ? `−₹${fmtMoney(disc)}` : "—"}</td>
+                                    <td className="px-3 py-2.5 text-right font-semibold text-foreground">₹{fmtMoney(net)}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                            <tfoot className="border-t-2 border-border bg-muted/20">
+                              <tr>
+                                <td colSpan={4} className="px-3 py-2 text-right text-xs text-muted-foreground">Subtotal</td>
+                                <td className="px-3 py-2 text-right text-sm font-medium text-foreground">₹{fmtMoney(subBase + subLit)}</td>
+                              </tr>
+                              <tr>
+                                <td colSpan={4} className="px-3 py-2 text-right text-xs text-muted-foreground">Total GST</td>
+                                <td className="px-3 py-2 text-right text-sm font-medium text-foreground">₹{fmtMoney(subGst)}</td>
+                              </tr>
+                              <tr className="bg-primary/10">
+                                <td colSpan={4} className="px-3 py-2 text-right text-xs font-bold text-primary">Sub-total</td>
+                                <td className="px-3 py-2 text-right text-sm font-bold text-primary">₹{fmtMoney(subTotal)}</td>
+                              </tr>
+                            </tfoot>
+                          </table>
                         </div>
                       );
                     })}
