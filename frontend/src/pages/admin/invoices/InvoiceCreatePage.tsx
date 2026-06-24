@@ -15,8 +15,8 @@ import { useToast } from "@/contexts/ToastContext";
 import { invoicesService } from "@/services/invoices";
 import { subscriptionsService } from "@/services/subscriptions";
 import { getApiErrorMessage } from "@/services/api";
-import { lineItemMastersService } from "@/services/lineItemMasters";
 import { CustomerCombobox } from "@/components/CustomerCombobox";
+import { LineItemPicker } from "@/components/LineItemPicker";
 import type { Customer } from "@/types/customer";
 import type { Subscription } from "@/types/subscription";
 
@@ -90,28 +90,6 @@ interface ChargeRowUIProps {
 }
 
 function ChargeRowUI({ row, onUpdate, onRemove, gross, disc, net }: ChargeRowUIProps) {
-  const [itemQuery, setItemQuery] = useState("");
-  const [showItems, setShowItems] = useState(false);
-  const descRef = useRef<HTMLDivElement>(null);
-
-  const { data: itemResults } = useQuery({
-    queryKey: ["line-item-search-inline", itemQuery],
-    queryFn: () => lineItemMastersService.list({ search: itemQuery, active_only: true, page_size: 8 }),
-    enabled: itemQuery.length >= 2 && !row.locked,
-    staleTime: 60_000,
-  });
-
-  useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      if (descRef.current && !descRef.current.contains(e.target as Node)) setShowItems(false);
-    }
-    document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
-  }, []);
-
-  const suggestions = itemResults?.items ?? [];
-  const showDropdown = showItems && itemQuery.length >= 2 && suggestions.length > 0 && !row.locked;
-
   const discBtn = (v: ItemDiscountType, label: string) => (
     <button
       key={v}
@@ -128,45 +106,24 @@ function ChargeRowUI({ row, onUpdate, onRemove, gross, disc, net }: ChargeRowUIP
         {row.locked ? (
           <span className="min-w-[140px] flex-1 text-sm font-medium text-foreground">{row.description}</span>
         ) : (
-          <div ref={descRef} className="relative min-w-[120px] flex-1">
+          <>
             <input
               value={row.description}
-              onChange={(e) => {
-                onUpdate({ description: e.target.value });
-                setItemQuery(e.target.value);
-                setShowItems(true);
-              }}
-              onFocus={() => { setItemQuery(row.description); setShowItems(true); }}
-              placeholder="Description (e.g. Router Fee) — type to search items"
-              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              onChange={(e) => onUpdate({ description: e.target.value })}
+              placeholder="Description (e.g. Router Fee)"
+              className="min-w-[120px] flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
-            {showDropdown && (
-              <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-lg border border-border bg-background shadow-lg">
-                {suggestions.map((item) => (
-                  <button key={item.id} type="button"
-                    onMouseDown={() => {
-                      onUpdate({
-                        description: item.name,
-                        amount: item.default_amount ? String(Number(item.default_amount)) : row.amount,
-                        gstPercentage: String(Number(item.gst_percentage)),
-                      });
-                      setShowItems(false);
-                      setItemQuery("");
-                    }}
-                    className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-muted/50"
-                  >
-                    <div className="flex-1">
-                      <p className="font-medium text-foreground">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.default_amount ? `₹${Number(item.default_amount).toFixed(2)}` : "No default amount"}
-                        {" · "}GST {item.gst_percentage}%
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+            <LineItemPicker
+              disabled={row.locked}
+              onSelect={(item) =>
+                onUpdate({
+                  description: item.name,
+                  amount: item.default_amount ? String(Number(item.default_amount)) : row.amount,
+                  gstPercentage: String(Number(item.gst_percentage)),
+                })
+              }
+            />
+          </>
         )}
         <div className="relative w-28 shrink-0">
           <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">₹</span>
