@@ -154,16 +154,16 @@ export function SubscriptionListPage() {
       ),
     },
     {
-      key: "renewal_date",
-      header: "Renewal Date",
+      key: "start_date",
+      header: "Start Date",
       sortable: true,
       render: (row) => (
-        <span className="text-sm">{fmtDate(row.renewal_date)}</span>
+        <span className="text-sm">{fmtDate(row.start_date)}</span>
       ),
     },
     {
       key: "expiry_date",
-      header: "Expiry Date",
+      header: "End Date",
       sortable: true,
       render: (row) => (
         <span className="text-sm">{fmtDate(row.expiry_date)}</span>

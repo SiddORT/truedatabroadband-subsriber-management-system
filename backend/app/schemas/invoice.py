@@ -240,6 +240,7 @@ class InvoiceListItem(BaseModel):
     id: UUID
     invoice_number: str
     invoice_type: str = "SINGLE"
+    subscription_id: Optional[UUID] = None
     customer_code_snapshot: str
     customer_name_snapshot: str
     connection_name_snapshot: str

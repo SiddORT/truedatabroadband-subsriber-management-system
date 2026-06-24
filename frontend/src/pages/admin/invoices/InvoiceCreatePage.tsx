@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -59,6 +59,7 @@ interface SubBillingState {
   chargeIdCounter: number;
   billingStart: string;
   billingEnd: string;
+  existing_invoice?: { invoice_number: string; invoice_id: string } | null;
 }
 
 // ── Style constants ───────────────────────────────────────────────────────────
@@ -191,6 +192,13 @@ function rowItemDisc(r: ChargeRow) {
 }
 function rowNet(r: ChargeRow) { return Math.max(0, rowGross(r) - rowItemDisc(r)); }
 function lineItemsTotal(rows: ChargeRow[]) { return rows.reduce((s, r) => rowGross(r) > 0 ? s + rowNet(r) : s, 0); }
+function lineItemsGst(rows: ChargeRow[]) {
+  return rows.reduce((s, r) => {
+    if (rowGross(r) <= 0) return s;
+    const gp = Number(r.gstPercentage) || 0;
+    return s + Math.round(rowGross(r) * gp) / 100;
+  }, 0);
+}
 
 function buildLineItems(rows: ChargeRow[]) {
   return rows
@@ -230,22 +238,27 @@ interface SubChargeCardProps {
 }
 
 function SubChargeCard({ subState, subIdx: _subIdx, onToggle, onAddRow, onRemoveRow, onUpdateRow, onBillingChange }: SubChargeCardProps) {
-  const { sub, enabled, chargeRows, billingStart, billingEnd } = subState;
+  const { sub, enabled, chargeRows, billingStart, billingEnd, existing_invoice } = subState;
   const baseAmt = Number(sub.base_price_snapshot ?? 0);
   const gstPct  = Number(sub.gst_percentage_snapshot ?? 0);
-  const lit = lineItemsTotal(chargeRows);
-  const gstAmt = Math.round(baseAmt * gstPct) / 100;
-  const subTotal = baseAmt + gstAmt + lit;
+  const lit    = lineItemsTotal(chargeRows);
+  const litGst = lineItemsGst(chargeRows);
+  const gstAmt  = Math.round(baseAmt * gstPct) / 100;
+  const subTotal = baseAmt + gstAmt + lit + litGst;
 
   return (
-    <div className={`rounded-xl border-2 transition-colors ${enabled ? "border-primary/30 bg-background" : "border-border bg-muted/20 opacity-60"}`}>
+    <div className={`rounded-xl border-2 transition-colors ${existing_invoice ? "border-border bg-muted/10 opacity-70" : enabled ? "border-primary/30 bg-background" : "border-border bg-muted/20 opacity-60"}`}>
       {/* Header */}
       <div className="flex items-center justify-between gap-3 rounded-t-xl bg-primary/5 px-4 py-3">
         <div className="flex items-center gap-3">
-          <input
-            type="checkbox" checked={enabled} onChange={onToggle}
-            className="h-4 w-4 accent-primary"
-          />
+          {existing_invoice ? (
+            <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground ring-1 ring-border">Already Invoiced</span>
+          ) : (
+            <input
+              type="checkbox" checked={enabled} onChange={onToggle}
+              className="h-4 w-4 accent-primary"
+            />
+          )}
           <div>
             <p className="text-sm font-semibold text-foreground">{sub.subscription_code}</p>
             <p className="text-xs text-muted-foreground">
@@ -255,8 +268,17 @@ function SubChargeCard({ subState, subIdx: _subIdx, onToggle, onAddRow, onRemove
           </div>
         </div>
         <div className="text-right">
-          <p className="text-xs text-muted-foreground">Base plan</p>
-          <p className="text-sm font-bold text-foreground">₹{fmtMoney(baseAmt)}</p>
+          {existing_invoice ? (
+            <>
+              <p className="text-xs text-muted-foreground">Invoice</p>
+              <p className="font-mono text-sm font-bold text-primary">{existing_invoice.invoice_number}</p>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground">Base plan</p>
+              <p className="text-sm font-bold text-foreground">₹{fmtMoney(baseAmt)}</p>
+            </>
+          )}
         </div>
       </div>
 
@@ -330,7 +352,7 @@ function SubChargeCard({ subState, subIdx: _subIdx, onToggle, onAddRow, onRemove
                       <td className="px-2 py-1.5 text-right">₹{fmtMoney(g)}</td>
                       <td className="px-2 py-1.5 text-right text-muted-foreground">{rp > 0 ? `₹${fmtMoney(ra)} (${rp}%)` : "—"}</td>
                       <td className="px-2 py-1.5 text-right text-accent">{d > 0 ? `−₹${fmtMoney(d)}` : "—"}</td>
-                      <td className="px-2 py-1.5 text-right font-semibold">₹{fmtMoney(n)}</td>
+                      <td className="px-2 py-1.5 text-right font-semibold">₹{fmtMoney(n + ra)}</td>
                     </tr>
                   );
                 })}
@@ -342,7 +364,7 @@ function SubChargeCard({ subState, subIdx: _subIdx, onToggle, onAddRow, onRemove
                 </tr>
                 <tr>
                   <td colSpan={4} className="px-2 py-1.5 text-right text-muted-foreground">Total GST</td>
-                  <td className="px-2 py-1.5 text-right font-medium">₹{fmtMoney(gstAmt)}</td>
+                  <td className="px-2 py-1.5 text-right font-medium">₹{fmtMoney(gstAmt + litGst)}</td>
                 </tr>
                 <tr className="bg-primary/10 font-bold text-primary">
                   <td colSpan={4} className="px-2 py-1.5 text-right">Sub-total</td>
@@ -409,6 +431,24 @@ export function InvoiceCreatePage() {
     enabled: invoiceType === "CONSOLIDATED" && !!customerId,
   });
 
+  const { data: customerInvoicesData } = useQuery({
+    queryKey: ["customer-invoices-for-consolidated", customerId],
+    queryFn: () => invoicesService.list({ customer_id: customerId, page: 1, page_size: 200 }),
+    enabled: invoiceType === "CONSOLIDATED" && !!customerId,
+    staleTime: 0,
+  });
+
+  // Build map: subscription_id → latest invoice (for single-type invoices)
+  const invoicedSubMap = useMemo(() => {
+    const map: Record<string, { invoice_number: string; invoice_id: string }> = {};
+    for (const inv of (customerInvoicesData?.items ?? [])) {
+      if (inv.subscription_id && !map[inv.subscription_id]) {
+        map[inv.subscription_id] = { invoice_number: inv.invoice_number, invoice_id: inv.id };
+      }
+    }
+    return map;
+  }, [customerInvoicesData]);
+
   // When customer subs load, reset consolidated sub billing state
   useEffect(() => {
     if (customerSubsData) {
@@ -416,15 +456,16 @@ export function InvoiceCreatePage() {
       setConsolidatedSubs(
         active.map((sub) => ({
           sub,
-          enabled: true,
+          enabled: !invoicedSubMap[sub.id],
           chargeRows: makeDefaultRows(),
           chargeIdCounter: 3,
           billingStart: sub.start_date ?? firstOfMonth(),
           billingEnd: sub.expiry_date ?? lastOfMonth(),
+          existing_invoice: invoicedSubMap[sub.id] ?? null,
         }))
       );
     }
-  }, [customerSubsData]);
+  }, [customerSubsData, invoicedSubMap]);
 
   // Reset consolidated state when customer changes
   useEffect(() => {
@@ -444,12 +485,13 @@ export function InvoiceCreatePage() {
   const gstPct  = Number(selectedSub?.gst_percentage_snapshot ?? 0);
 
   const gstOnFullBase = Math.round(baseAmt * gstPct) / 100;
-  const singleLit = lineItemsTotal(chargeRows);
+  const singleLit    = lineItemsTotal(chargeRows);
+  const singleLitGst = lineItemsGst(chargeRows);
 
   const singleDiscountAmt = (() => {
     if (!discountType || !discountValue || Number(discountValue) <= 0) return 0;
     if (discountScope === "overall") {
-      const subtotal = baseAmt + gstOnFullBase + singleLit;
+      const subtotal = baseAmt + gstOnFullBase + singleLit + singleLitGst;
       if (discountType === "percentage") return Math.round(subtotal * Number(discountValue) * 100) / 10000;
       return Math.min(Number(discountValue), subtotal);
     }
@@ -460,8 +502,8 @@ export function InvoiceCreatePage() {
   const effectiveBase  = discountScope === "base" ? Math.round((baseAmt - singleDiscountAmt) * 100) / 100 : baseAmt;
   const singleGstAmt   = discountScope === "base" ? Math.round(effectiveBase * gstPct) / 100 : gstOnFullBase;
   const singleTotalAmt = discountScope === "overall"
-    ? baseAmt + singleGstAmt + singleLit - singleDiscountAmt
-    : effectiveBase + singleGstAmt + singleLit;
+    ? baseAmt + singleGstAmt + singleLit + singleLitGst - singleDiscountAmt
+    : effectiveBase + singleGstAmt + singleLit + singleLitGst;
 
   // ── CONSOLIDATED: amount calculations ────────────────────────────────────
 
@@ -469,8 +511,9 @@ export function InvoiceCreatePage() {
     const b = Number(subState.sub.base_price_snapshot ?? 0);
     const g = Number(subState.sub.gst_percentage_snapshot ?? 0);
     const lit = lineItemsTotal(subState.chargeRows);
+    const litGst = lineItemsGst(subState.chargeRows);
     const gst = Math.round(b * g) / 100;
-    return { base: b, gst, lit, total: b + gst + lit };
+    return { base: b, gst, lit, litGst, total: b + gst + lit + litGst };
   }
 
   const enabledSubs = consolidatedSubs.filter((s) => s.enabled);
@@ -641,11 +684,14 @@ export function InvoiceCreatePage() {
                     />
                   </div>
                   {selectedSub && (
-                    <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-3 text-sm sm:grid-cols-4">
+                    <div className={`grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-3 text-sm ${selectedSub.connection_name ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
                       <div><p className="text-xs text-muted-foreground">Customer Code</p><p className="font-mono font-semibold">{selectedSub.customer_code}</p></div>
                       <div><p className="text-xs text-muted-foreground">Customer</p><p className="font-medium">{selectedSub.customer_name}</p></div>
                       <div><p className="text-xs text-muted-foreground">Plan</p><p className="font-medium">{selectedSub.plan_name_snapshot}</p><p className="text-xs text-muted-foreground">{selectedSub.speed_mbps_snapshot} Mbps</p></div>
                       <div><p className="text-xs text-muted-foreground">Cycle</p><p className="font-medium">{selectedSub.billing_cycle_snapshot?.replace(/_/g, " ")}</p></div>
+                      {selectedSub.connection_name && (
+                        <div><p className="text-xs text-muted-foreground">Connection</p><p className="font-medium">{selectedSub.connection_name}</p></div>
+                      )}
                     </div>
                   )}
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -952,7 +998,8 @@ export function InvoiceCreatePage() {
                       const subGstPct = Number(s.sub.gst_percentage_snapshot ?? 0);
                       const subGst = Math.round(subBase * subGstPct) / 100;
                       const subLit = lineItemsTotal(s.chargeRows);
-                      const subTotal = subBase + subGst + subLit;
+                      const subLitGst = lineItemsGst(s.chargeRows);
+                      const subTotal = subBase + subGst + subLit + subLitGst;
                       return (
                         <div key={s.sub.id} className="overflow-x-auto rounded-lg border border-border">
                           {/* Sub header */}
@@ -994,7 +1041,7 @@ export function InvoiceCreatePage() {
                                       {rgp > 0 ? <span>₹{fmtMoney(rga)}<span className="ml-1 text-xs">({rgp}%)</span></span> : "—"}
                                     </td>
                                     <td className="px-3 py-2.5 text-right text-accent">{disc > 0 ? `−₹${fmtMoney(disc)}` : "—"}</td>
-                                    <td className="px-3 py-2.5 text-right font-semibold text-foreground">₹{fmtMoney(net)}</td>
+                                    <td className="px-3 py-2.5 text-right font-semibold text-foreground">₹{fmtMoney(net + rga)}</td>
                                   </tr>
                                 );
                               })}
@@ -1006,7 +1053,7 @@ export function InvoiceCreatePage() {
                               </tr>
                               <tr>
                                 <td colSpan={4} className="px-3 py-2 text-right text-xs text-muted-foreground">Total GST</td>
-                                <td className="px-3 py-2 text-right text-sm font-medium text-foreground">₹{fmtMoney(subGst)}</td>
+                                <td className="px-3 py-2 text-right text-sm font-medium text-foreground">₹{fmtMoney(subGst + subLitGst)}</td>
                               </tr>
                               <tr className="bg-primary/10">
                                 <td colSpan={4} className="px-3 py-2 text-right text-xs font-bold text-primary">Sub-total</td>

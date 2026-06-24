@@ -40,6 +40,7 @@ export interface InvoiceListItem {
   id: string;
   invoice_number: string;
   invoice_type: "SINGLE" | "CONSOLIDATED";
+  subscription_id: string | null;
   customer_code_snapshot: string;
   customer_name_snapshot: string;
   connection_name_snapshot: string;

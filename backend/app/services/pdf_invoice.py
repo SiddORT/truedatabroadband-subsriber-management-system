@@ -556,7 +556,17 @@ def _sec_charges(invoice: "Invoice") -> list:
             _p(f"\u2212{_cur(discount_amount)}",
                _s("dv2", fontSize=8, textColor=C_ACCENT, alignment=TA_RIGHT)),
         ])
-    t_rows.append([_p("Total GST", tl), _p(_cur(invoice.gst_amount), tv)])
+    # Compute true total GST: plan GST + all line-item GSTs
+    total_gst = invoice.gst_amount or Decimal("0")
+    for li in (getattr(invoice, "line_items", None) or []):
+        li_gst_s = li.get("gst_amount")
+        if li_gst_s:
+            total_gst += Decimal(str(li_gst_s))
+    grand_total_computed = combined_subtotal + total_gst - (discount_amount or Decimal("0"))
+    if float(paid) > 0:
+        grand_total_computed -= paid
+
+    t_rows.append([_p("Total GST", tl), _p(_cur(total_gst), tv)])
     if float(paid) > 0:
         t_rows.append([
             _p("Paid Amount", tl),
@@ -564,7 +574,7 @@ def _sec_charges(invoice: "Invoice") -> list:
         ])
 
     sep_idx = len(t_rows)
-    t_rows.append([_p("GRAND TOTAL", tw_l), _p(_cur(invoice.total_amount), tw_v)])
+    t_rows.append([_p("GRAND TOTAL", tw_l), _p(_cur(combined_subtotal + total_gst - (discount_amount or Decimal("0"))), tw_v)])
 
     if float(bal) > 0 and float(paid) > 0:
         t_rows.append([_p("Balance Due", tb_l), _p(_cur(bal), tb_v)])
@@ -701,12 +711,19 @@ def _sec_sub_item(item: "InvoiceSubscriptionItem", idx: int, total: int) -> list
             _p(f"\u2212{_cur(disc_amt)}", _s(f"od{idx}", fontSize=7, textColor=C_ACCENT, alignment=TA_RIGHT)),
         ])
 
-    # Sub-total row
+    # Sub-total row — compute dynamically so existing & new invoices are both correct
+    sub_total_computed = plan_final
+    for li in line_items:
+        li_gst_v  = Decimal(str(li.get("gst_amount", "0")))
+        li_net    = Decimal(str(li.get("amount", "0")))
+        sub_total_computed += li_net + li_gst_v
+    if disc_amt > 0 and disc_scope == "overall":
+        sub_total_computed -= disc_amt
     rows.append([
         _p(f"SUB-TOTAL \u2014 {item.connection_name_snapshot}",
            _s(f"st{idx}", fontName=_FB, fontSize=7.5, textColor=C_WHITE)),
         _p("", tc_r), _p("", tc_r), _p("", tc_r),
-        _p(_cur(item.total_amount), _s(f"stv{idx}", fontName=_FB, fontSize=8, textColor=C_WHITE, alignment=TA_RIGHT)),
+        _p(_cur(sub_total_computed), _s(f"stv{idx}", fontName=_FB, fontSize=8, textColor=C_WHITE, alignment=TA_RIGHT)),
     ])
 
     n = len(rows)
@@ -740,16 +757,28 @@ def _sec_consolidated_totals(invoice: "Invoice") -> list:
 
     paid = getattr(invoice, "paid_amount", None) or Decimal("0")
     bal  = getattr(invoice, "balance_amount", None) or Decimal("0")
-    gst  = getattr(invoice, "gst_amount", Decimal("0")) or Decimal("0")
     lit  = getattr(invoice, "line_items_total", Decimal("0")) or Decimal("0")
     disc = getattr(invoice, "discount_amount", Decimal("0")) or Decimal("0")
     base = getattr(invoice, "base_amount", Decimal("0")) or Decimal("0")
 
     combined_subtotal = base + lit
 
+    # Compute true total GST: sum of plan GSTs + all line-item GSTs across subscription items
+    total_gst = Decimal("0")
+    for sub_item in (getattr(invoice, "subscription_items", None) or []):
+        total_gst += sub_item.gst_amount or Decimal("0")
+        for li in (sub_item.line_items or []):
+            li_gst_s = li.get("gst_amount")
+            if li_gst_s:
+                total_gst += Decimal(str(li_gst_s))
+    if total_gst == 0:
+        total_gst = getattr(invoice, "gst_amount", Decimal("0")) or Decimal("0")
+
+    grand_total_computed = combined_subtotal + total_gst - disc
+
     t_rows: list = [
         [_p("Subtotal",  tl), _p(_cur(combined_subtotal), tv)],
-        [_p("Total GST", tl), _p(_cur(gst), tv)],
+        [_p("Total GST", tl), _p(_cur(total_gst), tv)],
     ]
     if float(disc) > 0:
         t_rows.append([
@@ -763,7 +792,7 @@ def _sec_consolidated_totals(invoice: "Invoice") -> list:
         ])
 
     sep_idx = len(t_rows)
-    t_rows.append([_p("GRAND TOTAL", tw_l), _p(_cur(invoice.total_amount), tw_v)])
+    t_rows.append([_p("GRAND TOTAL", tw_l), _p(_cur(grand_total_computed), tw_v)])
 
     if float(bal) > 0 and float(paid) > 0:
         t_rows.append([_p("Balance Due", tb_l), _p(_cur(bal), tb_v)])

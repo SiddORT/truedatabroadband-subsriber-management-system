@@ -115,10 +115,11 @@ class InvoiceService:
         storage.save(INVOICE_BUCKET, key, io.BytesIO(pdf_bytes))
         return key
 
-    def _process_line_items(self, line_items_in) -> tuple[list[dict], Decimal]:
-        """Convert LineItemIn list → (stored list, total). Returns ([], Decimal(0)) for empty."""
+    def _process_line_items(self, line_items_in) -> tuple[list[dict], Decimal, Decimal]:
+        """Convert LineItemIn list → (stored list, net_total, gst_total). Returns ([], 0, 0) for empty."""
         line_items_data: list[dict] = []
         line_items_total = Decimal("0.00")
+        line_items_gst   = Decimal("0.00")
         for item in (line_items_in or []):
             amt = Decimal(str(item.amount)).quantize(Decimal("0.01"))
             if amt > 0:
@@ -141,25 +142,28 @@ class InvoiceService:
                     gst_amt = (price * gst_pct / Decimal("100")).quantize(Decimal("0.01"))
                     entry["gst_percentage"] = str(gst_pct)
                     entry["gst_amount"] = str(gst_amt)
+                    line_items_gst += gst_amt
                 line_items_data.append(entry)
                 line_items_total += amt
-        return line_items_data, line_items_total
+        return line_items_data, line_items_total, line_items_gst
 
     def _compute_totals(
         self,
         base: Decimal,
         gst_pct: Decimal,
         line_items_total: Decimal,
+        line_items_gst: Decimal,
         discount_type: str | None,
         discount_value: Decimal,
         discount_scope: str,
     ) -> tuple[Decimal, Decimal, Decimal, Decimal]:
-        """Return (base, gst_amount, total, discount_amount)."""
+        """Return (base, gst_amount, total, discount_amount).
+        gst_amount = plan GST only; total includes line_items_gst."""
         discount_amount = Decimal("0.00")
         if discount_type and discount_value > 0:
             if discount_scope == "overall":
                 gst_on_full_base = (base * gst_pct / 100).quantize(Decimal("0.01"))
-                subtotal = base + gst_on_full_base + line_items_total
+                subtotal = base + gst_on_full_base + line_items_total + line_items_gst
                 if discount_type == "percentage":
                     discount_amount = (subtotal * discount_value / 100).quantize(Decimal("0.01"))
                 else:
@@ -173,10 +177,10 @@ class InvoiceService:
                     discount_amount = min(discount_value, base).quantize(Decimal("0.01"))
                 effective_base = base - discount_amount
                 gst_amt = (effective_base * gst_pct / 100).quantize(Decimal("0.01"))
-                total = (effective_base + gst_amt + line_items_total).quantize(Decimal("0.01"))
+                total = (effective_base + gst_amt + line_items_total + line_items_gst).quantize(Decimal("0.01"))
         else:
             gst_amt = (base * gst_pct / 100).quantize(Decimal("0.01"))
-            total = (base + gst_amt + line_items_total).quantize(Decimal("0.01"))
+            total = (base + gst_amt + line_items_total + line_items_gst).quantize(Decimal("0.01"))
         return base, gst_amt, total, discount_amount
 
     # ── Create ─────────────────────────────────────────────────────────────
@@ -231,12 +235,12 @@ class InvoiceService:
         gst_pct = pricing.gst_percentage
         discount_scope = payload.discount_scope or "base"
 
-        line_items_data, line_items_total = self._process_line_items(payload.line_items)
+        line_items_data, line_items_total, line_items_gst = self._process_line_items(payload.line_items)
 
         discount_type = payload.discount_type
         discount_value = payload.discount_value or Decimal("0")
         _, gst_amt, total, discount_amount = self._compute_totals(
-            base, gst_pct, line_items_total, discount_type, discount_value, discount_scope
+            base, gst_pct, line_items_total, line_items_gst, discount_type, discount_value, discount_scope
         )
 
         # Company settings snapshot
@@ -410,10 +414,15 @@ class InvoiceService:
 
             # Effective line items: use payload if provided, else keep existing
             if payload.line_items is not None:
-                line_items_data, line_items_total = self._process_line_items(payload.line_items)
+                line_items_data, line_items_total, line_items_gst = self._process_line_items(payload.line_items)
             else:
                 line_items_data = list(invoice.line_items or [])
                 line_items_total = invoice.line_items_total
+                line_items_gst = sum(
+                    Decimal(str(li.get("gst_amount", "0")))
+                    for li in (invoice.line_items or [])
+                    if li.get("gst_amount")
+                )
 
             # Effective discount params
             discount_scope = (
@@ -438,7 +447,7 @@ class InvoiceService:
             )
 
             _, gst_amt, total, discount_amount = self._compute_totals(
-                base, gst_pct, line_items_total,
+                base, gst_pct, line_items_total, line_items_gst,
                 discount_type, discount_value or Decimal("0"), discount_scope,
             )
 
@@ -699,20 +708,20 @@ class InvoiceService:
             gst_pct = pricing.gst_percentage
             disc_scope = sub_billing.discount_scope or "base"
 
-            line_items_data, lit = self._process_line_items(sub_billing.line_items)
+            line_items_data, lit, lit_gst = self._process_line_items(sub_billing.line_items)
 
             disc_type = sub_billing.discount_type
             disc_value = sub_billing.discount_value or Decimal("0")
 
             _, gst_amt, total, disc_amt = self._compute_totals(
-                base, gst_pct, lit, disc_type, disc_value, disc_scope
+                base, gst_pct, lit, lit_gst, disc_type, disc_value, disc_scope
             )
 
             grand_total += total
             sub_computations.append({
                 "sub": sub, "plan": plan, "pricing": pricing,
                 "base": base, "gst_pct": gst_pct, "gst_amt": gst_amt,
-                "total": total, "lit": lit, "disc_amt": disc_amt,
+                "total": total, "lit": lit, "lit_gst": lit_gst, "disc_amt": disc_amt,
                 "disc_type": disc_type,
                 "disc_value": disc_value if disc_amt > 0 else None,
                 "disc_label": sub_billing.discount_label,
