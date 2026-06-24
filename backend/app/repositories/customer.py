@@ -87,6 +87,8 @@ class CustomerRepository(BaseRepository[Customer]):
         city_filter: str | None = None,
         reference_source_filter: str | None = None,
         sales_person_filter: str | None = None,
+        staff_id: "uuid.UUID | None" = None,
+        staff_scope: str | None = None,
     ) -> tuple[list[Customer], int]:
         stmt = select(Customer).where(Customer.deleted_at.is_(None))
 
@@ -116,6 +118,12 @@ class CustomerRepository(BaseRepository[Customer]):
 
         if sales_person_filter:
             stmt = stmt.where(Customer.sales_person.ilike(f"%{sales_person_filter}%"))
+
+        if staff_id is not None:
+            if staff_scope == "ASSIGNED":
+                stmt = stmt.where(Customer.assigned_staff_id == staff_id)
+            elif staff_scope == "REFERENCE":
+                stmt = stmt.where(Customer.reference_partner_id == staff_id)
 
         _sort_map = {
             "customer_code": Customer.customer_code,

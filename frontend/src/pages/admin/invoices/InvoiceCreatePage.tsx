@@ -433,7 +433,7 @@ export function InvoiceCreatePage() {
 
   const { data: customerInvoicesData } = useQuery({
     queryKey: ["customer-invoices-for-consolidated", customerId],
-    queryFn: () => invoicesService.list({ customer_id: customerId, page: 1, page_size: 200 }),
+    queryFn: () => invoicesService.list({ customer_id: customerId, page: 1, page_size: 100 }),
     enabled: invoiceType === "CONSOLIDATED" && !!customerId,
     staleTime: 0,
   });

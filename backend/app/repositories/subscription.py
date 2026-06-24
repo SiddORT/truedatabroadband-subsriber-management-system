@@ -114,6 +114,8 @@ class SubscriptionRepository(BaseRepository[Subscription]):
         expiry_date_from: date | None = None,
         expiry_date_to: date | None = None,
         quick_filter: str | None = None,
+        staff_id: "uuid.UUID | None" = None,
+        staff_scope: str | None = None,
     ) -> tuple[list[Subscription], int]:
         stmt = (
             select(Subscription)
@@ -151,6 +153,12 @@ class SubscriptionRepository(BaseRepository[Subscription]):
             stmt = stmt.where(Subscription.expiry_date >= expiry_date_from)
         if expiry_date_to is not None:
             stmt = stmt.where(Subscription.expiry_date <= expiry_date_to)
+
+        if staff_id is not None:
+            if staff_scope == "ASSIGNED":
+                stmt = stmt.where(Customer.assigned_staff_id == staff_id)
+            elif staff_scope == "REFERENCE":
+                stmt = stmt.where(Customer.reference_partner_id == staff_id)
 
         if quick_filter:
             today = date.today()

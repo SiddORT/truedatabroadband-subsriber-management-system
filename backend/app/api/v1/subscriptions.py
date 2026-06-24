@@ -77,9 +77,17 @@ def list_subscriptions(
     expiry_date_from: date | None = Query(None),
     expiry_date_to: date | None = Query(None),
     quick_filter: str | None = Query(None),
-    _: User = Depends(require_permission("subscriptions", "view")),
+    current_user: User = Depends(require_permission("subscriptions", "view")),
     db: Session = Depends(get_db),
 ) -> SubscriptionListResponse:
+    from app.models.user import UserRole
+    staff_id = None
+    staff_scope = None
+    if current_user.role == UserRole.STAFF and current_user.staff_role:
+        scope = current_user.staff_role.data_scope
+        if scope in ("ASSIGNED", "REFERENCE"):
+            staff_id = current_user.id
+            staff_scope = scope
     repo = SubscriptionRepository(db)
     items, total = repo.list_paginated(
         page=page,
@@ -94,6 +102,8 @@ def list_subscriptions(
         expiry_date_from=expiry_date_from,
         expiry_date_to=expiry_date_to,
         quick_filter=quick_filter,
+        staff_id=staff_id,
+        staff_scope=staff_scope,
     )
     total_pages = math.ceil(total / page_size) if total > 0 else 0
     return SubscriptionListResponse(
