@@ -98,6 +98,7 @@ class CustomerRepository(BaseRepository[Customer]):
                     Customer.full_name.ilike(term),
                     Customer.mobile_number.ilike(term),
                     Customer.email.ilike(term),
+                    Customer.organization_name.ilike(term),
                 )
             )
 
