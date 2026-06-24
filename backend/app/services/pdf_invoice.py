@@ -433,115 +433,89 @@ def _sec_plan(invoice: "Invoice") -> list:
 
 
 def _sec_charges(invoice: "Invoice") -> list:
-    """5-column charges table + right-aligned totals block."""
+    """5-column charges table: Description | Price | GST | Discount | Final Rate — then totals."""
     discount_amount = getattr(invoice, "discount_amount", None) or Decimal("0")
     discount_scope  = getattr(invoice, "discount_scope",  None) or "base"
     line_items      = getattr(invoice, "line_items",      None) or []
 
-    # Column widths
-    cw = [CW * 0.35, CW * 0.24, CW * 0.07, CW * 0.17, CW * 0.17]
+    # Column widths: Description | Price | GST | Discount | Final Rate
+    cw = [CW * 0.36, CW * 0.16, CW * 0.14, CW * 0.16, CW * 0.18]
 
-    th = _s("th", fontName=_FB, fontSize=7.5, textColor=C_WHITE)
-    th_r = _s("thr", fontName=_FB, fontSize=7.5, textColor=C_WHITE, alignment=TA_RIGHT)
-    tc   = _s("tc",  fontSize=8,   leading=11)
-    tc_r = _s("tcr", fontSize=8,   leading=11, alignment=TA_RIGHT)
-    tc_m = _s("tcm", fontSize=7.5, leading=10, textColor=C_GREY)
-    tc_disc = _s("tcd", fontSize=7.5, leading=10, textColor=C_ACCENT)
+    th   = _s("th",    fontName=_FB, fontSize=7.5, textColor=C_WHITE)
+    th_r = _s("thr",   fontName=_FB, fontSize=7.5, textColor=C_WHITE, alignment=TA_RIGHT)
+    tc_r = _s("tcr",   fontSize=8,   leading=11, alignment=TA_RIGHT)
+    tc_m = _s("tcm",   fontSize=7,   leading=10, textColor=C_GREY, alignment=TA_RIGHT)
+    tc_d = _s("tcd",   fontSize=7.5, leading=10, textColor=C_ACCENT, alignment=TA_RIGHT)
 
     period_txt = f"{_date(invoice.billing_period_start)} \u2013 {_date(invoice.billing_period_end)}"
-    fup        = f" · FUP {invoice.fup_limit_gb_snapshot} GB" if invoice.fup_limit_gb_snapshot else ""
+    fup        = f" \u00b7 FUP {invoice.fup_limit_gb_snapshot} GB" if invoice.fup_limit_gb_snapshot else ""
+
+    def _dash(): return _p("\u2014", tc_m)
 
     header_row = [
         _p("DESCRIPTION",  th),
-        _p("BILLING PERIOD", th),
-        _p("QTY", th),
-        _p("UNIT PRICE", th_r),
-        _p("AMOUNT",     th_r),
+        _p("PRICE",        th_r),
+        _p("GST",          th_r),
+        _p("DISCOUNT",     th_r),
+        _p("FINAL RATE",   th_r),
     ]
     rows = [header_row]
 
-    # Plan row
-    plan_desc = f'{invoice.plan_name_snapshot}<br/><font size="7" color="#6B7280">{invoice.speed_mbps_snapshot} Mbps · {invoice.data_policy_snapshot or ""}{fup}</font>'
+    # ── Plan row ──────────────────────────────────────────────────────────
+    plan_disc  = discount_amount if discount_scope != "overall" else Decimal("0")
+    plan_final = invoice.base_amount - plan_disc + invoice.gst_amount
+
+    plan_desc = (
+        f'{invoice.plan_name_snapshot}'
+        f'<br/><font size="7" color="#6B7280">'
+        f'{invoice.speed_mbps_snapshot} Mbps'
+        f'{" \u00b7 " + invoice.data_policy_snapshot if invoice.data_policy_snapshot else ""}'
+        f'{fup}'
+        f'<br/>{period_txt}</font>'
+    )
     rows.append([
-        _p(plan_desc, _s("pd", fontName=_FB, fontSize=8.5, leading=12)),
-        _p(period_txt, tc_m),
-        _p("1", tc),
+        _p(plan_desc, _s("pd", fontName=_FB, fontSize=8.5, leading=13)),
         _p(_cur(invoice.base_amount), tc_r),
-        _p(_cur(invoice.base_amount), tc_r),
+        _p(_cur(invoice.gst_amount),  tc_r),
+        _p(f"\u2212{_cur(plan_disc)}", tc_d) if plan_disc > 0 else _dash(),
+        _p(_cur(plan_final), tc_r),
     ])
 
-    # Base-scope discount
-    if discount_amount > 0 and discount_scope != "overall":
-        disc_type  = getattr(invoice, "discount_type",  None) or ""
-        disc_value = getattr(invoice, "discount_value", None)
-        disc_label = getattr(invoice, "discount_label", None) or ""
-        if disc_type == "percentage" and disc_value:
-            dlbl = f"Discount ({float(disc_value):.2g}%) \u2014 Base Plan"
-        else:
-            dlbl = "Discount \u2014 Base Plan"
-        if disc_label:
-            dlbl += f" · {disc_label}"
+    # ── Line items ────────────────────────────────────────────────────────
+    for item in line_items:
+        net_amt      = Decimal(str(item.get("amount", "0")))
+        orig_amt_s   = item.get("original_amount")
+        item_disc_s  = item.get("discount_amount")
+        item_gst_s   = item.get("gst_amount")
+        has_disc     = orig_amt_s and item_disc_s and Decimal(str(item_disc_s)) > 0
+
+        price      = Decimal(str(orig_amt_s)) if has_disc else net_amt
+        disc_d     = Decimal(str(item_disc_s)) if has_disc else Decimal("0")
+        item_gst   = Decimal(str(item_gst_s)) if item_gst_s else Decimal("0")
+        final_rate = net_amt + item_gst
+
         rows.append([
-            _p(dlbl, tc_disc), _p("", tc_m), _p("", tc), _p("", tc_r),
-            _p(f"\u2212{_cur(discount_amount)}", _s("dd", fontSize=8, textColor=C_ACCENT, alignment=TA_RIGHT)),
+            _p(item.get("description", ""), _s("li", fontName=_FB, fontSize=8)),
+            _p(_cur(price), tc_r),
+            _p(_cur(item_gst), tc_r) if item_gst > 0 else _dash(),
+            _p(f"\u2212{_cur(disc_d)}", tc_d) if disc_d > 0 else _dash(),
+            _p(_cur(final_rate), tc_r),
         ])
 
-    # GST row
-    rows.append([
-        _p(f"GST @ {float(invoice.gst_percentage):.0f}%",
-           _s("gt", fontName=_FB, fontSize=8)),
-        _p("Tax on broadband services", tc_m),
-        _p("1", tc), _p("", tc_r),
-        _p(_cur(invoice.gst_amount), tc_r),
-    ])
-
-    # Line items (with optional per-item discount sub-rows)
-    for item in line_items:
-        net_amt    = Decimal(str(item.get("amount", "0")))
-        orig_amt   = item.get("original_amount")
-        item_disc  = item.get("discount_amount")
-        item_dtype = item.get("discount_type", "")
-        item_dval  = item.get("discount_value", "")
-        has_disc   = orig_amt and item_disc and Decimal(str(item_disc)) > 0
-
-        if has_disc:
-            rows.append([
-                _p(item.get("description", ""), _s("lid", fontName=_FB, fontSize=8)),
-                _p("", tc_m), _p("1", tc),
-                _p(_cur(Decimal(str(orig_amt))), _s("lo", fontSize=7.5, textColor=C_GREY, alignment=TA_RIGHT)),
-                _p(_cur(Decimal(str(orig_amt))), _s("la", fontSize=7.5, textColor=C_GREY, alignment=TA_RIGHT)),
-            ])
-            disc_lbl = (
-                f"  Item discount ({item_dval}%)"
-                if item_dtype == "percentage" else "  Item discount"
-            )
-            rows.append([
-                _p(disc_lbl, tc_disc), _p("", tc_m), _p("", tc), _p("", tc_r),
-                _p(f"\u2212{_cur(Decimal(str(item_disc)))}", _s("ld2", fontSize=7.5, textColor=C_ACCENT, alignment=TA_RIGHT)),
-            ])
-            rows.append([
-                _p("  Net amount", _s("ln", fontName=_FB, fontSize=7.5)), _p("", tc_m), _p("", tc), _p("", tc_r),
-                _p(_cur(net_amt), tc_r),
-            ])
-        else:
-            rows.append([
-                _p(item.get("description", ""), _s("li", fontName=_FB, fontSize=8)),
-                _p("", tc_m), _p("1", tc), _p(_cur(net_amt), tc_r), _p(_cur(net_amt), tc_r),
-            ])
-
-    # Overall-scope discount
+    # ── Overall-scope discount row ─────────────────────────────────────────
     if discount_amount > 0 and discount_scope == "overall":
         disc_type  = getattr(invoice, "discount_type",  None) or ""
         disc_value = getattr(invoice, "discount_value", None)
         disc_label = getattr(invoice, "discount_label", None) or ""
         if disc_type == "percentage" and disc_value:
-            dlbl = f"Discount ({float(disc_value):.2g}%) \u2014 Overall Total"
+            dlbl = f"Overall Discount ({float(disc_value):.2g}%)"
         else:
-            dlbl = "Discount \u2014 Overall Total"
+            dlbl = "Overall Discount"
         if disc_label:
-            dlbl += f" · {disc_label}"
+            dlbl += f" \u00b7 {disc_label}"
         rows.append([
-            _p(dlbl, tc_disc), _p("", tc_m), _p("", tc), _p("", tc_r),
+            _p(dlbl, _s("od_l", fontSize=8, textColor=C_ACCENT)),
+            _p("", tc_r), _p("", tc_r), _p("", tc_r),
             _p(f"\u2212{_cur(discount_amount)}", _s("od", fontSize=8, textColor=C_ACCENT, alignment=TA_RIGHT)),
         ])
 
@@ -550,7 +524,7 @@ def _sec_charges(invoice: "Invoice") -> list:
     charges_tbl.setStyle(TableStyle([
         ("BACKGROUND",     (0, 0), (-1, 0),     C_PRIMARY),
         ("VALIGN",         (0, 0), (-1, -1),    "MIDDLE"),
-        ("ALIGN",          (3, 0), (4, -1),     "RIGHT"),
+        ("ALIGN",          (1, 0), (-1, -1),    "RIGHT"),
         ("TOPPADDING",     (0, 0), (-1, -1),    5),
         ("BOTTOMPADDING",  (0, 0), (-1, -1),    5),
         ("LEFTPADDING",    (0, 0), (-1, -1),    6),
@@ -654,20 +628,22 @@ def _sec_sub_item(item: "InvoiceSubscriptionItem", idx: int, total: int) -> list
     ]))
     story.append(header_tbl)
 
-    # ── Mini charges table ───────────────────────────────────────────────
-    cw = [CW * 0.52, CW * 0.08, CW * 0.20, CW * 0.20]
-    th   = _s(f"th{idx}", fontName=_FB, fontSize=7, textColor=C_WHITE)
+    # ── Mini charges table: DESCRIPTION | PRICE | GST | DISCOUNT | FINAL RATE ──
+    cw = [CW * 0.35, CW * 0.16, CW * 0.13, CW * 0.16, CW * 0.20]
+    th   = _s(f"th{idx}",  fontName=_FB, fontSize=7, textColor=C_WHITE)
     th_r = _s(f"thr{idx}", fontName=_FB, fontSize=7, textColor=C_WHITE, alignment=TA_RIGHT)
-    tc   = _s(f"tc{idx}",  fontSize=7.5, leading=10)
     tc_r = _s(f"tcr{idx}", fontSize=7.5, leading=10, alignment=TA_RIGHT)
-    tc_m = _s(f"tcm{idx}", fontSize=7, leading=10, textColor=C_GREY)
-    tc_d = _s(f"tcd{idx}", fontSize=7, leading=10, textColor=C_ACCENT)
+    tc_m = _s(f"tcm{idx}", fontSize=6.5, leading=10, textColor=C_GREY,  alignment=TA_RIGHT)
+    tc_d = _s(f"tcd{idx}", fontSize=7,   leading=10, textColor=C_ACCENT, alignment=TA_RIGHT)
+
+    def _dash_s(): return _p("\u2014", tc_m)
 
     rows = [[
         _p("DESCRIPTION", th),
-        _p("QTY", th),
-        _p("UNIT PRICE", th_r),
-        _p("AMOUNT", th_r),
+        _p("PRICE",       th_r),
+        _p("GST",         th_r),
+        _p("DISCOUNT",    th_r),
+        _p("FINAL RATE",  th_r),
     ]]
 
     disc_amt   = getattr(item, "discount_amount", Decimal("0")) or Decimal("0")
@@ -678,84 +654,58 @@ def _sec_sub_item(item: "InvoiceSubscriptionItem", idx: int, total: int) -> list
     line_items = getattr(item, "line_items", None) or []
 
     # Plan row
+    plan_disc  = disc_amt if disc_scope != "overall" else Decimal("0")
+    plan_final = item.base_amount - plan_disc + item.gst_amount
+
     rows.append([
         _p(f'{item.plan_name_snapshot}<br/><font size="6" color="#6B7280">Period: {period}</font>',
-           _s(f"pd{idx}", fontName=_FB, fontSize=8, leading=11)),
-        _p("1", tc),
+           _s(f"pd{idx}", fontName=_FB, fontSize=7.5, leading=11)),
         _p(_cur(item.base_amount), tc_r),
-        _p(_cur(item.base_amount), tc_r),
-    ])
-
-    # Base-scope discount
-    if disc_amt > 0 and disc_scope != "overall":
-        if disc_type == "percentage" and disc_value:
-            dlbl = f"Discount ({float(disc_value):.2g}%)"
-        else:
-            dlbl = "Discount"
-        if disc_label:
-            dlbl += f" · {disc_label}"
-        rows.append([
-            _p(dlbl, tc_d), _p("", tc), _p("", tc_r),
-            _p(f"\u2212{_cur(disc_amt)}", _s(f"dd{idx}", fontSize=7.5, textColor=C_ACCENT, alignment=TA_RIGHT)),
-        ])
-
-    # GST row
-    rows.append([
-        _p(f"GST @ {float(item.gst_percentage):.0f}%", _s(f"gt{idx}", fontName=_FB, fontSize=7.5)),
-        _p("1", tc), _p("", tc_r),
-        _p(_cur(item.gst_amount), tc_r),
+        _p(_cur(item.gst_amount),  tc_r),
+        _p(f"\u2212{_cur(plan_disc)}", tc_d) if plan_disc > 0 else _dash_s(),
+        _p(_cur(plan_final), tc_r),
     ])
 
     # Line items
     for li in line_items:
-        net_amt    = Decimal(str(li.get("amount", "0")))
-        orig_amt   = li.get("original_amount")
-        li_disc    = li.get("discount_amount")
-        li_dtype   = li.get("discount_type", "")
-        li_dval    = li.get("discount_value", "")
-        has_disc   = orig_amt and li_disc and Decimal(str(li_disc)) > 0
+        net_amt     = Decimal(str(li.get("amount", "0")))
+        orig_amt_s  = li.get("original_amount")
+        li_disc_s   = li.get("discount_amount")
+        li_gst_s    = li.get("gst_amount")
+        has_disc    = orig_amt_s and li_disc_s and Decimal(str(li_disc_s)) > 0
 
-        if has_disc:
-            rows.append([
-                _p(li.get("description", ""), _s(f"lid{idx}", fontName=_FB, fontSize=7.5)),
-                _p("1", tc),
-                _p(_cur(Decimal(str(orig_amt))), _s(f"lo{idx}", fontSize=7, textColor=C_GREY, alignment=TA_RIGHT)),
-                _p(_cur(Decimal(str(orig_amt))), _s(f"la{idx}", fontSize=7, textColor=C_GREY, alignment=TA_RIGHT)),
-            ])
-            dlbl2 = f"  Discount ({li_dval}%)" if li_dtype == "percentage" else "  Discount"
-            rows.append([
-                _p(dlbl2, tc_d), _p("", tc), _p("", tc_r),
-                _p(f"\u2212{_cur(Decimal(str(li_disc)))}", _s(f"ld{idx}", fontSize=7, textColor=C_ACCENT, alignment=TA_RIGHT)),
-            ])
-            rows.append([
-                _p("  Net", _s(f"ln{idx}", fontName=_FB, fontSize=7)), _p("", tc), _p("", tc_r),
-                _p(_cur(net_amt), tc_r),
-            ])
-        else:
-            rows.append([
-                _p(li.get("description", ""), _s(f"li{idx}", fontName=_FB, fontSize=7.5)),
-                _p("1", tc), _p(_cur(net_amt), tc_r), _p(_cur(net_amt), tc_r),
-            ])
+        price      = Decimal(str(orig_amt_s)) if has_disc else net_amt
+        disc_d     = Decimal(str(li_disc_s)) if has_disc else Decimal("0")
+        li_gst     = Decimal(str(li_gst_s)) if li_gst_s else Decimal("0")
+        final_rate = net_amt + li_gst
 
-    # Overall-scope discount
+        rows.append([
+            _p(li.get("description", ""), _s(f"li{idx}", fontName=_FB, fontSize=7.5)),
+            _p(_cur(price), tc_r),
+            _p(_cur(li_gst), tc_r) if li_gst > 0 else _dash_s(),
+            _p(f"\u2212{_cur(disc_d)}", tc_d) if disc_d > 0 else _dash_s(),
+            _p(_cur(final_rate), tc_r),
+        ])
+
+    # Overall-scope discount row
     if disc_amt > 0 and disc_scope == "overall":
         if disc_type == "percentage" and disc_value:
             dlbl = f"Overall Discount ({float(disc_value):.2g}%)"
         else:
             dlbl = "Overall Discount"
         if disc_label:
-            dlbl += f" · {disc_label}"
+            dlbl += f" \u00b7 {disc_label}"
         rows.append([
-            _p(dlbl, tc_d), _p("", tc), _p("", tc_r),
-            _p(f"\u2212{_cur(disc_amt)}", _s(f"od{idx}", fontSize=7.5, textColor=C_ACCENT, alignment=TA_RIGHT)),
+            _p(dlbl, _s(f"odl{idx}", fontSize=7, textColor=C_ACCENT)),
+            _p("", tc_r), _p("", tc_r), _p("", tc_r),
+            _p(f"\u2212{_cur(disc_amt)}", _s(f"od{idx}", fontSize=7, textColor=C_ACCENT, alignment=TA_RIGHT)),
         ])
 
     # Sub-total row
     rows.append([
-        _p(f"SUB-TOTAL — {item.connection_name_snapshot}",
+        _p(f"SUB-TOTAL \u2014 {item.connection_name_snapshot}",
            _s(f"st{idx}", fontName=_FB, fontSize=7.5, textColor=C_WHITE)),
-        _p("", _s(f"stb{idx}", textColor=C_WHITE)),
-        _p("", _s(f"stc{idx}", textColor=C_WHITE)),
+        _p("", tc_r), _p("", tc_r), _p("", tc_r),
         _p(_cur(item.total_amount), _s(f"stv{idx}", fontName=_FB, fontSize=8, textColor=C_WHITE, alignment=TA_RIGHT)),
     ])
 
@@ -765,7 +715,7 @@ def _sec_sub_item(item: "InvoiceSubscriptionItem", idx: int, total: int) -> list
         ("BACKGROUND",     (0, 0), (-1, 0),         C_SECOND),
         ("BACKGROUND",     (0, n-1), (-1, n-1),     C_DARK),
         ("VALIGN",         (0, 0), (-1, -1),         "MIDDLE"),
-        ("ALIGN",          (1, 0), (3, -1),          "RIGHT"),
+        ("ALIGN",          (1, 0), (-1, -1),         "RIGHT"),
         ("TOPPADDING",     (0, 0), (-1, -1),         4),
         ("BOTTOMPADDING",  (0, 0), (-1, -1),         4),
         ("LEFTPADDING",    (0, 0), (-1, -1),         6),

@@ -21,6 +21,7 @@ class LineItemIn(BaseModel):
     discount_type: Optional[str] = None
     discount_value: Optional[Decimal] = None
     discount_amount: Optional[Decimal] = None
+    gst_percentage: Optional[Decimal] = Field(default=None, ge=0, le=100)
 
 
 # ── Single-subscription invoice ───────────────────────────────────────────────

@@ -135,6 +135,12 @@ class InvoiceService:
                     entry["discount_amount"] = str(
                         Decimal(str(item.discount_amount)).quantize(Decimal("0.01"))
                     )
+                if item.gst_percentage is not None and item.gst_percentage > 0:
+                    gst_pct = Decimal(str(item.gst_percentage))
+                    price = Decimal(str(item.original_amount)) if item.original_amount else amt
+                    gst_amt = (price * gst_pct / Decimal("100")).quantize(Decimal("0.01"))
+                    entry["gst_percentage"] = str(gst_pct)
+                    entry["gst_amount"] = str(gst_amt)
                 line_items_data.append(entry)
                 line_items_total += amt
         return line_items_data, line_items_total

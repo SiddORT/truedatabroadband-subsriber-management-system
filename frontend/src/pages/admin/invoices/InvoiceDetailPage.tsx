@@ -105,14 +105,19 @@ function buildLineItems(rows: ChargeRow[]) {
     .filter((r) => rowGross(r) > 0 && r.description.trim())
     .map((r) => {
       const gross = rowGross(r); const disc = rowItemDisc(r); const net = rowNet(r);
+      const gstPct = r.gstPercentage && Number(r.gstPercentage) > 0 ? r.gstPercentage : undefined;
       if (disc > 0) {
         return {
           description: r.description.trim(), amount: net.toFixed(2),
           original_amount: gross.toFixed(2), discount_type: r.discountType,
           discount_value: r.discountValue, discount_amount: disc.toFixed(2),
+          ...(gstPct ? { gst_percentage: gstPct } : {}),
         };
       }
-      return { description: r.description.trim(), amount: net.toFixed(2) };
+      return {
+        description: r.description.trim(), amount: net.toFixed(2),
+        ...(gstPct ? { gst_percentage: gstPct } : {}),
+      };
     });
 }
 
