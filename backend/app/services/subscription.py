@@ -215,8 +215,7 @@ class SubscriptionService:
         )
         self.db.add(new_sub)
 
-        # Mark the old subscription as expired
-        sub.status = SubscriptionStatus.EXPIRED
+        # Old subscription remains ACTIVE until its expiry date is reached naturally
         self.db.commit()
         self.db.refresh(new_sub)
 
