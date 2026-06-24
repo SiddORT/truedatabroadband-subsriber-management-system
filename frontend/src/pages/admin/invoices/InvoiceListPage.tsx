@@ -64,6 +64,7 @@ export function InvoiceListPage() {
     sortDir: "desc",
   });
   const [statusFilter, setStatusFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
   const [customerFilter, setCustomerFilter] = useState("");
   const [planFilter, setPlanFilter] = useState("");
   const [invoiceDateFrom, setInvoiceDateFrom] = useState("");
@@ -93,10 +94,10 @@ export function InvoiceListPage() {
     }
   }
 
-  const activeFilterCount = [statusFilter, customerFilter, planFilter, invoiceDateFrom, invoiceDateTo, dueDateFrom, dueDateTo, quickFilter].filter(Boolean).length;
+  const activeFilterCount = [statusFilter, typeFilter, customerFilter, planFilter, invoiceDateFrom, invoiceDateTo, dueDateFrom, dueDateTo, quickFilter].filter(Boolean).length;
 
   const { data, isLoading } = useQuery({
-    queryKey: ["invoices", tableState, statusFilter, customerFilter, planFilter, invoiceDateFrom, invoiceDateTo, dueDateFrom, dueDateTo, quickFilter],
+    queryKey: ["invoices", tableState, statusFilter, typeFilter, customerFilter, planFilter, invoiceDateFrom, invoiceDateTo, dueDateFrom, dueDateTo, quickFilter],
     queryFn: () =>
       invoicesService.list({
         page: tableState.page,
@@ -105,6 +106,7 @@ export function InvoiceListPage() {
         sort_by: tableState.sortBy ?? undefined,
         sort_order: tableState.sortDir,
         status: statusFilter || undefined,
+        invoice_type: typeFilter || undefined,
         customer_filter: customerFilter || undefined,
         plan_filter: planFilter || undefined,
         invoice_date_from: invoiceDateFrom || undefined,
@@ -143,6 +145,19 @@ export function InvoiceListPage() {
       render: (row) => (
         <span className="font-mono text-sm font-semibold text-primary">
           {row.invoice_number}
+        </span>
+      ),
+    },
+    {
+      key: "invoice_type",
+      header: "Type",
+      render: (row) => (
+        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+          row.invoice_type === "CONSOLIDATED"
+            ? "bg-violet-100 text-violet-700"
+            : "bg-sky-100 text-sky-700"
+        }`}>
+          {row.invoice_type === "CONSOLIDATED" ? "Consolidated" : "Single"}
         </span>
       ),
     },
@@ -313,6 +328,15 @@ export function InvoiceListPage() {
                     ))}
                   </select>
                   <select
+                    value={typeFilter}
+                    onChange={(e) => { setTypeFilter(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }}
+                    className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    <option value="">All Types</option>
+                    <option value="SINGLE">Single</option>
+                    <option value="CONSOLIDATED">Consolidated</option>
+                  </select>
+                  <select
                     value={quickFilter}
                     onChange={(e) => { setQuickFilter(e.target.value); setTableState((s) => ({ ...s, page: 1 })); }}
                     className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -352,7 +376,7 @@ export function InvoiceListPage() {
                   </div>
                   {activeFilterCount > 0 && (
                     <button
-                      onClick={() => { setStatusFilter(""); setCustomerFilter(""); setPlanFilter(""); setInvoiceDateFrom(""); setInvoiceDateTo(""); setDueDateFrom(""); setDueDateTo(""); setQuickFilter(""); setTableState((s) => ({ ...s, page: 1 })); }}
+                      onClick={() => { setStatusFilter(""); setTypeFilter(""); setCustomerFilter(""); setPlanFilter(""); setInvoiceDateFrom(""); setInvoiceDateTo(""); setDueDateFrom(""); setDueDateTo(""); setQuickFilter(""); setTableState((s) => ({ ...s, page: 1 })); }}
                       className="h-9 rounded-lg border border-border px-3 text-sm text-muted-foreground hover:border-destructive hover:text-destructive"
                     >
                       Clear all

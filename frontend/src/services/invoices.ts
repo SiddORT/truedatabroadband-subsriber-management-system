@@ -8,6 +8,7 @@ export interface InvoiceListParams {
   sort_by?: string;
   sort_order?: string;
   status?: string;
+  invoice_type?: string;
   customer_filter?: string;
   customer_id?: string;
   plan_filter?: string;

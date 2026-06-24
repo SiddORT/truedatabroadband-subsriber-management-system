@@ -89,6 +89,7 @@ class InvoiceRepository:
         sort_by: str = "created_at",
         sort_order: str = "desc",
         status_filter: str | None = None,
+        invoice_type_filter: str | None = None,
         customer_filter: str | None = None,
         customer_id: str | None = None,
         plan_filter: str | None = None,
@@ -117,6 +118,9 @@ class InvoiceRepository:
                 stmt = stmt.where(Invoice.status == s)
             except ValueError:
                 pass
+
+        if invoice_type_filter in ("SINGLE", "CONSOLIDATED"):
+            stmt = stmt.where(Invoice.invoice_type == invoice_type_filter)
 
         if customer_filter:
             term = f"%{customer_filter}%"
