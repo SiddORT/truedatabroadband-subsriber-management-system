@@ -167,8 +167,8 @@ export function LineItemMastersPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border bg-muted/30">
+                      <th className="px-4 py-3 text-center font-semibold text-muted-foreground w-12">Sr.</th>
                       <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Name</th>
-                      <th className="px-4 py-3 text-left font-semibold text-muted-foreground">HSN/SAC</th>
                       <th className="px-4 py-3 text-right font-semibold text-muted-foreground">Default Amount</th>
                       <th className="px-4 py-3 text-center font-semibold text-muted-foreground">GST %</th>
                       <th className="px-4 py-3 text-center font-semibold text-muted-foreground">Status</th>
@@ -176,13 +176,15 @@ export function LineItemMastersPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map((item) => (
+                    {items.map((item, idx) => (
                       <tr key={item.id} className="border-b border-border/50 hover:bg-muted/20">
+                        <td className="px-4 py-3 text-center text-sm text-muted-foreground">
+                          {(page - 1) * PAGE_SIZE + idx + 1}
+                        </td>
                         <td className="px-4 py-3">
                           <p className="font-medium text-foreground">{item.name}</p>
                           {item.description && <p className="mt-0.5 text-xs text-muted-foreground">{item.description}</p>}
                         </td>
-                        <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{item.hsn_sac_code ?? "—"}</td>
                         <td className="px-4 py-3 text-right font-medium">{fmtAmount(item.default_amount)}</td>
                         <td className="px-4 py-3 text-center">
                           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
@@ -231,15 +233,9 @@ export function LineItemMastersPage() {
             <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Router Fee" className={INPUT_CLS} />
             {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">HSN / SAC Code</label>
-              <input value={form.hsn_sac_code} onChange={(e) => setForm((f) => ({ ...f, hsn_sac_code: e.target.value }))} placeholder="e.g. 998425" className={INPUT_CLS} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">Default Amount (₹)</label>
-              <input type="number" min="0" step="0.01" value={form.default_amount} onChange={(e) => setForm((f) => ({ ...f, default_amount: e.target.value }))} placeholder="0.00" className={INPUT_CLS} />
-            </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium">Default Amount (₹)</label>
+            <input type="number" min="0" step="0.01" value={form.default_amount} onChange={(e) => setForm((f) => ({ ...f, default_amount: e.target.value }))} placeholder="0.00" className={INPUT_CLS} />
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium">GST Rate <span className="text-red-500">*</span></label>
