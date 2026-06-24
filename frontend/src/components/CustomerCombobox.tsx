@@ -23,11 +23,17 @@ export function CustomerCombobox({
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { data: results } = useQuery({
+  const { data: results, isFetching } = useQuery({
     queryKey: ["customer-combobox-search", query],
     queryFn: () =>
-      customersService.list({ page: 1, page_size: 10, search: query, sort_by: "full_name", sort_order: "asc" }),
-    enabled: query.length >= 2,
+      customersService.list({
+        page: 1,
+        page_size: 15,
+        search: query || undefined,
+        sort_by: "full_name",
+        sort_order: "asc",
+      }),
+    enabled: open && !value,
     staleTime: 10_000,
   });
 
@@ -71,7 +77,7 @@ export function CustomerCombobox({
     setOpen(false);
   }
 
-  const showDropdown = open && query.length >= 2 && !value;
+  const showDropdown = open && !value;
   const customers = results?.items ?? [];
 
   return (
@@ -104,34 +110,38 @@ export function CustomerCombobox({
 
       {showDropdown && (
         <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-lg border border-border bg-background shadow-lg">
-          {customers.length === 0 ? (
+          {isFetching ? (
+            <p className="px-4 py-3 text-sm text-muted-foreground">Loading…</p>
+          ) : customers.length === 0 ? (
             <p className="px-4 py-3 text-sm text-muted-foreground">No customers found</p>
           ) : (
-            customers.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onMouseDown={() => handleSelect(c)}
-                className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-muted/50"
-              >
-                <span>
-                  <span className="font-medium">{c.full_name}</span>
-                  <span className="ml-2 font-mono text-xs text-muted-foreground">{c.customer_code}</span>
-                  {c.mobile_number && (
-                    <span className="ml-2 text-xs text-muted-foreground">{c.mobile_number}</span>
-                  )}
-                </span>
-                <span
-                  className={`ml-2 shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-                    c.status === "ACTIVE"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-amber-100 text-amber-700"
-                  }`}
+            <div className="max-h-64 overflow-y-auto">
+              {customers.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onMouseDown={() => handleSelect(c)}
+                  className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-muted/50"
                 >
-                  {c.status}
-                </span>
-              </button>
-            ))
+                  <span>
+                    <span className="font-medium">{c.full_name}</span>
+                    <span className="ml-2 font-mono text-xs text-muted-foreground">{c.customer_code}</span>
+                    {c.mobile_number && (
+                      <span className="ml-2 text-xs text-muted-foreground">{c.mobile_number}</span>
+                    )}
+                  </span>
+                  <span
+                    className={`ml-2 shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                      c.status === "ACTIVE"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-amber-100 text-amber-700"
+                    }`}
+                  >
+                    {c.status}
+                  </span>
+                </button>
+              ))}
+            </div>
           )}
         </div>
       )}
