@@ -135,7 +135,15 @@ class InvoiceRepository:
             import uuid as _uuid
             try:
                 cid = _uuid.UUID(customer_id)
-                stmt = stmt.where(Invoice.customer_id == cid)
+                from app.models.subscription import Subscription as _Sub
+                stmt = stmt.where(
+                    or_(
+                        Invoice.customer_id == cid,
+                        Invoice.subscription_id.in_(
+                            select(_Sub.id).where(_Sub.customer_id == cid)
+                        ),
+                    )
+                )
             except ValueError:
                 pass
 

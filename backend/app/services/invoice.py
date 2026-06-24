@@ -261,6 +261,7 @@ class InvoiceService:
         invoice = Invoice(
             invoice_number=inv_num,
             subscription_id=sub.id,
+            customer_id=sub.customer_id,
             version_number=1,
             edited_count=0,
             is_locked=False,
