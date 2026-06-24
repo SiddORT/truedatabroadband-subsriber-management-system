@@ -5,6 +5,8 @@ export interface LineItem {
   discount_type?: string;
   discount_value?: string;
   discount_amount?: string;
+  gst_percentage?: string;
+  gst_amount?: string;
 }
 
 export interface SubscriptionItem {

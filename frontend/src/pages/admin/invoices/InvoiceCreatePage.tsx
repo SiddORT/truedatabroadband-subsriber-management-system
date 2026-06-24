@@ -67,18 +67,6 @@ const INPUT_CLS = "w-full rounded-lg border border-input bg-background px-3 py-2
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-interface StepBadgeProps { step: number; label: string; done: boolean; }
-function StepBadge({ step, label, done }: StepBadgeProps) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${done ? "bg-green-500 text-white" : "bg-accent text-white"}`}>
-        {done ? "✓" : step}
-      </span>
-      <span className="text-sm font-semibold text-foreground">{label}</span>
-    </div>
-  );
-}
-
 // ── ChargeRow UI ──────────────────────────────────────────────────────────────
 
 interface ChargeRowUIProps {
@@ -495,7 +483,6 @@ export function InvoiceCreatePage() {
 
   const step1Done = invoiceType === "SINGLE" ? (!!selectedSub && !!billingStart && !!billingEnd) : !!customerId;
   const step2Done = !!invoiceDate;
-  const step3Done = invoiceType === "CONSOLIDATED" ? enabledSubs.length >= 1 : true;
 
   // ── SINGLE charge row helpers ─────────────────────────────────────────────
 
