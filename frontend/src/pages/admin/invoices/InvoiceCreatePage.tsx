@@ -48,6 +48,7 @@ interface ChargeRow {
   amount: string;
   discountType: ItemDiscountType;
   discountValue: string;
+  gstPercentage: string;
 }
 
 interface SubBillingState {
@@ -147,6 +148,7 @@ function ChargeRowUI({ row, onUpdate, onRemove, gross, disc, net }: ChargeRowUIP
                       onUpdate({
                         description: item.name,
                         amount: item.default_amount ? String(Number(item.default_amount)) : row.amount,
+                        gstPercentage: String(Number(item.gst_percentage)),
                       });
                       setShowItems(false);
                       setItemQuery("");
@@ -202,11 +204,20 @@ function ChargeRowUI({ row, onUpdate, onRemove, gross, disc, net }: ChargeRowUIP
           </button>
         )}
       </div>
-      {disc > 0 && gross > 0 && (
-        <div className="mt-2 flex items-center gap-2 pl-1 text-xs">
-          <span className="text-muted-foreground line-through">₹{gross.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-          <span className="font-medium text-accent">−₹{disc.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-          <span className="font-semibold text-foreground">= ₹{net.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+      {(disc > 0 || (row.gstPercentage && Number(row.gstPercentage) > 0)) && gross > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 pl-1 text-xs">
+          {row.gstPercentage && Number(row.gstPercentage) > 0 && (
+            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+              GST {row.gstPercentage}%
+            </span>
+          )}
+          {disc > 0 && (
+            <>
+              <span className="text-muted-foreground line-through">₹{gross.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+              <span className="font-medium text-accent">−₹{disc.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+              <span className="font-semibold text-foreground">= ₹{net.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -475,7 +486,7 @@ export function InvoiceCreatePage() {
 
   function addChargeRow() {
     const id = chargeIdRef.current++;
-    setChargeRows((prev) => [...prev, { id, description: "", locked: false, amount: "", discountType: "", discountValue: "" }]);
+    setChargeRows((prev) => [...prev, { id, description: "", locked: false, amount: "", discountType: "", discountValue: "", gstPercentage: "" }]);
   }
   function removeChargeRow(id: number) { setChargeRows((prev) => prev.filter((r) => r.id !== id)); }
   function updateChargeRow(id: number, patch: Partial<ChargeRow>) {
@@ -491,7 +502,7 @@ export function InvoiceCreatePage() {
     setConsolidatedSubs((prev) => prev.map((s, i) => {
       if (i !== idx) return s;
       const id = s.chargeIdCounter;
-      return { ...s, chargeIdCounter: id + 1, chargeRows: [...s.chargeRows, { id, description: "", locked: false, amount: "", discountType: "", discountValue: "" }] };
+      return { ...s, chargeIdCounter: id + 1, chargeRows: [...s.chargeRows, { id, description: "", locked: false, amount: "", discountType: "", discountValue: "", gstPercentage: "" }] };
     }));
   }
   function removeSubRow(subIdx: number, rowId: number) {

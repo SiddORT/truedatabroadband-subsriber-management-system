@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -23,6 +23,7 @@ import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/contexts/ToastContext";
 import { invoicesService } from "@/services/invoices";
 import { paymentsService } from "@/services/payments";
+import { lineItemMastersService } from "@/services/lineItemMasters";
 import { api, getApiErrorMessage } from "@/services/api";
 import {
   type Invoice,
@@ -87,6 +88,7 @@ interface ChargeRow {
   amount: string;
   discountType: ItemDiscountType;
   discountValue: string;
+  gstPercentage: string;
 }
 
 function rowGross(r: ChargeRow) { return Number(r.amount) || 0; }
@@ -121,6 +123,28 @@ interface ChargeRowUIProps {
 }
 
 function EditChargeRowUI({ row, onUpdate, onRemove }: ChargeRowUIProps) {
+  const [itemQuery, setItemQuery] = useState("");
+  const [showItems, setShowItems] = useState(false);
+  const descRef = useRef<HTMLDivElement>(null);
+
+  const { data: itemResults } = useQuery({
+    queryKey: ["line-item-search-edit", itemQuery],
+    queryFn: () => lineItemMastersService.list({ search: itemQuery, active_only: true, page_size: 8 }),
+    enabled: itemQuery.length >= 2 && !row.locked,
+    staleTime: 60_000,
+  });
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (descRef.current && !descRef.current.contains(e.target as Node)) setShowItems(false);
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  const suggestions = itemResults?.items ?? [];
+  const showDropdown = showItems && itemQuery.length >= 2 && suggestions.length > 0 && !row.locked;
+
   const gross = rowGross(row); const disc = rowItemDisc(row); const net = rowNet(row);
   const discBtn = (v: ItemDiscountType, label: string) => (
     <button key={v} type="button"
@@ -131,12 +155,45 @@ function EditChargeRowUI({ row, onUpdate, onRemove }: ChargeRowUIProps) {
   return (
     <div className="rounded-lg border border-border bg-background p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <input
-          value={row.description}
-          onChange={(e) => onUpdate({ description: e.target.value })}
-          placeholder="Description"
-          className="min-w-[120px] flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-        />
+        <div ref={descRef} className="relative min-w-[120px] flex-1">
+          <input
+            value={row.description}
+            onChange={(e) => {
+              onUpdate({ description: e.target.value });
+              setItemQuery(e.target.value);
+              setShowItems(true);
+            }}
+            onFocus={() => { setItemQuery(row.description); setShowItems(true); }}
+            placeholder="Description — type to search items"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          {showDropdown && (
+            <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-lg border border-border bg-background shadow-lg">
+              {suggestions.map((item) => (
+                <button key={item.id} type="button"
+                  onMouseDown={() => {
+                    onUpdate({
+                      description: item.name,
+                      amount: item.default_amount ? String(Number(item.default_amount)) : row.amount,
+                      gstPercentage: String(Number(item.gst_percentage)),
+                    });
+                    setShowItems(false);
+                    setItemQuery("");
+                  }}
+                  className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-muted/50"
+                >
+                  <div className="flex-1">
+                    <p className="font-medium text-foreground">{item.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.default_amount ? `₹${Number(item.default_amount).toFixed(2)}` : "No default amount"}
+                      {" · "}GST {item.gst_percentage}%
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="relative w-28 shrink-0">
           <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">₹</span>
           <input type="number" min="0" step="0.01" value={row.amount}
@@ -164,11 +221,20 @@ function EditChargeRowUI({ row, onUpdate, onRemove }: ChargeRowUIProps) {
           </button>
         </Tooltip>
       </div>
-      {disc > 0 && gross > 0 && (
-        <div className="mt-2 flex items-center gap-2 pl-1 text-xs">
-          <span className="text-muted-foreground line-through">₹{gross.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-          <span className="font-medium text-red-500">−₹{disc.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-          <span className="font-semibold text-foreground">= ₹{net.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+      {(disc > 0 || (row.gstPercentage && Number(row.gstPercentage) > 0)) && gross > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 pl-1 text-xs">
+          {row.gstPercentage && Number(row.gstPercentage) > 0 && (
+            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+              GST {row.gstPercentage}%
+            </span>
+          )}
+          {disc > 0 && (
+            <>
+              <span className="text-muted-foreground line-through">₹{gross.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+              <span className="font-medium text-red-500">−₹{disc.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+              <span className="font-semibold text-foreground">= ₹{net.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -219,6 +285,7 @@ export function InvoiceDetailPage() {
       amount: li.original_amount ?? li.amount,
       discountType: (li.discount_type as ItemDiscountType) ?? "",
       discountValue: li.discount_value ?? "",
+      gstPercentage: "",
     }));
     setEditChargeRows(rows);
     editChargeIdRef.current = rows.length + 1;
@@ -231,7 +298,7 @@ export function InvoiceDetailPage() {
 
   function addEditChargeRow() {
     const id = editChargeIdRef.current++;
-    setEditChargeRows((prev) => [...prev, { id, description: "", locked: false, amount: "", discountType: "", discountValue: "" }]);
+    setEditChargeRows((prev) => [...prev, { id, description: "", locked: false, amount: "", discountType: "", discountValue: "", gstPercentage: "" }]);
   }
   function removeEditChargeRow(id: number) { setEditChargeRows((prev) => prev.filter((r) => r.id !== id)); }
   function updateEditChargeRow(id: number, patch: Partial<ChargeRow>) {
