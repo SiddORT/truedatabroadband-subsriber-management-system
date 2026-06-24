@@ -55,6 +55,7 @@ import { ClientSupportDetailPage } from "@/pages/client/support/SupportDetailPag
 import { AcceptInvitePage } from "@/pages/AcceptInvitePage";
 import { RolesPage } from "@/pages/admin/users/RolesPage";
 import { StaffUsersPage } from "@/pages/admin/users/StaffUsersPage";
+import { LineItemMastersPage } from "@/pages/admin/settings/LineItemMastersPage";
 
 /** Redirect to /change-password if logged in and forced, else to login. */
 function RootRedirect() {
@@ -191,6 +192,7 @@ export default function App() {
       {/* Settings */}
       <Route path="/admin/settings" element={<SuperAdminRoute><SettingsPage /></SuperAdminRoute>} />
       <Route path="/admin/settings/communication" element={<SuperAdminRoute><CommunicationSettingsPage /></SuperAdminRoute>} />
+      <Route path="/admin/line-items" element={<SuperAdminRoute><LineItemMastersPage /></SuperAdminRoute>} />
 
       {/* Users & Roles (SUPERADMIN only) */}
       <Route path="/admin/roles" element={<SuperAdminRoute><RolesPage /></SuperAdminRoute>} />

@@ -341,26 +341,6 @@ class InvoiceService:
             entity_id=str(invoice.id),
             entity_name=invoice.invoice_number,
         )
-        # Send invoice generated email (fire-and-forget)
-        try:
-            from app.services.notifications.notification_service import NotificationService, Recipient
-            notif_svc = NotificationService(self.db)
-            notif_svc.send(
-                template_key="INVOICE_GENERATED",
-                recipient=Recipient(
-                    email=invoice.customer_email_snapshot,
-                    mobile=invoice.customer_mobile_snapshot,
-                ),
-                variables={
-                    "customer_name": invoice.customer_name_snapshot or customer.full_name,
-                    "invoice_number": invoice.invoice_number,
-                    "amount": f"{invoice.total_amount:,.2f}",
-                    "due_date": str(invoice.due_date),
-                },
-                customer_id=customer.id,
-            )
-        except Exception:
-            pass
         return self.repo.get(invoice.id)
 
     # ── Full edit ──────────────────────────────────────────────────────────
@@ -876,24 +856,4 @@ class InvoiceService:
             entity_id=str(invoice.id),
             entity_name=invoice.invoice_number,
         )
-        # Send invoice generated email (fire-and-forget)
-        try:
-            from app.services.notifications.notification_service import NotificationService, Recipient
-            notif_svc = NotificationService(self.db)
-            notif_svc.send(
-                template_key="INVOICE_GENERATED",
-                recipient=Recipient(
-                    email=invoice.customer_email_snapshot,
-                    mobile=invoice.customer_mobile_snapshot,
-                ),
-                variables={
-                    "customer_name": invoice.customer_name_snapshot or customer.full_name,
-                    "invoice_number": invoice.invoice_number,
-                    "amount": f"{invoice.total_amount:,.2f}",
-                    "due_date": str(invoice.due_date),
-                },
-                customer_id=customer.id,
-            )
-        except Exception:
-            pass
         return self.repo.get(invoice.id)

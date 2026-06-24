@@ -137,6 +137,11 @@ async function deleteInvoice(id: string): Promise<void> {
   await api.delete(`/invoices/${id}`);
 }
 
+async function sendEmail(id: string): Promise<{ message: string }> {
+  const { data } = await api.post(`/invoices/${id}/send-email`);
+  return data;
+}
+
 export const invoicesService = {
   list,
   get,
@@ -147,6 +152,7 @@ export const invoicesService = {
   getHistory,
   pdfUrl,
   delete: deleteInvoice,
+  sendEmail,
   clientList,
   clientGet,
   clientPdfUrl,

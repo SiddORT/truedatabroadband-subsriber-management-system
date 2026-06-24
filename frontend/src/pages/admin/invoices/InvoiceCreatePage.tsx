@@ -14,8 +14,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/contexts/ToastContext";
 import { invoicesService } from "@/services/invoices";
 import { subscriptionsService } from "@/services/subscriptions";
-import { api } from "@/services/api";
 import { getApiErrorMessage } from "@/services/api";
+import { lineItemMastersService } from "@/services/lineItemMasters";
+import { CustomerCombobox } from "@/components/CustomerCombobox";
+import type { Customer } from "@/types/customer";
 import type { Subscription } from "@/types/subscription";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -57,14 +59,6 @@ interface SubBillingState {
   billingEnd: string;
 }
 
-interface CustomerItem {
-  id: string;
-  customer_code: string;
-  full_name: string;
-  email: string;
-  mobile_number: string;
-}
-
 // ── Style constants ───────────────────────────────────────────────────────────
 
 const INPUT_CLS = "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30";
@@ -95,6 +89,28 @@ interface ChargeRowUIProps {
 }
 
 function ChargeRowUI({ row, onUpdate, onRemove, gross, disc, net }: ChargeRowUIProps) {
+  const [itemQuery, setItemQuery] = useState("");
+  const [showItems, setShowItems] = useState(false);
+  const descRef = useRef<HTMLDivElement>(null);
+
+  const { data: itemResults } = useQuery({
+    queryKey: ["line-item-search-inline", itemQuery],
+    queryFn: () => lineItemMastersService.list({ search: itemQuery, active_only: true, page_size: 8 }),
+    enabled: itemQuery.length >= 2 && !row.locked,
+    staleTime: 60_000,
+  });
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (descRef.current && !descRef.current.contains(e.target as Node)) setShowItems(false);
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  const suggestions = itemResults?.items ?? [];
+  const showDropdown = showItems && itemQuery.length >= 2 && suggestions.length > 0 && !row.locked;
+
   const discBtn = (v: ItemDiscountType, label: string) => (
     <button
       key={v}
@@ -111,12 +127,44 @@ function ChargeRowUI({ row, onUpdate, onRemove, gross, disc, net }: ChargeRowUIP
         {row.locked ? (
           <span className="min-w-[140px] flex-1 text-sm font-medium text-foreground">{row.description}</span>
         ) : (
-          <input
-            value={row.description}
-            onChange={(e) => onUpdate({ description: e.target.value })}
-            placeholder="Description (e.g. Router Fee)"
-            className="min-w-[120px] flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-          />
+          <div ref={descRef} className="relative min-w-[120px] flex-1">
+            <input
+              value={row.description}
+              onChange={(e) => {
+                onUpdate({ description: e.target.value });
+                setItemQuery(e.target.value);
+                setShowItems(true);
+              }}
+              onFocus={() => { setItemQuery(row.description); setShowItems(true); }}
+              placeholder="Description (e.g. Router Fee) — type to search items"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            {showDropdown && (
+              <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-lg border border-border bg-background shadow-lg">
+                {suggestions.map((item) => (
+                  <button key={item.id} type="button"
+                    onMouseDown={() => {
+                      onUpdate({
+                        description: item.name,
+                        amount: item.default_amount ? String(Number(item.default_amount)) : row.amount,
+                      });
+                      setShowItems(false);
+                      setItemQuery("");
+                    }}
+                    className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-muted/50"
+                  >
+                    <div className="flex-1">
+                      <p className="font-medium text-foreground">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.default_amount ? `₹${Number(item.default_amount).toFixed(2)}` : "No default amount"}
+                        {" · "}GST {item.gst_percentage}%
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         )}
         <div className="relative w-28 shrink-0">
           <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">₹</span>
@@ -317,6 +365,7 @@ export function InvoiceCreatePage() {
 
   // ── CONSOLIDATED mode state ──────────────────────────────────────────────
   const [customerId, setCustomerId] = useState("");
+  const [selectedConsolidatedCustomer, setSelectedConsolidatedCustomer] = useState<Customer | null>(null);
   const [consolidatedSubs, setConsolidatedSubs] = useState<SubBillingState[]>([]);
 
   // ── Shared state ─────────────────────────────────────────────────────────
@@ -334,14 +383,6 @@ export function InvoiceCreatePage() {
     enabled: invoiceType === "SINGLE",
   });
 
-  const { data: customersData, isLoading: customersLoading } = useQuery({
-    queryKey: ["customers-all-for-invoice"],
-    queryFn: async () => {
-      const { data } = await api.get("/customers", { params: { page: 1, page_size: 200 } });
-      return (data.items ?? []) as CustomerItem[];
-    },
-    enabled: invoiceType === "CONSOLIDATED",
-  });
 
   const { data: customerSubsData, isLoading: customerSubsLoading } = useQuery({
     queryKey: ["customer-subs-for-invoice", customerId],
@@ -529,7 +570,7 @@ export function InvoiceCreatePage() {
     >{label}</button>
   );
 
-  const selectedCustomer = customersData?.find((c) => c.id === customerId);
+  const selectedCustomer = selectedConsolidatedCustomer;
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -610,16 +651,15 @@ export function InvoiceCreatePage() {
                   <>
                     <div className="flex flex-col gap-1.5">
                       <label className="text-sm font-medium">Customer <span className="text-red-500">*</span></label>
-                      {customersLoading ? (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading customers…</div>
-                      ) : (
-                        <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} className={INPUT_CLS}>
-                          <option value="">— Select a customer —</option>
-                          {(customersData ?? []).map((c) => (
-                            <option key={c.id} value={c.id}>{c.customer_code} · {c.full_name}</option>
-                          ))}
-                        </select>
-                      )}
+                      <CustomerCombobox
+                        value={selectedConsolidatedCustomer}
+                        onChange={(c) => {
+                          setSelectedConsolidatedCustomer(c);
+                          setCustomerId(c?.id ?? "");
+                          setConsolidatedSubs([]);
+                        }}
+                        placeholder="Search customer by name, code or mobile…"
+                      />
                     </div>
                     {selectedCustomer && (
                       <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-4 text-sm sm:grid-cols-3">

@@ -9,6 +9,7 @@ import {
   IndianRupee,
   Lock,
   Loader2,
+  Mail,
   Plus,
   X,
 } from "lucide-react";
@@ -314,6 +315,13 @@ export function InvoiceDetailPage() {
     onError: (err) => showToast(getApiErrorMessage(err), "error"),
   });
 
+  // ── Send email ───────────────────────────────────────────────────────────
+  const sendEmailMutation = useMutation({
+    mutationFn: () => invoicesService.sendEmail(id!),
+    onSuccess: (res) => showToast(res.message, "success"),
+    onError: (err) => showToast(getApiErrorMessage(err), "error"),
+  });
+
   // ── PDF preview ──────────────────────────────────────────────────────────
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -421,6 +429,19 @@ export function InvoiceDetailPage() {
               <Download className="mr-1.5 h-4 w-4" />
               PDF
             </Button>
+            {inv.customer_email_snapshot && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => sendEmailMutation.mutate()}
+                disabled={sendEmailMutation.isPending}
+              >
+                {sendEmailMutation.isPending
+                  ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                  : <Mail className="mr-1.5 h-4 w-4" />}
+                Send Email
+              </Button>
+            )}
             {canPay && canAddPayment && (
               <Button size="sm" onClick={openPayDialog}>
                 <IndianRupee className="mr-1.5 h-4 w-4" />

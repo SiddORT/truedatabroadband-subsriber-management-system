@@ -158,6 +158,46 @@ def get_invoice(
     return _to_out(invoice)
 
 
+# ── Admin: send email ─────────────────────────────────────────────────────────
+
+@router.post("/{invoice_id}/send-email", response_model=MessageResponse)
+def send_invoice_email(
+    invoice_id: uuid.UUID,
+    current_user: User = Depends(require_permission("invoices", "edit")),
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    invoice = InvoiceRepository(db).get(invoice_id)
+    if invoice is None:
+        raise _not_found()
+    if not invoice.customer_email_snapshot:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No email address on record for this customer",
+        )
+    try:
+        notif_svc = NotificationService(db)
+        notif_svc.send(
+            template_key="INVOICE_GENERATED",
+            recipient=Recipient(
+                email=invoice.customer_email_snapshot,
+                mobile=invoice.customer_mobile_snapshot,
+            ),
+            variables={
+                "customer_name": invoice.customer_name_snapshot or "",
+                "invoice_number": invoice.invoice_number,
+                "amount": f"{invoice.total_amount:,.2f}",
+                "due_date": str(invoice.due_date),
+            },
+            customer_id=invoice.customer_id,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to send email: {exc}",
+        )
+    return MessageResponse(message=f"Invoice email sent to {invoice.customer_email_snapshot}")
+
+
 # ── Admin: edit ───────────────────────────────────────────────────────────────
 
 @router.patch("/{invoice_id}", response_model=InvoiceOut)
