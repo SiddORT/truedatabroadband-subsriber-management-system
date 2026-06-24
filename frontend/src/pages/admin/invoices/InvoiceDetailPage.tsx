@@ -886,35 +886,42 @@ export function InvoiceDetailPage() {
 
       {/* ── Edit Dialog ────────────────────────────────────────────────── */}
       <Dialog open={editDialog} onClose={() => setEditDialog(false)} title="Edit Invoice">
-        <div className="max-h-[80vh] space-y-5 overflow-y-auto pr-1">
+        <div className="max-h-[80vh] space-y-6 overflow-y-auto pr-1">
 
-          {/* Dates */}
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Billing Period & Dates</p>
+          {/* Billing period */}
+          <div className="rounded-lg border border-border bg-muted/20 p-4">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Billing Period</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium">Billing Period Start</label>
+                <label className="text-xs font-medium text-foreground">Period Start</label>
                 <input type="date" value={editBillingStart}
                   onChange={(e) => setEditBillingStart(e.target.value)}
                   className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium">Billing Period End</label>
+                <label className="text-xs font-medium text-foreground">Period End</label>
                 <input type="date" value={editBillingEnd}
                   onChange={(e) => setEditBillingEnd(e.target.value)}
                   className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Invoice & due dates */}
+          <div className="rounded-lg border border-border bg-muted/20 p-4">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Invoice Dates</p>
+            <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium">Invoice Date</label>
+                <label className="text-xs font-medium text-foreground">Invoice Date</label>
                 <input type="date" value={editInvoiceDate}
                   onChange={(e) => setEditInvoiceDate(e.target.value)}
                   className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium">Due Date</label>
+                <label className="text-xs font-medium text-foreground">Due Date</label>
                 <input type="date" value={editDueDate}
                   onChange={(e) => setEditDueDate(e.target.value)}
                   className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"

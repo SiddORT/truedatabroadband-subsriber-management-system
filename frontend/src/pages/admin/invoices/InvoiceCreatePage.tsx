@@ -16,6 +16,7 @@ import { invoicesService } from "@/services/invoices";
 import { subscriptionsService } from "@/services/subscriptions";
 import { getApiErrorMessage } from "@/services/api";
 import { CustomerCombobox } from "@/components/CustomerCombobox";
+import { SubscriptionCombobox } from "@/components/SubscriptionCombobox";
 import { LineItemPicker } from "@/components/LineItemPicker";
 import type { Customer } from "@/types/customer";
 import type { Subscription } from "@/types/subscription";
@@ -323,7 +324,7 @@ export function InvoiceCreatePage() {
 
   // ── SINGLE mode state ────────────────────────────────────────────────────
   const preselectedSubId = searchParams.get("subscription_id") ?? "";
-  const [subscriptionId, setSubscriptionId] = useState(preselectedSubId);
+  const [selectedSub, setSelectedSub] = useState<Subscription | null>(null);
   const chargeIdRef = useRef(3);
   const [chargeRows, setChargeRows] = useState<ChargeRow[]>(makeDefaultRows());
   const [discountType, setDiscountType] = useState<DiscountType>("");
@@ -345,12 +346,17 @@ export function InvoiceCreatePage() {
 
   // ── Queries ───────────────────────────────────────────────────────────────
 
-  const { data: subsData, isLoading: subsLoading } = useQuery({
-    queryKey: ["subscriptions-active-all"],
-    queryFn: () => subscriptionsService.list({ page: 1, page_size: 100, sort_by: "created_at", sort_order: "desc", status_filter: "ACTIVE" }),
-    enabled: invoiceType === "SINGLE",
+  // Pre-load subscription when URL contains ?subscription_id=
+  const { data: preselectedSubData } = useQuery({
+    queryKey: ["sub-preselect", preselectedSubId],
+    queryFn: () => subscriptionsService.get(preselectedSubId),
+    enabled: !!preselectedSubId && !selectedSub,
+    staleTime: Infinity,
   });
-
+  useEffect(() => {
+    if (preselectedSubData && !selectedSub) setSelectedSub(preselectedSubData);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselectedSubData]);
 
   const { data: customerSubsData, isLoading: customerSubsLoading } = useQuery({
     queryKey: ["customer-subs-for-invoice", customerId],
@@ -382,17 +388,13 @@ export function InvoiceCreatePage() {
 
   // ── Auto-set billing period for SINGLE from subscription start/end dates ─
   useEffect(() => {
-    if (invoiceType !== "SINGLE") return;
-    const subs = subsData?.items ?? [];
-    const sub = subs.find((s) => s.id === subscriptionId);
-    if (sub?.start_date) setBillingStart(sub.start_date);
-    if (sub?.expiry_date) setBillingEnd(sub.expiry_date);
-  }, [subscriptionId, invoiceType, subsData]);
+    if (invoiceType !== "SINGLE" || !selectedSub) return;
+    if (selectedSub.start_date)  setBillingStart(selectedSub.start_date);
+    if (selectedSub.expiry_date) setBillingEnd(selectedSub.expiry_date);
+  }, [selectedSub, invoiceType]);
 
   // ── SINGLE: amount calculations ──────────────────────────────────────────
 
-  const activeSubs = subsData?.items ?? [];
-  const selectedSub = activeSubs.find((s) => s.id === subscriptionId);
   const baseAmt = Number(selectedSub?.base_price_snapshot ?? 0);
   const gstPct  = Number(selectedSub?.gst_percentage_snapshot ?? 0);
 
@@ -434,10 +436,9 @@ export function InvoiceCreatePage() {
 
   // ── Validation ────────────────────────────────────────────────────────────
 
-  const step1Done = invoiceType === "SINGLE" ? !!subscriptionId : !!customerId;
-  const step2Done = invoiceType === "SINGLE" ? (!!billingStart && !!billingEnd) : true;
-  const step3Done = !!invoiceDate;
-  const step4Done = invoiceType === "CONSOLIDATED" ? enabledSubs.length >= 1 : false;
+  const step1Done = invoiceType === "SINGLE" ? (!!selectedSub && !!billingStart && !!billingEnd) : !!customerId;
+  const step2Done = !!invoiceDate;
+  const step3Done = invoiceType === "CONSOLIDATED" ? enabledSubs.length >= 1 : true;
 
   // ── SINGLE charge row helpers ─────────────────────────────────────────────
 
@@ -480,7 +481,7 @@ export function InvoiceCreatePage() {
   const singleMutation = useMutation({
     mutationFn: () =>
       invoicesService.create({
-        subscription_id: subscriptionId,
+        subscription_id: selectedSub?.id ?? "",
         billing_period_start: billingStart,
         billing_period_end: billingEnd,
         invoice_date: invoiceDate,
@@ -521,7 +522,7 @@ export function InvoiceCreatePage() {
 
   const isPending = singleMutation.isPending || consolidatedMutation.isPending;
 
-  const isSubmitDisabled = isPending || !step1Done || !step2Done || !step3Done
+  const isSubmitDisabled = isPending || !step1Done || !step2Done
     || (invoiceType === "CONSOLIDATED" && enabledSubs.length === 0);
 
   function handleSubmit() {
@@ -538,7 +539,6 @@ export function InvoiceCreatePage() {
     >{label}</button>
   );
 
-  const selectedCustomer = selectedConsolidatedCustomer;
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -572,7 +572,7 @@ export function InvoiceCreatePage() {
             <button
               key={t}
               type="button"
-              onClick={() => { setInvoiceType(t); setSubscriptionId(""); setCustomerId(""); setConsolidatedSubs([]); }}
+              onClick={() => { setInvoiceType(t); setSelectedSub(null); setCustomerId(""); setSelectedConsolidatedCustomer(null); setConsolidatedSubs([]); }}
               className={`rounded-md px-4 py-1.5 text-sm font-semibold transition-colors ${invoiceType === t ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
             >
               {t === "SINGLE" ? "Single Subscription" : "Consolidated (Multi-Sub)"}
@@ -586,34 +586,48 @@ export function InvoiceCreatePage() {
           {/* Left: form steps */}
           <div className="space-y-5 lg:col-span-2">
 
-            {/* ── Step 1 ── */}
+            {/* ── Step 1: Subscription / Customer + Billing Period ── */}
             <Card>
               <CardContent className="space-y-4 pt-5">
-                <StepBadge step={1} label={invoiceType === "SINGLE" ? "Select Subscription" : "Select Customer"} done={step1Done} />
+                <StepBadge
+                  step={1}
+                  label={invoiceType === "SINGLE" ? "Subscription & Billing Period" : "Select Customer"}
+                  done={step1Done}
+                />
 
                 {invoiceType === "SINGLE" ? (
                   <>
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-sm font-medium">Active Subscription <span className="text-red-500">*</span></label>
-                      {subsLoading ? (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading…</div>
-                      ) : (
-                        <select value={subscriptionId} onChange={(e) => setSubscriptionId(e.target.value)} className={INPUT_CLS}>
-                          <option value="">— Select a subscription —</option>
-                          {activeSubs.map((s) => (
-                            <option key={s.id} value={s.id}>{s.subscription_code} · {s.customer_name} · {s.plan_name_snapshot}</option>
-                          ))}
-                        </select>
-                      )}
+                      <label className="text-sm font-medium">
+                        Active Subscription <span className="text-red-500">*</span>
+                      </label>
+                      <SubscriptionCombobox
+                        value={selectedSub}
+                        onChange={(s) => setSelectedSub(s)}
+                        placeholder="Search by subscription code, customer name or mobile…"
+                      />
                     </div>
+
                     {selectedSub && (
-                      <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-4 text-sm sm:grid-cols-4">
+                      <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-3 text-sm sm:grid-cols-4">
                         <div><p className="text-xs text-muted-foreground">Customer Code</p><p className="font-mono font-semibold">{selectedSub.customer_code}</p></div>
                         <div><p className="text-xs text-muted-foreground">Customer</p><p className="font-medium">{selectedSub.customer_name}</p></div>
                         <div><p className="text-xs text-muted-foreground">Plan</p><p className="font-medium">{selectedSub.plan_name_snapshot}</p><p className="text-xs text-muted-foreground">{selectedSub.speed_mbps_snapshot} Mbps</p></div>
                         <div><p className="text-xs text-muted-foreground">Cycle</p><p className="font-medium">{selectedSub.billing_cycle_snapshot?.replace(/_/g, " ")}</p></div>
                       </div>
                     )}
+
+                    {/* Billing period inline */}
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-sm font-medium">Period Start <span className="text-red-500">*</span></label>
+                        <input type="date" value={billingStart} onChange={(e) => setBillingStart(e.target.value)} className={INPUT_CLS} />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-sm font-medium">Period End <span className="text-red-500">*</span></label>
+                        <input type="date" value={billingEnd} onChange={(e) => setBillingEnd(e.target.value)} className={INPUT_CLS} />
+                      </div>
+                    </div>
                   </>
                 ) : (
                   <>
@@ -629,11 +643,11 @@ export function InvoiceCreatePage() {
                         placeholder="Search customer by name, code or mobile…"
                       />
                     </div>
-                    {selectedCustomer && (
-                      <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-4 text-sm sm:grid-cols-3">
-                        <div><p className="text-xs text-muted-foreground">Code</p><p className="font-mono font-semibold">{selectedCustomer.customer_code}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Name</p><p className="font-medium">{selectedCustomer.full_name}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Mobile</p><p className="font-medium">{selectedCustomer.mobile_number}</p></div>
+                    {selectedConsolidatedCustomer && (
+                      <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-3 text-sm sm:grid-cols-3">
+                        <div><p className="text-xs text-muted-foreground">Code</p><p className="font-mono font-semibold">{selectedConsolidatedCustomer.customer_code}</p></div>
+                        <div><p className="text-xs text-muted-foreground">Name</p><p className="font-medium">{selectedConsolidatedCustomer.full_name}</p></div>
+                        <div><p className="text-xs text-muted-foreground">Mobile</p><p className="font-medium">{selectedConsolidatedCustomer.mobile_number}</p></div>
                       </div>
                     )}
                   </>
@@ -641,29 +655,10 @@ export function InvoiceCreatePage() {
               </CardContent>
             </Card>
 
-            {/* ── Step 2: Billing Period (SINGLE only) ── */}
-            {invoiceType === "SINGLE" && (
-              <Card>
-                <CardContent className="space-y-4 pt-5">
-                  <StepBadge step={2} label="Billing Period" done={step2Done} />
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-sm font-medium">Period Start <span className="text-red-500">*</span></label>
-                      <input type="date" value={billingStart} onChange={(e) => setBillingStart(e.target.value)} className={INPUT_CLS} />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-sm font-medium">Period End <span className="text-red-500">*</span></label>
-                      <input type="date" value={billingEnd} onChange={(e) => setBillingEnd(e.target.value)} className={INPUT_CLS} />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* ── Step 3: Invoice Date & Notes (shared) ── */}
+            {/* ── Step 2: Invoice Date & Notes (shared) ── */}
             <Card>
               <CardContent className="space-y-4 pt-5">
-                <StepBadge step={3} label="Invoice Date & Notes" done={step3Done} />
+                <StepBadge step={2} label="Invoice Date & Notes" done={step2Done} />
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-sm font-medium">Invoice Date <span className="text-red-500">*</span></label>
@@ -685,11 +680,11 @@ export function InvoiceCreatePage() {
               </CardContent>
             </Card>
 
-            {/* ── Step 4 ── */}
+            {/* ── Step 3 ── */}
             {invoiceType === "SINGLE" ? (
               <Card>
                 <CardContent className="space-y-5 pt-5">
-                  <StepBadge step={4} label="Charges & Discount" done={false} />
+                  <StepBadge step={3} label="Charges & Discount" done={false} />
 
                   {/* Unified charges grid */}
                   <div>
@@ -759,7 +754,7 @@ export function InvoiceCreatePage() {
               <Card>
                 <CardContent className="space-y-4 pt-5">
                   <div className="flex items-center justify-between">
-                    <StepBadge step={4} label="Per-Subscription Charges" done={step4Done} />
+                    <StepBadge step={3} label="Per-Subscription Charges" done={step3Done} />
                     {customerId && !customerSubsLoading && (
                       <span className="text-xs text-muted-foreground">
                         {enabledSubs.length} of {consolidatedSubs.length} subscriptions included
