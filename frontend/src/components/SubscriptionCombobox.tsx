@@ -26,13 +26,13 @@ export function SubscriptionCombobox({
     queryFn: () =>
       subscriptionsService.list({
         page: 1,
-        page_size: 12,
-        search: query,
+        page_size: 15,
+        search: query || undefined,
         status_filter: "ACTIVE",
         sort_by: "created_at",
         sort_order: "desc",
       }),
-    enabled: query.length >= 1,
+    enabled: open && !value,
     staleTime: 10_000,
   });
 
@@ -76,7 +76,7 @@ export function SubscriptionCombobox({
     setOpen(false);
   }
 
-  const showDropdown = open && query.length >= 1 && !value;
+  const showDropdown = open && !value;
   const subs = results?.items ?? [];
 
   return (
@@ -110,11 +110,11 @@ export function SubscriptionCombobox({
       {showDropdown && (
         <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-lg border border-border bg-background shadow-lg">
           {isFetching ? (
-            <p className="px-4 py-3 text-sm text-muted-foreground">Searching…</p>
+            <p className="px-4 py-3 text-sm text-muted-foreground">Loading…</p>
           ) : subs.length === 0 ? (
             <p className="px-4 py-3 text-sm text-muted-foreground">No active subscriptions found</p>
           ) : (
-            <div className="max-h-60 overflow-y-auto">
+            <div className="max-h-64 overflow-y-auto">
               {subs.map((s) => (
                 <button
                   key={s.id}
