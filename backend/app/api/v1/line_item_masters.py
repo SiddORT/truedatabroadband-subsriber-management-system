@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -84,10 +84,11 @@ def delete_line_item(
     item_id: uuid.UUID,
     _: User = Depends(require_permission("settings", "delete")),
     db: Session = Depends(get_db),
-) -> None:
+) -> Response:
     repo = LineItemMasterRepository(db)
     item = repo.get(item_id)
     if not item:
         raise _not_found()
     repo.soft_delete(item)
     db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

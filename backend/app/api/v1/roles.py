@@ -2,7 +2,7 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -86,9 +86,10 @@ def delete_role(
     role_id: uuid.UUID,
     current_user: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
-) -> None:
+) -> Response:
     svc = RoleService(db)
     try:
         svc.delete(role_id, actor_id=current_user.id)
     except RoleError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

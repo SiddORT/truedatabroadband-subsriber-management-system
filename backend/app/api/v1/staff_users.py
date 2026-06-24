@@ -2,7 +2,7 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -93,13 +93,14 @@ def delete_staff_user(
     user_id: uuid.UUID,
     current_user: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
-) -> None:
+) -> Response:
     _get_or_404(user_id, db)
     svc = StaffUserService(db)
     try:
         svc.delete(user_id, actor_id=current_user.id)
     except StaffUserError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/{user_id}/resend-invite", response_model=StaffUserOut)
