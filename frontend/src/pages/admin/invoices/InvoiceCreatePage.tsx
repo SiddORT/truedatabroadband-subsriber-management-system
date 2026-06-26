@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -14,8 +14,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/contexts/ToastContext";
 import { invoicesService } from "@/services/invoices";
 import { subscriptionsService } from "@/services/subscriptions";
-import { api } from "@/services/api";
 import { getApiErrorMessage } from "@/services/api";
+import { CustomerCombobox } from "@/components/CustomerCombobox";
+import { SubscriptionCombobox } from "@/components/SubscriptionCombobox";
+import { LineItemPicker } from "@/components/LineItemPicker";
+import type { Customer } from "@/types/customer";
 import type { Subscription } from "@/types/subscription";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -46,6 +49,7 @@ interface ChargeRow {
   amount: string;
   discountType: ItemDiscountType;
   discountValue: string;
+  gstPercentage: string;
 }
 
 interface SubBillingState {
@@ -55,14 +59,7 @@ interface SubBillingState {
   chargeIdCounter: number;
   billingStart: string;
   billingEnd: string;
-}
-
-interface CustomerItem {
-  id: string;
-  customer_code: string;
-  full_name: string;
-  email: string;
-  mobile_number: string;
+  existing_invoice?: { invoice_number: string; invoice_id: string } | null;
 }
 
 // ── Style constants ───────────────────────────────────────────────────────────
@@ -70,18 +67,6 @@ interface CustomerItem {
 const INPUT_CLS = "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30";
 
 // ── Sub-components ────────────────────────────────────────────────────────────
-
-interface StepBadgeProps { step: number; label: string; done: boolean; }
-function StepBadge({ step, label, done }: StepBadgeProps) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${done ? "bg-green-500 text-white" : "bg-accent text-white"}`}>
-        {done ? "✓" : step}
-      </span>
-      <span className="text-sm font-semibold text-foreground">{label}</span>
-    </div>
-  );
-}
 
 // ── ChargeRow UI ──────────────────────────────────────────────────────────────
 
@@ -111,12 +96,24 @@ function ChargeRowUI({ row, onUpdate, onRemove, gross, disc, net }: ChargeRowUIP
         {row.locked ? (
           <span className="min-w-[140px] flex-1 text-sm font-medium text-foreground">{row.description}</span>
         ) : (
-          <input
-            value={row.description}
-            onChange={(e) => onUpdate({ description: e.target.value })}
-            placeholder="Description (e.g. Router Fee)"
-            className="min-w-[120px] flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-          />
+          <>
+            <input
+              value={row.description}
+              onChange={(e) => onUpdate({ description: e.target.value })}
+              placeholder="Description (e.g. Router Fee)"
+              className="min-w-[120px] flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            <LineItemPicker
+              disabled={row.locked}
+              onSelect={(item) =>
+                onUpdate({
+                  description: item.name,
+                  amount: item.default_amount ? String(Number(item.default_amount)) : row.amount,
+                  gstPercentage: String(Number(item.gst_percentage)),
+                })
+              }
+            />
+          </>
         )}
         <div className="relative w-28 shrink-0">
           <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">₹</span>
@@ -126,6 +123,16 @@ function ChargeRowUI({ row, onUpdate, onRemove, gross, disc, net }: ChargeRowUIP
             onChange={(e) => onUpdate({ amount: e.target.value })}
             placeholder="0.00"
             className="w-full rounded-lg border border-input bg-background py-2 pl-7 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+        </div>
+        <div className="relative w-16 shrink-0">
+          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">G%</span>
+          <input
+            type="number" min="0" max="100" step="0.01"
+            value={row.gstPercentage}
+            onChange={(e) => onUpdate({ gstPercentage: e.target.value })}
+            placeholder="0"
+            className="w-full rounded-lg border border-input bg-background py-2 pl-7 pr-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
         <div className="flex shrink-0 gap-1">
@@ -154,11 +161,20 @@ function ChargeRowUI({ row, onUpdate, onRemove, gross, disc, net }: ChargeRowUIP
           </button>
         )}
       </div>
-      {disc > 0 && gross > 0 && (
-        <div className="mt-2 flex items-center gap-2 pl-1 text-xs">
-          <span className="text-muted-foreground line-through">₹{gross.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-          <span className="font-medium text-accent">−₹{disc.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-          <span className="font-semibold text-foreground">= ₹{net.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+      {(disc > 0 || (row.gstPercentage && Number(row.gstPercentage) > 0)) && gross > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 pl-1 text-xs">
+          {row.gstPercentage && Number(row.gstPercentage) > 0 && (
+            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+              GST {row.gstPercentage}%
+            </span>
+          )}
+          {disc > 0 && (
+            <>
+              <span className="text-muted-foreground line-through">₹{gross.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+              <span className="font-medium text-accent">−₹{disc.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+              <span className="font-semibold text-foreground">= ₹{net.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -176,20 +192,32 @@ function rowItemDisc(r: ChargeRow) {
 }
 function rowNet(r: ChargeRow) { return Math.max(0, rowGross(r) - rowItemDisc(r)); }
 function lineItemsTotal(rows: ChargeRow[]) { return rows.reduce((s, r) => rowGross(r) > 0 ? s + rowNet(r) : s, 0); }
+function lineItemsGst(rows: ChargeRow[]) {
+  return rows.reduce((s, r) => {
+    if (rowGross(r) <= 0) return s;
+    const gp = Number(r.gstPercentage) || 0;
+    return s + Math.round(rowGross(r) * gp) / 100;
+  }, 0);
+}
 
 function buildLineItems(rows: ChargeRow[]) {
   return rows
     .filter((r) => rowGross(r) > 0 && r.description.trim())
     .map((r) => {
       const gross = rowGross(r); const disc = rowItemDisc(r); const net = rowNet(r);
+      const gstPct = r.gstPercentage && Number(r.gstPercentage) > 0 ? r.gstPercentage : undefined;
       if (disc > 0) {
         return {
           description: r.description.trim(), amount: net.toFixed(2),
           original_amount: gross.toFixed(2), discount_type: r.discountType,
           discount_value: r.discountValue, discount_amount: disc.toFixed(2),
+          ...(gstPct ? { gst_percentage: gstPct } : {}),
         };
       }
-      return { description: r.description.trim(), amount: net.toFixed(2) };
+      return {
+        description: r.description.trim(), amount: net.toFixed(2),
+        ...(gstPct ? { gst_percentage: gstPct } : {}),
+      };
     });
 }
 
@@ -210,22 +238,27 @@ interface SubChargeCardProps {
 }
 
 function SubChargeCard({ subState, subIdx: _subIdx, onToggle, onAddRow, onRemoveRow, onUpdateRow, onBillingChange }: SubChargeCardProps) {
-  const { sub, enabled, chargeRows, billingStart, billingEnd } = subState;
+  const { sub, enabled, chargeRows, billingStart, billingEnd, existing_invoice } = subState;
   const baseAmt = Number(sub.base_price_snapshot ?? 0);
   const gstPct  = Number(sub.gst_percentage_snapshot ?? 0);
-  const lit = lineItemsTotal(chargeRows);
-  const gstAmt = Math.round(baseAmt * gstPct) / 100;
-  const subTotal = baseAmt + gstAmt + lit;
+  const lit    = lineItemsTotal(chargeRows);
+  const litGst = lineItemsGst(chargeRows);
+  const gstAmt  = Math.round(baseAmt * gstPct) / 100;
+  const subTotal = baseAmt + gstAmt + lit + litGst;
 
   return (
-    <div className={`rounded-xl border-2 transition-colors ${enabled ? "border-primary/30 bg-background" : "border-border bg-muted/20 opacity-60"}`}>
+    <div className={`rounded-xl border-2 transition-colors ${existing_invoice ? "border-border bg-muted/10 opacity-70" : enabled ? "border-primary/30 bg-background" : "border-border bg-muted/20 opacity-60"}`}>
       {/* Header */}
       <div className="flex items-center justify-between gap-3 rounded-t-xl bg-primary/5 px-4 py-3">
         <div className="flex items-center gap-3">
-          <input
-            type="checkbox" checked={enabled} onChange={onToggle}
-            className="h-4 w-4 accent-primary"
-          />
+          {existing_invoice ? (
+            <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground ring-1 ring-border">Already Invoiced</span>
+          ) : (
+            <input
+              type="checkbox" checked={enabled} onChange={onToggle}
+              className="h-4 w-4 accent-primary"
+            />
+          )}
           <div>
             <p className="text-sm font-semibold text-foreground">{sub.subscription_code}</p>
             <p className="text-xs text-muted-foreground">
@@ -235,8 +268,17 @@ function SubChargeCard({ subState, subIdx: _subIdx, onToggle, onAddRow, onRemove
           </div>
         </div>
         <div className="text-right">
-          <p className="text-xs text-muted-foreground">Base plan</p>
-          <p className="text-sm font-bold text-foreground">₹{fmtMoney(baseAmt)}</p>
+          {existing_invoice ? (
+            <>
+              <p className="text-xs text-muted-foreground">Invoice</p>
+              <p className="font-mono text-sm font-bold text-primary">{existing_invoice.invoice_number}</p>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground">Base plan</p>
+              <p className="text-sm font-bold text-foreground">₹{fmtMoney(baseAmt)}</p>
+            </>
+          )}
         </div>
       </div>
 
@@ -279,15 +321,57 @@ function SubChargeCard({ subState, subIdx: _subIdx, onToggle, onAddRow, onRemove
               />
             ))}
           </div>
-          {/* Sub-total preview */}
-          <div className="flex items-center justify-between rounded-lg bg-primary/5 px-4 py-2.5 text-sm">
-            <div className="space-y-0.5">
-              <p className="text-xs text-muted-foreground">Plan ₹{fmtMoney(baseAmt)} + GST ({gstPct}%) ₹{fmtMoney(gstAmt)}{lit > 0 ? ` + Charges ₹${fmtMoney(lit)}` : ""}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">Sub-total</p>
-              <p className="font-bold text-foreground">₹{fmtMoney(subTotal)}</p>
-            </div>
+          {/* Sub-total preview table */}
+          <div className="overflow-x-auto rounded-lg border border-border text-xs">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-muted/40">
+                  <th className="px-2 py-1.5 text-left font-semibold uppercase tracking-wider text-muted-foreground">Description</th>
+                  <th className="px-2 py-1.5 text-right font-semibold uppercase tracking-wider text-muted-foreground">Price</th>
+                  <th className="px-2 py-1.5 text-right font-semibold uppercase tracking-wider text-muted-foreground">GST</th>
+                  <th className="px-2 py-1.5 text-right font-semibold uppercase tracking-wider text-muted-foreground">Discount</th>
+                  <th className="px-2 py-1.5 text-right font-semibold uppercase tracking-wider text-muted-foreground">Final Rate</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                <tr>
+                  <td className="px-2 py-1.5 font-medium text-foreground">{sub.plan_name_snapshot}</td>
+                  <td className="px-2 py-1.5 text-right">₹{fmtMoney(baseAmt)}</td>
+                  <td className="px-2 py-1.5 text-right text-muted-foreground">
+                    {gstPct > 0 ? `₹${fmtMoney(gstAmt)} (${gstPct}%)` : "—"}
+                  </td>
+                  <td className="px-2 py-1.5 text-right text-muted-foreground">—</td>
+                  <td className="px-2 py-1.5 text-right font-semibold">₹{fmtMoney(baseAmt + gstAmt)}</td>
+                </tr>
+                {chargeRows.filter(r => rowGross(r) > 0 && r.description.trim()).map(row => {
+                  const g = rowGross(row); const d = rowItemDisc(row); const n = rowNet(row);
+                  const rp = Number(row.gstPercentage) || 0; const ra = Math.round(g * rp) / 100;
+                  return (
+                    <tr key={row.id}>
+                      <td className="px-2 py-1.5 font-medium text-foreground">{row.description}</td>
+                      <td className="px-2 py-1.5 text-right">₹{fmtMoney(g)}</td>
+                      <td className="px-2 py-1.5 text-right text-muted-foreground">{rp > 0 ? `₹${fmtMoney(ra)} (${rp}%)` : "—"}</td>
+                      <td className="px-2 py-1.5 text-right text-accent">{d > 0 ? `−₹${fmtMoney(d)}` : "—"}</td>
+                      <td className="px-2 py-1.5 text-right font-semibold">₹{fmtMoney(n + ra)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="border-t-2 border-border bg-muted/20">
+                <tr>
+                  <td colSpan={4} className="px-2 py-1.5 text-right text-muted-foreground">Subtotal</td>
+                  <td className="px-2 py-1.5 text-right font-medium">₹{fmtMoney(baseAmt + lit)}</td>
+                </tr>
+                <tr>
+                  <td colSpan={4} className="px-2 py-1.5 text-right text-muted-foreground">Total GST</td>
+                  <td className="px-2 py-1.5 text-right font-medium">₹{fmtMoney(gstAmt + litGst)}</td>
+                </tr>
+                <tr className="bg-primary/10 font-bold text-primary">
+                  <td colSpan={4} className="px-2 py-1.5 text-right">Sub-total</td>
+                  <td className="px-2 py-1.5 text-right">₹{fmtMoney(subTotal)}</td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         </div>
       )}
@@ -307,7 +391,7 @@ export function InvoiceCreatePage() {
 
   // ── SINGLE mode state ────────────────────────────────────────────────────
   const preselectedSubId = searchParams.get("subscription_id") ?? "";
-  const [subscriptionId, setSubscriptionId] = useState(preselectedSubId);
+  const [selectedSub, setSelectedSub] = useState<Subscription | null>(null);
   const chargeIdRef = useRef(3);
   const [chargeRows, setChargeRows] = useState<ChargeRow[]>(makeDefaultRows());
   const [discountType, setDiscountType] = useState<DiscountType>("");
@@ -317,6 +401,7 @@ export function InvoiceCreatePage() {
 
   // ── CONSOLIDATED mode state ──────────────────────────────────────────────
   const [customerId, setCustomerId] = useState("");
+  const [selectedConsolidatedCustomer, setSelectedConsolidatedCustomer] = useState<Customer | null>(null);
   const [consolidatedSubs, setConsolidatedSubs] = useState<SubBillingState[]>([]);
 
   // ── Shared state ─────────────────────────────────────────────────────────
@@ -328,26 +413,41 @@ export function InvoiceCreatePage() {
 
   // ── Queries ───────────────────────────────────────────────────────────────
 
-  const { data: subsData, isLoading: subsLoading } = useQuery({
-    queryKey: ["subscriptions-active-all"],
-    queryFn: () => subscriptionsService.list({ page: 1, page_size: 100, sort_by: "created_at", sort_order: "desc", status_filter: "ACTIVE" }),
-    enabled: invoiceType === "SINGLE",
+  // Pre-load subscription when URL contains ?subscription_id=
+  const { data: preselectedSubData } = useQuery({
+    queryKey: ["sub-preselect", preselectedSubId],
+    queryFn: () => subscriptionsService.get(preselectedSubId),
+    enabled: !!preselectedSubId && !selectedSub,
+    staleTime: Infinity,
   });
-
-  const { data: customersData, isLoading: customersLoading } = useQuery({
-    queryKey: ["customers-all-for-invoice"],
-    queryFn: async () => {
-      const { data } = await api.get("/customers", { params: { page: 1, page_size: 200 } });
-      return (data.items ?? []) as CustomerItem[];
-    },
-    enabled: invoiceType === "CONSOLIDATED",
-  });
+  useEffect(() => {
+    if (preselectedSubData && !selectedSub) setSelectedSub(preselectedSubData);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselectedSubData]);
 
   const { data: customerSubsData, isLoading: customerSubsLoading } = useQuery({
     queryKey: ["customer-subs-for-invoice", customerId],
     queryFn: () => subscriptionsService.listByCustomer(customerId),
     enabled: invoiceType === "CONSOLIDATED" && !!customerId,
   });
+
+  const { data: customerInvoicesData } = useQuery({
+    queryKey: ["customer-invoices-for-consolidated", customerId],
+    queryFn: () => invoicesService.list({ customer_id: customerId, page: 1, page_size: 100 }),
+    enabled: invoiceType === "CONSOLIDATED" && !!customerId,
+    staleTime: 0,
+  });
+
+  // Build map: subscription_id → latest invoice (for single-type invoices)
+  const invoicedSubMap = useMemo(() => {
+    const map: Record<string, { invoice_number: string; invoice_id: string }> = {};
+    for (const inv of (customerInvoicesData?.items ?? [])) {
+      if (inv.subscription_id && !map[inv.subscription_id]) {
+        map[inv.subscription_id] = { invoice_number: inv.invoice_number, invoice_id: inv.id };
+      }
+    }
+    return map;
+  }, [customerInvoicesData]);
 
   // When customer subs load, reset consolidated sub billing state
   useEffect(() => {
@@ -356,15 +456,16 @@ export function InvoiceCreatePage() {
       setConsolidatedSubs(
         active.map((sub) => ({
           sub,
-          enabled: true,
+          enabled: !invoicedSubMap[sub.id],
           chargeRows: makeDefaultRows(),
           chargeIdCounter: 3,
           billingStart: sub.start_date ?? firstOfMonth(),
           billingEnd: sub.expiry_date ?? lastOfMonth(),
+          existing_invoice: invoicedSubMap[sub.id] ?? null,
         }))
       );
     }
-  }, [customerSubsData]);
+  }, [customerSubsData, invoicedSubMap]);
 
   // Reset consolidated state when customer changes
   useEffect(() => {
@@ -373,27 +474,24 @@ export function InvoiceCreatePage() {
 
   // ── Auto-set billing period for SINGLE from subscription start/end dates ─
   useEffect(() => {
-    if (invoiceType !== "SINGLE") return;
-    const subs = subsData?.items ?? [];
-    const sub = subs.find((s) => s.id === subscriptionId);
-    if (sub?.start_date) setBillingStart(sub.start_date);
-    if (sub?.expiry_date) setBillingEnd(sub.expiry_date);
-  }, [subscriptionId, invoiceType, subsData]);
+    if (invoiceType !== "SINGLE" || !selectedSub) return;
+    if (selectedSub.start_date)  setBillingStart(selectedSub.start_date);
+    if (selectedSub.expiry_date) setBillingEnd(selectedSub.expiry_date);
+  }, [selectedSub, invoiceType]);
 
   // ── SINGLE: amount calculations ──────────────────────────────────────────
 
-  const activeSubs = subsData?.items ?? [];
-  const selectedSub = activeSubs.find((s) => s.id === subscriptionId);
   const baseAmt = Number(selectedSub?.base_price_snapshot ?? 0);
   const gstPct  = Number(selectedSub?.gst_percentage_snapshot ?? 0);
 
   const gstOnFullBase = Math.round(baseAmt * gstPct) / 100;
-  const singleLit = lineItemsTotal(chargeRows);
+  const singleLit    = lineItemsTotal(chargeRows);
+  const singleLitGst = lineItemsGst(chargeRows);
 
   const singleDiscountAmt = (() => {
     if (!discountType || !discountValue || Number(discountValue) <= 0) return 0;
     if (discountScope === "overall") {
-      const subtotal = baseAmt + gstOnFullBase + singleLit;
+      const subtotal = baseAmt + gstOnFullBase + singleLit + singleLitGst;
       if (discountType === "percentage") return Math.round(subtotal * Number(discountValue) * 100) / 10000;
       return Math.min(Number(discountValue), subtotal);
     }
@@ -404,8 +502,8 @@ export function InvoiceCreatePage() {
   const effectiveBase  = discountScope === "base" ? Math.round((baseAmt - singleDiscountAmt) * 100) / 100 : baseAmt;
   const singleGstAmt   = discountScope === "base" ? Math.round(effectiveBase * gstPct) / 100 : gstOnFullBase;
   const singleTotalAmt = discountScope === "overall"
-    ? baseAmt + singleGstAmt + singleLit - singleDiscountAmt
-    : effectiveBase + singleGstAmt + singleLit;
+    ? baseAmt + singleGstAmt + singleLit + singleLitGst - singleDiscountAmt
+    : effectiveBase + singleGstAmt + singleLit + singleLitGst;
 
   // ── CONSOLIDATED: amount calculations ────────────────────────────────────
 
@@ -413,8 +511,9 @@ export function InvoiceCreatePage() {
     const b = Number(subState.sub.base_price_snapshot ?? 0);
     const g = Number(subState.sub.gst_percentage_snapshot ?? 0);
     const lit = lineItemsTotal(subState.chargeRows);
+    const litGst = lineItemsGst(subState.chargeRows);
     const gst = Math.round(b * g) / 100;
-    return { base: b, gst, lit, total: b + gst + lit };
+    return { base: b, gst, lit, litGst, total: b + gst + lit + litGst };
   }
 
   const enabledSubs = consolidatedSubs.filter((s) => s.enabled);
@@ -425,16 +524,14 @@ export function InvoiceCreatePage() {
 
   // ── Validation ────────────────────────────────────────────────────────────
 
-  const step1Done = invoiceType === "SINGLE" ? !!subscriptionId : !!customerId;
-  const step2Done = invoiceType === "SINGLE" ? (!!billingStart && !!billingEnd) : true;
-  const step3Done = !!invoiceDate;
-  const step4Done = invoiceType === "CONSOLIDATED" ? enabledSubs.length >= 1 : false;
+  const step1Done = invoiceType === "SINGLE" ? (!!selectedSub && !!billingStart && !!billingEnd) : !!customerId;
+  const step2Done = !!invoiceDate;
 
   // ── SINGLE charge row helpers ─────────────────────────────────────────────
 
   function addChargeRow() {
     const id = chargeIdRef.current++;
-    setChargeRows((prev) => [...prev, { id, description: "", locked: false, amount: "", discountType: "", discountValue: "" }]);
+    setChargeRows((prev) => [...prev, { id, description: "", locked: false, amount: "", discountType: "", discountValue: "", gstPercentage: "" }]);
   }
   function removeChargeRow(id: number) { setChargeRows((prev) => prev.filter((r) => r.id !== id)); }
   function updateChargeRow(id: number, patch: Partial<ChargeRow>) {
@@ -450,7 +547,7 @@ export function InvoiceCreatePage() {
     setConsolidatedSubs((prev) => prev.map((s, i) => {
       if (i !== idx) return s;
       const id = s.chargeIdCounter;
-      return { ...s, chargeIdCounter: id + 1, chargeRows: [...s.chargeRows, { id, description: "", locked: false, amount: "", discountType: "", discountValue: "" }] };
+      return { ...s, chargeIdCounter: id + 1, chargeRows: [...s.chargeRows, { id, description: "", locked: false, amount: "", discountType: "", discountValue: "", gstPercentage: "" }] };
     }));
   }
   function removeSubRow(subIdx: number, rowId: number) {
@@ -471,7 +568,7 @@ export function InvoiceCreatePage() {
   const singleMutation = useMutation({
     mutationFn: () =>
       invoicesService.create({
-        subscription_id: subscriptionId,
+        subscription_id: selectedSub?.id ?? "",
         billing_period_start: billingStart,
         billing_period_end: billingEnd,
         invoice_date: invoiceDate,
@@ -512,7 +609,7 @@ export function InvoiceCreatePage() {
 
   const isPending = singleMutation.isPending || consolidatedMutation.isPending;
 
-  const isSubmitDisabled = isPending || !step1Done || !step2Done || !step3Done
+  const isSubmitDisabled = isPending || !step1Done || !step2Done
     || (invoiceType === "CONSOLIDATED" && enabledSubs.length === 0);
 
   function handleSubmit() {
@@ -529,7 +626,6 @@ export function InvoiceCreatePage() {
     >{label}</button>
   );
 
-  const selectedCustomer = customersData?.find((c) => c.id === customerId);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -563,7 +659,7 @@ export function InvoiceCreatePage() {
             <button
               key={t}
               type="button"
-              onClick={() => { setInvoiceType(t); setSubscriptionId(""); setCustomerId(""); setConsolidatedSubs([]); }}
+              onClick={() => { setInvoiceType(t); setSelectedSub(null); setCustomerId(""); setSelectedConsolidatedCustomer(null); setConsolidatedSubs([]); }}
               className={`rounded-md px-4 py-1.5 text-sm font-semibold transition-colors ${invoiceType === t ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
             >
               {t === "SINGLE" ? "Single Subscription" : "Consolidated (Multi-Sub)"}
@@ -571,74 +667,34 @@ export function InvoiceCreatePage() {
           ))}
         </div>
 
-        {/* Two-column body */}
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-
-          {/* Left: form steps */}
-          <div className="space-y-5 lg:col-span-2">
-
-            {/* ── Step 1 ── */}
-            <Card>
-              <CardContent className="space-y-4 pt-5">
-                <StepBadge step={1} label={invoiceType === "SINGLE" ? "Select Subscription" : "Select Customer"} done={step1Done} />
-
-                {invoiceType === "SINGLE" ? (
-                  <>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-sm font-medium">Active Subscription <span className="text-red-500">*</span></label>
-                      {subsLoading ? (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading…</div>
-                      ) : (
-                        <select value={subscriptionId} onChange={(e) => setSubscriptionId(e.target.value)} className={INPUT_CLS}>
-                          <option value="">— Select a subscription —</option>
-                          {activeSubs.map((s) => (
-                            <option key={s.id} value={s.id}>{s.subscription_code} · {s.customer_name} · {s.plan_name_snapshot}</option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                    {selectedSub && (
-                      <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-4 text-sm sm:grid-cols-4">
-                        <div><p className="text-xs text-muted-foreground">Customer Code</p><p className="font-mono font-semibold">{selectedSub.customer_code}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Customer</p><p className="font-medium">{selectedSub.customer_name}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Plan</p><p className="font-medium">{selectedSub.plan_name_snapshot}</p><p className="text-xs text-muted-foreground">{selectedSub.speed_mbps_snapshot} Mbps</p></div>
-                        <div><p className="text-xs text-muted-foreground">Cycle</p><p className="font-medium">{selectedSub.billing_cycle_snapshot?.replace(/_/g, " ")}</p></div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-sm font-medium">Customer <span className="text-red-500">*</span></label>
-                      {customersLoading ? (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading customers…</div>
-                      ) : (
-                        <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} className={INPUT_CLS}>
-                          <option value="">— Select a customer —</option>
-                          {(customersData ?? []).map((c) => (
-                            <option key={c.id} value={c.id}>{c.customer_code} · {c.full_name}</option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                    {selectedCustomer && (
-                      <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-4 text-sm sm:grid-cols-3">
-                        <div><p className="text-xs text-muted-foreground">Code</p><p className="font-mono font-semibold">{selectedCustomer.customer_code}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Name</p><p className="font-medium">{selectedCustomer.full_name}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Mobile</p><p className="font-medium">{selectedCustomer.mobile_number}</p></div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* ── Step 2: Billing Period (SINGLE only) ── */}
-            {invoiceType === "SINGLE" && (
+        {/* ── SINGLE mode ─────────────────────────────────────────────────────── */}
+        {invoiceType === "SINGLE" && (
+          <>
+            {/* Row 1: Subscription & Billing Period | Invoice Date & Notes */}
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
               <Card>
                 <CardContent className="space-y-4 pt-5">
-                  <StepBadge step={2} label="Billing Period" done={step2Done} />
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <p className="text-sm font-semibold text-foreground">Subscription & Billing Period</p>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-medium">Active Subscription <span className="text-red-500">*</span></label>
+                    <SubscriptionCombobox
+                      value={selectedSub}
+                      onChange={(s) => setSelectedSub(s)}
+                      placeholder="Search by subscription code, customer name or mobile…"
+                    />
+                  </div>
+                  {selectedSub && (
+                    <div className={`grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-3 text-sm ${selectedSub.connection_name ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
+                      <div><p className="text-xs text-muted-foreground">Customer Code</p><p className="font-mono font-semibold">{selectedSub.customer_code}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Customer</p><p className="font-medium">{selectedSub.customer_name}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Plan</p><p className="font-medium">{selectedSub.plan_name_snapshot}</p><p className="text-xs text-muted-foreground">{selectedSub.speed_mbps_snapshot} Mbps</p></div>
+                      <div><p className="text-xs text-muted-foreground">Cycle</p><p className="font-medium">{selectedSub.billing_cycle_snapshot?.replace(/_/g, " ")}</p></div>
+                      {selectedSub.connection_name && (
+                        <div><p className="text-xs text-muted-foreground">Connection</p><p className="font-medium">{selectedSub.connection_name}</p></div>
+                      )}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="flex flex-col gap-1.5">
                       <label className="text-sm font-medium">Period Start <span className="text-red-500">*</span></label>
                       <input type="date" value={billingStart} onChange={(e) => setBillingStart(e.target.value)} className={INPUT_CLS} />
@@ -650,50 +706,50 @@ export function InvoiceCreatePage() {
                   </div>
                 </CardContent>
               </Card>
-            )}
 
-            {/* ── Step 3: Invoice Date & Notes (shared) ── */}
-            <Card>
-              <CardContent className="space-y-4 pt-5">
-                <StepBadge step={3} label="Invoice Date & Notes" done={step3Done} />
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-sm font-medium">Invoice Date <span className="text-red-500">*</span></label>
-                    <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className={INPUT_CLS} />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-sm font-medium">Due Date <span className="text-xs text-muted-foreground">(auto if blank)</span></label>
-                    <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={INPUT_CLS} />
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-medium">Remarks</label>
-                  <textarea
-                    value={remarks} onChange={(e) => setRemarks(e.target.value)}
-                    rows={3} placeholder="Optional notes…"
-                    className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* ── Step 4 ── */}
-            {invoiceType === "SINGLE" ? (
               <Card>
-                <CardContent className="space-y-5 pt-5">
-                  <StepBadge step={4} label="Charges & Discount" done={false} />
-
-                  {/* Unified charges grid */}
-                  <div>
-                    <div className="mb-3 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Charges &amp; Items</p>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">Each row: amount · then choose None / % / ₹ discount</p>
-                      </div>
-                      <Button variant="outline" size="sm" type="button" onClick={addChargeRow}>
-                        <Plus className="mr-1.5 h-3.5 w-3.5" />Add Row
-                      </Button>
+                <CardContent className="space-y-4 pt-5">
+                  <p className="text-sm font-semibold text-foreground">Invoice Date & Notes</p>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-medium">Invoice Date <span className="text-red-500">*</span></label>
+                      <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className={INPUT_CLS} />
                     </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-medium">Due Date <span className="text-xs text-muted-foreground">(auto if blank)</span></label>
+                      <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={INPUT_CLS} />
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-medium">Remarks</label>
+                    <textarea
+                      value={remarks} onChange={(e) => setRemarks(e.target.value)}
+                      rows={4} placeholder="Optional notes…"
+                      className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Row 2: Charges & Discount (full width) */}
+            <Card>
+              <CardContent className="space-y-5 pt-5">
+                <div>
+                  <div className="mb-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Charges & Items</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">Each row: amount · then choose None / % / ₹ discount</p>
+                    </div>
+                    <Button variant="outline" size="sm" type="button" onClick={addChargeRow}>
+                      <Plus className="mr-1.5 h-3.5 w-3.5" />Add Row
+                    </Button>
+                  </div>
+                  {chargeRows.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-border py-5 text-center text-sm text-muted-foreground">
+                      No additional charges. Click "Add Row" to add one.
+                    </p>
+                  ) : (
                     <div className="space-y-2">
                       {chargeRows.map((row) => (
                         <ChargeRowUI
@@ -704,167 +760,321 @@ export function InvoiceCreatePage() {
                         />
                       ))}
                     </div>
-                  </div>
-
-                  {/* Invoice-level discount */}
-                  {selectedSub && (
-                    <div className="rounded-xl border border-border bg-muted/10 p-4">
-                      <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Invoice-Level Discount</p>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="flex gap-1">
-                          {discBtn("", "None")}
-                          {discBtn("percentage", "% Discount")}
-                          {discBtn("fixed", "₹ Discount")}
-                        </div>
-                        {discountType && (
-                          <>
-                            <div className="flex gap-1">
-                              <button type="button" onClick={() => setDiscountScope("base")}
-                                className={`rounded border px-2 py-1 text-[11px] font-semibold transition-colors ${discountScope === "base" ? "border-primary bg-primary text-white" : "border-border bg-muted/40 text-foreground hover:bg-muted"}`}>
-                                On Base
-                              </button>
-                              <button type="button" onClick={() => setDiscountScope("overall")}
-                                className={`rounded border px-2 py-1 text-[11px] font-semibold transition-colors ${discountScope === "overall" ? "border-primary bg-primary text-white" : "border-border bg-muted/40 text-foreground hover:bg-muted"}`}>
-                                On Total
-                              </button>
-                            </div>
-                            <input
-                              type="number" min="0" step="0.01" max={discountType === "percentage" ? "100" : undefined}
-                              value={discountValue}
-                              onChange={(e) => setDiscountValue(e.target.value)}
-                              placeholder={discountType === "percentage" ? "%" : "₹"}
-                              className="w-24 rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            />
-                            <input
-                              type="text" value={discountLabel} onChange={(e) => setDiscountLabel(e.target.value)}
-                              placeholder="Discount label (optional)"
-                              className="min-w-[160px] flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            />
-                          </>
-                        )}
-                      </div>
-                    </div>
                   )}
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardContent className="space-y-4 pt-5">
-                  <div className="flex items-center justify-between">
-                    <StepBadge step={4} label="Per-Subscription Charges" done={step4Done} />
-                    {customerId && !customerSubsLoading && (
-                      <span className="text-xs text-muted-foreground">
-                        {enabledSubs.length} of {consolidatedSubs.length} subscriptions included
-                      </span>
-                    )}
-                  </div>
+                </div>
 
-                  {!customerId ? (
-                    <p className="text-sm text-muted-foreground">Select a customer above to see their active subscriptions.</p>
-                  ) : customerSubsLoading ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />Loading subscriptions…
-                    </div>
-                  ) : consolidatedSubs.length === 0 ? (
-                    <div className="rounded-lg border border-border bg-muted/20 p-4 text-center text-sm text-muted-foreground">
-                      No active subscriptions found for this customer.
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {consolidatedSubs.map((subState, idx) => (
-                        <SubChargeCard
-                          key={subState.sub.id}
-                          subState={subState}
-                          subIdx={idx}
-                          onToggle={() => toggleSub(idx)}
-                          onAddRow={() => addSubRow(idx)}
-                          onRemoveRow={(rowId) => removeSubRow(idx, rowId)}
-                          onUpdateRow={(rowId, patch) => updateSubRow(idx, rowId, patch)}
-                          onBillingChange={(start, end) => updateSubBillingDates(idx, start, end)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Right: summary panel */}
-          <div className="space-y-4">
-            <Card>
-              <CardContent className="pt-5">
-                <p className="mb-4 text-sm font-semibold text-foreground">Invoice Summary</p>
-
-                {invoiceType === "SINGLE" && selectedSub ? (
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Plan Base</span>
-                      <span>₹{fmtMoney(baseAmt)}</span>
-                    </div>
-                    {singleDiscountAmt > 0 && (
-                      <div className="flex justify-between text-accent">
-                        <span>Discount</span>
-                        <span>−₹{fmtMoney(singleDiscountAmt)}</span>
+                {selectedSub && (
+                  <div className="rounded-xl border border-border bg-muted/10 p-4">
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Invoice-Level Discount</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex gap-1">
+                        {discBtn("", "None")}
+                        {discBtn("percentage", "% Discount")}
+                        {discBtn("fixed", "₹ Discount")}
                       </div>
-                    )}
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>GST ({gstPct}%)</span>
-                      <span>₹{fmtMoney(singleGstAmt)}</span>
-                    </div>
-                    {singleLit > 0 && (
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>Other Charges</span>
-                        <span>₹{fmtMoney(singleLit)}</span>
-                      </div>
-                    )}
-                    <div className="mt-3 flex justify-between rounded-lg bg-primary/5 px-3 py-2.5 font-bold text-foreground">
-                      <span>Total</span>
-                      <span>₹{fmtMoney(singleTotalAmt)}</span>
-                    </div>
-                  </div>
-                ) : invoiceType === "CONSOLIDATED" && enabledSubs.length > 0 ? (
-                  <div className="space-y-3 text-sm">
-                    {enabledSubs.map((s) => {
-                      const { base, gst, lit, total } = computeSubTotal(s);
-                      return (
-                        <div key={s.sub.id} className="rounded-lg border border-border p-3">
-                          <p className="mb-1.5 font-semibold text-foreground text-xs">{s.sub.subscription_code}</p>
-                          <div className="space-y-0.5 text-xs text-muted-foreground">
-                            <div className="flex justify-between"><span>Plan</span><span>₹{fmtMoney(base)}</span></div>
-                            <div className="flex justify-between"><span>GST</span><span>₹{fmtMoney(gst)}</span></div>
-                            {lit > 0 && <div className="flex justify-between"><span>Charges</span><span>₹{fmtMoney(lit)}</span></div>}
-                            <div className="flex justify-between font-semibold text-foreground pt-1 border-t border-border mt-1">
-                              <span>Sub-total</span><span>₹{fmtMoney(total)}</span>
-                            </div>
+                      {discountType && (
+                        <>
+                          <div className="flex gap-1">
+                            <button type="button" onClick={() => setDiscountScope("base")}
+                              className={`rounded border px-2 py-1 text-[11px] font-semibold transition-colors ${discountScope === "base" ? "border-primary bg-primary text-white" : "border-border bg-muted/40 text-foreground hover:bg-muted"}`}>
+                              On Base
+                            </button>
+                            <button type="button" onClick={() => setDiscountScope("overall")}
+                              className={`rounded border px-2 py-1 text-[11px] font-semibold transition-colors ${discountScope === "overall" ? "border-primary bg-primary text-white" : "border-border bg-muted/40 text-foreground hover:bg-muted"}`}>
+                              On Total
+                            </button>
                           </div>
-                        </div>
-                      );
-                    })}
-                    <div className="flex justify-between rounded-lg bg-primary/5 px-3 py-2.5 font-bold text-foreground">
-                      <span>Grand Total</span>
-                      <span>₹{fmtMoney(consolidatedTotal)}</span>
+                          <input
+                            type="number" min="0" step="0.01" max={discountType === "percentage" ? "100" : undefined}
+                            value={discountValue} onChange={(e) => setDiscountValue(e.target.value)}
+                            placeholder={discountType === "percentage" ? "%" : "₹"}
+                            className="w-24 rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          />
+                          <input
+                            type="text" value={discountLabel} onChange={(e) => setDiscountLabel(e.target.value)}
+                            placeholder="Discount label (optional)"
+                            className="min-w-[160px] flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          />
+                        </>
+                      )}
                     </div>
                   </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    {invoiceType === "SINGLE" ? "Select a subscription to see the summary." : "Select a customer and subscriptions to see the summary."}
-                  </p>
                 )}
               </CardContent>
             </Card>
 
-            {/* Billing period preview */}
-            {(billingStart || billingEnd) && (
+            {/* Row 3: Invoice Preview Table (full width) */}
+            {selectedSub && (
               <Card>
                 <CardContent className="pt-5">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Billing Period</p>
-                  <p className="text-sm font-medium text-foreground">{billingStart || "—"} → {billingEnd || "—"}</p>
+                  <p className="mb-4 text-sm font-semibold text-foreground">Invoice Preview</p>
+                  <div className="overflow-x-auto rounded-lg border border-border">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/40">
+                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Description</th>
+                          <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Price</th>
+                          <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">GST</th>
+                          <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Discount</th>
+                          <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Final Rate</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {/* Plan row */}
+                        <tr className="bg-background">
+                          <td className="px-3 py-2.5">
+                            <p className="font-medium text-foreground">{selectedSub.plan_name_snapshot}</p>
+                            {billingStart && billingEnd && (
+                              <p className="text-xs text-muted-foreground">{billingStart} → {billingEnd}</p>
+                            )}
+                          </td>
+                          <td className="px-3 py-2.5 text-right text-foreground">₹{fmtMoney(baseAmt)}</td>
+                          <td className="px-3 py-2.5 text-right text-muted-foreground">
+                            {gstPct > 0 ? (
+                              <span>₹{fmtMoney(singleGstAmt)}<span className="ml-1 text-xs">({gstPct}%)</span></span>
+                            ) : "—"}
+                          </td>
+                          <td className="px-3 py-2.5 text-right text-accent">
+                            {singleDiscountAmt > 0 && discountScope === "base"
+                              ? `−₹${fmtMoney(singleDiscountAmt)}`
+                              : "—"}
+                          </td>
+                          <td className="px-3 py-2.5 text-right font-semibold text-foreground">
+                            ₹{fmtMoney(effectiveBase + singleGstAmt)}
+                          </td>
+                        </tr>
+                        {/* Charge rows */}
+                        {chargeRows.filter(r => rowGross(r) > 0 && r.description.trim()).map(row => {
+                          const gross = rowGross(row);
+                          const disc  = rowItemDisc(row);
+                          const net   = rowNet(row);
+                          const rowGstPct = Number(row.gstPercentage) || 0;
+                          const rowGstAmt = Math.round(gross * rowGstPct) / 100;
+                          return (
+                            <tr key={row.id} className="bg-background">
+                              <td className="px-3 py-2.5 font-medium text-foreground">{row.description}</td>
+                              <td className="px-3 py-2.5 text-right text-foreground">₹{fmtMoney(gross)}</td>
+                              <td className="px-3 py-2.5 text-right text-muted-foreground">
+                                {rowGstPct > 0 ? (
+                                  <span>₹{fmtMoney(rowGstAmt)}<span className="ml-1 text-xs">({rowGstPct}%)</span></span>
+                                ) : "—"}
+                              </td>
+                              <td className="px-3 py-2.5 text-right text-accent">
+                                {disc > 0 ? `−₹${fmtMoney(disc)}` : "—"}
+                              </td>
+                              <td className="px-3 py-2.5 text-right font-semibold text-foreground">₹{fmtMoney(net)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot className="border-t-2 border-border bg-muted/20">
+                        <tr>
+                          <td colSpan={4} className="px-3 py-2 text-right text-xs text-muted-foreground">Subtotal</td>
+                          <td className="px-3 py-2 text-right text-sm font-medium text-foreground">₹{fmtMoney(baseAmt + singleLit)}</td>
+                        </tr>
+                        <tr>
+                          <td colSpan={4} className="px-3 py-2 text-right text-xs text-muted-foreground">Total GST</td>
+                          <td className="px-3 py-2 text-right text-sm font-medium text-foreground">₹{fmtMoney(singleGstAmt)}</td>
+                        </tr>
+                        {singleDiscountAmt > 0 && discountScope === "overall" && (
+                          <tr>
+                            <td colSpan={4} className="px-3 py-2 text-right text-xs text-accent">
+                              {discountLabel ? discountLabel : "Discount"}
+                            </td>
+                            <td className="px-3 py-2 text-right text-sm font-medium text-accent">−₹{fmtMoney(singleDiscountAmt)}</td>
+                          </tr>
+                        )}
+                        <tr className="bg-primary text-white">
+                          <td colSpan={4} className="px-3 py-3 text-right text-sm font-bold">Grand Total</td>
+                          <td className="px-3 py-3 text-right text-base font-bold">₹{fmtMoney(singleTotalAmt)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
                 </CardContent>
               </Card>
             )}
-          </div>
-        </div>
+          </>
+        )}
+
+        {/* ── CONSOLIDATED mode ───────────────────────────────────────────────── */}
+        {invoiceType === "CONSOLIDATED" && (
+          <>
+            {/* Row 1: Customer | Invoice Date & Notes */}
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+              <Card>
+                <CardContent className="space-y-4 pt-5">
+                  <p className="text-sm font-semibold text-foreground">Select Customer</p>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-medium">Customer <span className="text-red-500">*</span></label>
+                    <CustomerCombobox
+                      value={selectedConsolidatedCustomer}
+                      onChange={(c) => {
+                        setSelectedConsolidatedCustomer(c);
+                        setCustomerId(c?.id ?? "");
+                        setConsolidatedSubs([]);
+                      }}
+                      placeholder="Search customer by name, code or mobile…"
+                    />
+                  </div>
+                  {selectedConsolidatedCustomer && (
+                    <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-3 text-sm sm:grid-cols-3">
+                      <div><p className="text-xs text-muted-foreground">Code</p><p className="font-mono font-semibold">{selectedConsolidatedCustomer.customer_code}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Name</p><p className="font-medium">{selectedConsolidatedCustomer.full_name}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Mobile</p><p className="font-medium">{selectedConsolidatedCustomer.mobile_number}</p></div>
+                    </div>
+                  )}
+                  {customerId && !customerSubsLoading && consolidatedSubs.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {enabledSubs.length} of {consolidatedSubs.length} subscription{consolidatedSubs.length > 1 ? "s" : ""} included
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="space-y-4 pt-5">
+                  <p className="text-sm font-semibold text-foreground">Invoice Date & Notes</p>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-medium">Invoice Date <span className="text-red-500">*</span></label>
+                      <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className={INPUT_CLS} />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-medium">Due Date <span className="text-xs text-muted-foreground">(auto if blank)</span></label>
+                      <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={INPUT_CLS} />
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-medium">Remarks</label>
+                    <textarea
+                      value={remarks} onChange={(e) => setRemarks(e.target.value)}
+                      rows={4} placeholder="Optional notes…"
+                      className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Per-subscription charge cards (full width each) */}
+            {!customerId ? (
+              <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                Select a customer above to see their active subscriptions.
+              </div>
+            ) : customerSubsLoading ? (
+              <div className="flex items-center gap-2 rounded-lg border border-border p-4 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />Loading subscriptions…
+              </div>
+            ) : consolidatedSubs.length === 0 ? (
+              <div className="rounded-lg border border-border bg-muted/20 p-4 text-center text-sm text-muted-foreground">
+                No active subscriptions found for this customer.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {consolidatedSubs.map((subState, idx) => (
+                  <SubChargeCard
+                    key={subState.sub.id}
+                    subState={subState}
+                    subIdx={idx}
+                    onToggle={() => toggleSub(idx)}
+                    onAddRow={() => addSubRow(idx)}
+                    onRemoveRow={(rowId) => removeSubRow(idx, rowId)}
+                    onUpdateRow={(rowId, patch) => updateSubRow(idx, rowId, patch)}
+                    onBillingChange={(start, end) => updateSubBillingDates(idx, start, end)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Invoice Preview Table (full width at bottom) */}
+            {enabledSubs.length > 0 && (
+              <Card>
+                <CardContent className="pt-5">
+                  <p className="mb-4 text-sm font-semibold text-foreground">Invoice Preview</p>
+                  <div className="space-y-4">
+                    {enabledSubs.map((s) => {
+                      const subBase = Number(s.sub.base_price_snapshot ?? 0);
+                      const subGstPct = Number(s.sub.gst_percentage_snapshot ?? 0);
+                      const subGst = Math.round(subBase * subGstPct) / 100;
+                      const subLit = lineItemsTotal(s.chargeRows);
+                      const subLitGst = lineItemsGst(s.chargeRows);
+                      const subTotal = subBase + subGst + subLit + subLitGst;
+                      return (
+                        <div key={s.sub.id} className="overflow-x-auto rounded-lg border border-border">
+                          {/* Sub header */}
+                          <div className="border-b border-border bg-primary/5 px-3 py-2">
+                            <p className="text-xs font-semibold text-foreground">{s.sub.subscription_code} — {s.sub.plan_name_snapshot}</p>
+                            <p className="text-xs text-muted-foreground">{s.billingStart || "—"} → {s.billingEnd || "—"}</p>
+                          </div>
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-border bg-muted/40">
+                                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Description</th>
+                                <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Price</th>
+                                <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">GST</th>
+                                <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Discount</th>
+                                <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Final Rate</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border">
+                              <tr className="bg-background">
+                                <td className="px-3 py-2.5 font-medium text-foreground">{s.sub.plan_name_snapshot}</td>
+                                <td className="px-3 py-2.5 text-right text-foreground">₹{fmtMoney(subBase)}</td>
+                                <td className="px-3 py-2.5 text-right text-muted-foreground">
+                                  {subGstPct > 0 ? <span>₹{fmtMoney(subGst)}<span className="ml-1 text-xs">({subGstPct}%)</span></span> : "—"}
+                                </td>
+                                <td className="px-3 py-2.5 text-right text-muted-foreground">—</td>
+                                <td className="px-3 py-2.5 text-right font-semibold text-foreground">₹{fmtMoney(subBase + subGst)}</td>
+                              </tr>
+                              {s.chargeRows.filter(r => rowGross(r) > 0 && r.description.trim()).map(row => {
+                                const gross = rowGross(row);
+                                const disc  = rowItemDisc(row);
+                                const net   = rowNet(row);
+                                const rgp   = Number(row.gstPercentage) || 0;
+                                const rga   = Math.round(gross * rgp) / 100;
+                                return (
+                                  <tr key={row.id} className="bg-background">
+                                    <td className="px-3 py-2.5 font-medium text-foreground">{row.description}</td>
+                                    <td className="px-3 py-2.5 text-right text-foreground">₹{fmtMoney(gross)}</td>
+                                    <td className="px-3 py-2.5 text-right text-muted-foreground">
+                                      {rgp > 0 ? <span>₹{fmtMoney(rga)}<span className="ml-1 text-xs">({rgp}%)</span></span> : "—"}
+                                    </td>
+                                    <td className="px-3 py-2.5 text-right text-accent">{disc > 0 ? `−₹${fmtMoney(disc)}` : "—"}</td>
+                                    <td className="px-3 py-2.5 text-right font-semibold text-foreground">₹{fmtMoney(net + rga)}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                            <tfoot className="border-t-2 border-border bg-muted/20">
+                              <tr>
+                                <td colSpan={4} className="px-3 py-2 text-right text-xs text-muted-foreground">Subtotal</td>
+                                <td className="px-3 py-2 text-right text-sm font-medium text-foreground">₹{fmtMoney(subBase + subLit)}</td>
+                              </tr>
+                              <tr>
+                                <td colSpan={4} className="px-3 py-2 text-right text-xs text-muted-foreground">Total GST</td>
+                                <td className="px-3 py-2 text-right text-sm font-medium text-foreground">₹{fmtMoney(subGst + subLitGst)}</td>
+                              </tr>
+                              <tr className="bg-primary/10">
+                                <td colSpan={4} className="px-3 py-2 text-right text-xs font-bold text-primary">Sub-total</td>
+                                <td className="px-3 py-2 text-right text-sm font-bold text-primary">₹{fmtMoney(subTotal)}</td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      );
+                    })}
+                    <div className="flex items-center justify-between rounded-lg bg-primary px-5 py-3 font-bold text-white">
+                      <span>Grand Total ({enabledSubs.length} subscription{enabledSubs.length > 1 ? "s" : ""})</span>
+                      <span className="text-base">₹{fmtMoney(consolidatedTotal)}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
+
       </div>
     </AppLayout>
   );

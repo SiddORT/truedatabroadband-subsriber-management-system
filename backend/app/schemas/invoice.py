@@ -21,6 +21,7 @@ class LineItemIn(BaseModel):
     discount_type: Optional[str] = None
     discount_value: Optional[Decimal] = None
     discount_amount: Optional[Decimal] = None
+    gst_percentage: Optional[Decimal] = Field(default=None, ge=0, le=100)
 
 
 # ── Single-subscription invoice ───────────────────────────────────────────────
@@ -239,6 +240,7 @@ class InvoiceListItem(BaseModel):
     id: UUID
     invoice_number: str
     invoice_type: str = "SINGLE"
+    subscription_id: Optional[UUID] = None
     customer_code_snapshot: str
     customer_name_snapshot: str
     connection_name_snapshot: str

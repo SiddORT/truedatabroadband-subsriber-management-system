@@ -167,6 +167,7 @@ const NAV_ITEMS: NavItem[] = [
 const PROFILE_MENU_ITEMS = [
   { label: "Settings", icon: Settings, href: "/admin/settings" },
   { label: "Activity Logs", icon: ShieldCheck, href: "/admin/activity" },
+  { label: "Line Item Masters", icon: ClipboardList, href: "/admin/line-items" },
   { label: "Scheduled Jobs", icon: CalendarClock, href: "/admin/jobs" },
   { label: "Notifications", icon: Bell, href: "/admin/notifications/templates" },
   { label: "Communications", icon: MessageSquare, href: "/admin/communications" },

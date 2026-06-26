@@ -10,6 +10,7 @@ from app.api.v1 import (
     health,
     invoices,
     jobs,
+    line_item_masters,
     notifications,
     otp,
     payments,
@@ -44,3 +45,4 @@ api_router.include_router(jobs.router)
 api_router.include_router(support.router)
 api_router.include_router(roles.router)
 api_router.include_router(staff_users.router)
+api_router.include_router(line_item_masters.router)

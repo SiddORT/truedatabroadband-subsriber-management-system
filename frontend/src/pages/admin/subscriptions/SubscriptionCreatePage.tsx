@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   ChevronDown,
   Loader2,
-  Search,
   User,
   Wifi,
   Zap,
@@ -17,9 +16,9 @@ import { AppLayout } from "@/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/contexts/ToastContext";
+import { CustomerCombobox } from "@/components/CustomerCombobox";
 import { subscriptionsService } from "@/services/subscriptions";
 import type { Subscription } from "@/types/subscription";
-import { customersService } from "@/services/customers";
 import { plansService } from "@/services/plans";
 import { getApiErrorMessage } from "@/services/api";
 import type { Customer } from "@/types/customer";
@@ -141,25 +140,8 @@ export function SubscriptionCreatePage() {
   const navigate = useNavigate();
   const { showToast } = useToast();
 
-  // ── Customer search ────────────────────────────────────────────────────────
-  const [customerQuery, setCustomerQuery] = useState("");
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
-    null,
-  );
-  const [showCustomerList, setShowCustomerList] = useState(false);
-
-  const { data: customerResults } = useQuery({
-    queryKey: ["customers-search", customerQuery],
-    queryFn: () =>
-      customersService.list({
-        page: 1,
-        page_size: 10,
-        search: customerQuery,
-        sort_by: "created_at",
-        sort_order: "desc",
-      }),
-    enabled: customerQuery.length >= 2,
-  });
+  // ── Customer selection ────────────────────────────────────────────────────
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
   // ── Plan selection ─────────────────────────────────────────────────────────
   const [selectedPlanId, setSelectedPlanId] = useState("");
@@ -342,78 +324,12 @@ export function SubscriptionCreatePage() {
                 <CardContent className="space-y-4 pt-5">
                   <StepBadge step={1} label="Select Customer" done={step1Done} />
 
-                  <Field label="Search customer" required error={errors.customer}>
-                    <div className="relative">
-                      <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
-                        <Search className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                      <input
-                        type="text"
-                        placeholder="Name, customer code or mobile…"
-                        value={
-                          selectedCustomer
-                            ? `${selectedCustomer.full_name} (${selectedCustomer.customer_code})`
-                            : customerQuery
-                        }
-                        onFocus={() => {
-                          if (selectedCustomer) {
-                            setSelectedCustomer(null);
-                            setCustomerQuery("");
-                          }
-                          setShowCustomerList(true);
-                        }}
-                        onChange={(e) => {
-                          setCustomerQuery(e.target.value);
-                          setSelectedCustomer(null);
-                          setShowCustomerList(true);
-                        }}
-                        onBlur={() =>
-                          setTimeout(() => setShowCustomerList(false), 150)
-                        }
-                        className={`w-full rounded-lg border bg-background py-2 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 ${errors.customer ? "border-destructive" : "border-input"}`}
-                      />
-                      {showCustomerList &&
-                        customerQuery.length >= 2 &&
-                        !selectedCustomer && (
-                          <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-border bg-background shadow-lg">
-                            {(customerResults?.items ?? []).length === 0 ? (
-                              <p className="px-4 py-3 text-sm text-muted-foreground">
-                                No customers found
-                              </p>
-                            ) : (
-                              (customerResults?.items ?? []).map((c) => (
-                                <button
-                                  key={c.id}
-                                  type="button"
-                                  onMouseDown={() => {
-                                    setSelectedCustomer(c);
-                                    setShowCustomerList(false);
-                                  }}
-                                  className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-muted/50"
-                                >
-                                  <span>
-                                    <span className="font-medium">
-                                      {c.full_name}
-                                    </span>
-                                    <span className="ml-2 font-mono text-xs text-muted-foreground">
-                                      {c.customer_code}
-                                    </span>
-                                  </span>
-                                  <span
-                                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                                      c.status === "ACTIVE"
-                                        ? "bg-green-100 text-green-700"
-                                        : "bg-amber-100 text-amber-700"
-                                    }`}
-                                  >
-                                    {c.status}
-                                  </span>
-                                </button>
-                              ))
-                            )}
-                          </div>
-                        )}
-                    </div>
+                  <Field label="Select customer" required error={errors.customer}>
+                    <CustomerCombobox
+                      value={selectedCustomer}
+                      onChange={setSelectedCustomer}
+                      error={errors.customer}
+                    />
                   </Field>
 
                   {selectedCustomer && (

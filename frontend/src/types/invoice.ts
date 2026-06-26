@@ -5,6 +5,8 @@ export interface LineItem {
   discount_type?: string;
   discount_value?: string;
   discount_amount?: string;
+  gst_percentage?: string;
+  gst_amount?: string;
 }
 
 export interface SubscriptionItem {
@@ -38,6 +40,7 @@ export interface InvoiceListItem {
   id: string;
   invoice_number: string;
   invoice_type: "SINGLE" | "CONSOLIDATED";
+  subscription_id: string | null;
   customer_code_snapshot: string;
   customer_name_snapshot: string;
   connection_name_snapshot: string;

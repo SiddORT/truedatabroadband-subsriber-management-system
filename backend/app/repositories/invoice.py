@@ -89,6 +89,7 @@ class InvoiceRepository:
         sort_by: str = "created_at",
         sort_order: str = "desc",
         status_filter: str | None = None,
+        invoice_type_filter: str | None = None,
         customer_filter: str | None = None,
         customer_id: str | None = None,
         plan_filter: str | None = None,
@@ -118,6 +119,9 @@ class InvoiceRepository:
             except ValueError:
                 pass
 
+        if invoice_type_filter in ("SINGLE", "CONSOLIDATED"):
+            stmt = stmt.where(Invoice.invoice_type == invoice_type_filter)
+
         if customer_filter:
             term = f"%{customer_filter}%"
             stmt = stmt.where(
@@ -131,7 +135,15 @@ class InvoiceRepository:
             import uuid as _uuid
             try:
                 cid = _uuid.UUID(customer_id)
-                stmt = stmt.where(Invoice.customer_id == cid)
+                from app.models.subscription import Subscription as _Sub
+                stmt = stmt.where(
+                    or_(
+                        Invoice.customer_id == cid,
+                        Invoice.subscription_id.in_(
+                            select(_Sub.id).where(_Sub.customer_id == cid)
+                        ),
+                    )
+                )
             except ValueError:
                 pass
 

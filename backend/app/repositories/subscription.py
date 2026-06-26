@@ -78,6 +78,16 @@ class SubscriptionRepository(BaseRepository[Subscription]):
         )
         return list(self.db.scalars(stmt).all())
 
+    def list_active_expired_as_of(self, as_of: "date") -> list[Subscription]:
+        """ACTIVE subscriptions whose expiry_date is before the given date (for auto-expiry job)."""
+        stmt = (
+            select(Subscription)
+            .where(Subscription.expiry_date < as_of)
+            .where(Subscription.deleted_at.is_(None))
+            .where(Subscription.status == SubscriptionStatus.ACTIVE)
+        )
+        return list(self.db.scalars(stmt).all())
+
     def list_by_expiry_date(self, expiry_date: "date") -> list[Subscription]:
         """ACTIVE subscriptions whose expiry_date matches the given date (used by scheduler)."""
         from datetime import date as _date
@@ -104,6 +114,8 @@ class SubscriptionRepository(BaseRepository[Subscription]):
         expiry_date_from: date | None = None,
         expiry_date_to: date | None = None,
         quick_filter: str | None = None,
+        staff_id: "uuid.UUID | None" = None,
+        staff_scope: str | None = None,
     ) -> tuple[list[Subscription], int]:
         stmt = (
             select(Subscription)
@@ -141,6 +153,12 @@ class SubscriptionRepository(BaseRepository[Subscription]):
             stmt = stmt.where(Subscription.expiry_date >= expiry_date_from)
         if expiry_date_to is not None:
             stmt = stmt.where(Subscription.expiry_date <= expiry_date_to)
+
+        if staff_id is not None:
+            if staff_scope == "ASSIGNED":
+                stmt = stmt.where(Customer.assigned_staff_id == staff_id)
+            elif staff_scope == "REFERENCE":
+                stmt = stmt.where(Customer.reference_partner_id == staff_id)
 
         if quick_filter:
             today = date.today()

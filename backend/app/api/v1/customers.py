@@ -88,16 +88,24 @@ def list_customers(
     city: str | None = Query(None),
     reference_source: str | None = Query(None),
     sales_person: str | None = Query(None),
-    _: User = Depends(require_permission("customers", "view")),
+    current_user: User = Depends(require_permission("customers", "view")),
     db: Session = Depends(get_db),
 ) -> CustomerListResponse:
     from app.models.customer import CustomerType as CType
+    from app.models.user import UserRole
     customer_type_filter = None
     if customer_type:
         try:
             customer_type_filter = CType(customer_type)
         except ValueError:
             pass
+    staff_id = None
+    staff_scope = None
+    if current_user.role == UserRole.STAFF and current_user.staff_role:
+        scope = current_user.staff_role.data_scope
+        if scope in ("ASSIGNED", "REFERENCE"):
+            staff_id = current_user.id
+            staff_scope = scope
     repo = CustomerRepository(db)
     items, total = repo.list_paginated(
         page=page,
@@ -110,6 +118,8 @@ def list_customers(
         city_filter=city,
         reference_source_filter=reference_source,
         sales_person_filter=sales_person,
+        staff_id=staff_id,
+        staff_scope=staff_scope,
     )
     total_pages = math.ceil(total / page_size) if total > 0 else 0
     return CustomerListResponse(

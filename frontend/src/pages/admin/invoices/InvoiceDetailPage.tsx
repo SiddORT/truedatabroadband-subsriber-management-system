@@ -9,6 +9,7 @@ import {
   IndianRupee,
   Lock,
   Loader2,
+  Mail,
   Plus,
   X,
 } from "lucide-react";
@@ -23,6 +24,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { invoicesService } from "@/services/invoices";
 import { paymentsService } from "@/services/payments";
 import { api, getApiErrorMessage } from "@/services/api";
+import { LineItemPicker } from "@/components/LineItemPicker";
 import {
   type Invoice,
   INVOICE_STATUS_COLORS,
@@ -86,6 +88,7 @@ interface ChargeRow {
   amount: string;
   discountType: ItemDiscountType;
   discountValue: string;
+  gstPercentage: string;
 }
 
 function rowGross(r: ChargeRow) { return Number(r.amount) || 0; }
@@ -102,14 +105,19 @@ function buildLineItems(rows: ChargeRow[]) {
     .filter((r) => rowGross(r) > 0 && r.description.trim())
     .map((r) => {
       const gross = rowGross(r); const disc = rowItemDisc(r); const net = rowNet(r);
+      const gstPct = r.gstPercentage && Number(r.gstPercentage) > 0 ? r.gstPercentage : undefined;
       if (disc > 0) {
         return {
           description: r.description.trim(), amount: net.toFixed(2),
           original_amount: gross.toFixed(2), discount_type: r.discountType,
           discount_value: r.discountValue, discount_amount: disc.toFixed(2),
+          ...(gstPct ? { gst_percentage: gstPct } : {}),
         };
       }
-      return { description: r.description.trim(), amount: net.toFixed(2) };
+      return {
+        description: r.description.trim(), amount: net.toFixed(2),
+        ...(gstPct ? { gst_percentage: gstPct } : {}),
+      };
     });
 }
 
@@ -136,11 +144,30 @@ function EditChargeRowUI({ row, onUpdate, onRemove }: ChargeRowUIProps) {
           placeholder="Description"
           className="min-w-[120px] flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
+        <LineItemPicker
+          disabled={row.locked}
+          onSelect={(item) =>
+            onUpdate({
+              description: item.name,
+              amount: item.default_amount ? String(Number(item.default_amount)) : row.amount,
+              gstPercentage: String(Number(item.gst_percentage)),
+            })
+          }
+        />
         <div className="relative w-28 shrink-0">
           <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">₹</span>
           <input type="number" min="0" step="0.01" value={row.amount}
             onChange={(e) => onUpdate({ amount: e.target.value })} placeholder="0.00"
             className="w-full rounded-lg border border-input bg-background py-2 pl-7 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+        </div>
+        <div className="relative w-16 shrink-0">
+          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">G%</span>
+          <input type="number" min="0" max="100" step="0.01"
+            value={row.gstPercentage}
+            onChange={(e) => onUpdate({ gstPercentage: e.target.value })}
+            placeholder="0"
+            className="w-full rounded-lg border border-input bg-background py-2 pl-7 pr-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
         <div className="flex shrink-0 gap-1">{discBtn("", "None")}{discBtn("percentage", "%")}{discBtn("fixed", "₹")}</div>
@@ -163,11 +190,20 @@ function EditChargeRowUI({ row, onUpdate, onRemove }: ChargeRowUIProps) {
           </button>
         </Tooltip>
       </div>
-      {disc > 0 && gross > 0 && (
-        <div className="mt-2 flex items-center gap-2 pl-1 text-xs">
-          <span className="text-muted-foreground line-through">₹{gross.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-          <span className="font-medium text-red-500">−₹{disc.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-          <span className="font-semibold text-foreground">= ₹{net.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+      {(disc > 0 || (row.gstPercentage && Number(row.gstPercentage) > 0)) && gross > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 pl-1 text-xs">
+          {row.gstPercentage && Number(row.gstPercentage) > 0 && (
+            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+              GST {row.gstPercentage}%
+            </span>
+          )}
+          {disc > 0 && (
+            <>
+              <span className="text-muted-foreground line-through">₹{gross.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+              <span className="font-medium text-red-500">−₹{disc.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+              <span className="font-semibold text-foreground">= ₹{net.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -218,6 +254,7 @@ export function InvoiceDetailPage() {
       amount: li.original_amount ?? li.amount,
       discountType: (li.discount_type as ItemDiscountType) ?? "",
       discountValue: li.discount_value ?? "",
+      gstPercentage: li.gst_percentage ? String(Number(li.gst_percentage)) : "",
     }));
     setEditChargeRows(rows);
     editChargeIdRef.current = rows.length + 1;
@@ -230,7 +267,7 @@ export function InvoiceDetailPage() {
 
   function addEditChargeRow() {
     const id = editChargeIdRef.current++;
-    setEditChargeRows((prev) => [...prev, { id, description: "", locked: false, amount: "", discountType: "", discountValue: "" }]);
+    setEditChargeRows((prev) => [...prev, { id, description: "", locked: false, amount: "", discountType: "", discountValue: "", gstPercentage: "" }]);
   }
   function removeEditChargeRow(id: number) { setEditChargeRows((prev) => prev.filter((r) => r.id !== id)); }
   function updateEditChargeRow(id: number, patch: Partial<ChargeRow>) {
@@ -311,6 +348,13 @@ export function InvoiceDetailPage() {
       setPayDialog(false);
       showToast(`Payment ${p.payment_number} recorded`, "success");
     },
+    onError: (err) => showToast(getApiErrorMessage(err), "error"),
+  });
+
+  // ── Send email ───────────────────────────────────────────────────────────
+  const sendEmailMutation = useMutation({
+    mutationFn: () => invoicesService.sendEmail(id!),
+    onSuccess: (res) => showToast(res.message, "success"),
     onError: (err) => showToast(getApiErrorMessage(err), "error"),
   });
 
@@ -421,6 +465,19 @@ export function InvoiceDetailPage() {
               <Download className="mr-1.5 h-4 w-4" />
               PDF
             </Button>
+            {inv.customer_email_snapshot && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => sendEmailMutation.mutate()}
+                disabled={sendEmailMutation.isPending}
+              >
+                {sendEmailMutation.isPending
+                  ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                  : <Mail className="mr-1.5 h-4 w-4" />}
+                Send Email
+              </Button>
+            )}
             {canPay && canAddPayment && (
               <Button size="sm" onClick={openPayDialog}>
                 <IndianRupee className="mr-1.5 h-4 w-4" />
@@ -562,72 +619,98 @@ export function InvoiceDetailPage() {
                 <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Pricing Breakdown
                 </p>
-                <table className="w-full text-sm">
-                  <tbody className="divide-y divide-border">
-                    <tr>
-                      <td className="py-2 text-muted-foreground">Plan Base Amount</td>
-                      <td className="py-2 text-right font-medium">
-                        {fmtMoney(inv.base_amount)}
-                      </td>
-                    </tr>
-                    {/* Base-scope discount shows before GST */}
-                    {Number(inv.discount_amount) > 0 && inv.discount_scope !== "overall" && (
-                      <>
+                <div className="overflow-x-auto rounded-lg border border-border">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/40">
+                        <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Description</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Price</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">GST</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Discount</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Final Rate</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {/* Plan row */}
+                      <tr>
+                        <td className="px-3 py-2.5">
+                          <p className="font-medium text-foreground">{inv.plan_name_snapshot}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {fmtDateShort(inv.billing_period_start)} – {fmtDateShort(inv.billing_period_end)}
+                          </p>
+                        </td>
+                        <td className="px-3 py-2.5 text-right">{fmtMoney(inv.base_amount)}</td>
+                        <td className="px-3 py-2.5 text-right text-muted-foreground">
+                          {Number(inv.gst_percentage) > 0
+                            ? <span>{fmtMoney(inv.gst_amount)}<span className="ml-1 text-xs">({inv.gst_percentage}%)</span></span>
+                            : "—"}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-accent">
+                          {Number(inv.discount_amount) > 0 && inv.discount_scope !== "overall"
+                            ? `−${fmtMoney(inv.discount_amount)}`
+                            : "—"}
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-semibold">
+                          {fmtMoney(
+                            inv.discount_scope !== "overall"
+                              ? (Number(inv.base_amount) - Number(inv.discount_amount)) + Number(inv.gst_amount)
+                              : Number(inv.base_amount) + Number(inv.gst_amount)
+                          )}
+                        </td>
+                      </tr>
+                      {/* Line item rows */}
+                      {inv.line_items && inv.line_items.map((item, i) => {
+                        const price = Number(item.original_amount ?? item.amount);
+                        const disc  = Number(item.discount_amount ?? 0);
+                        const net   = Number(item.amount);
+                        const gstPct = Number(item.gst_percentage ?? 0);
+                        const gstAmt = Number(item.gst_amount ?? 0);
+                        return (
+                          <tr key={i}>
+                            <td className="px-3 py-2.5 font-medium text-foreground">{item.description}</td>
+                            <td className="px-3 py-2.5 text-right">{fmtMoney(price)}</td>
+                            <td className="px-3 py-2.5 text-right text-muted-foreground">
+                              {gstPct > 0
+                                ? <span>{fmtMoney(gstAmt)}<span className="ml-1 text-xs">({gstPct}%)</span></span>
+                                : "—"}
+                            </td>
+                            <td className="px-3 py-2.5 text-right text-accent">
+                              {disc > 0 ? `−${fmtMoney(disc)}` : "—"}
+                            </td>
+                            <td className="px-3 py-2.5 text-right font-semibold">{fmtMoney(net)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot className="border-t-2 border-border bg-muted/20">
+                      <tr>
+                        <td colSpan={4} className="px-3 py-2 text-right text-xs text-muted-foreground">Subtotal</td>
+                        <td className="px-3 py-2 text-right text-sm font-medium">
+                          {fmtMoney(Number(inv.base_amount) + Number(inv.line_items_total))}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td colSpan={4} className="px-3 py-2 text-right text-xs text-muted-foreground">Total GST</td>
+                        <td className="px-3 py-2 text-right text-sm font-medium">{fmtMoney(inv.gst_amount)}</td>
+                      </tr>
+                      {Number(inv.discount_amount) > 0 && inv.discount_scope === "overall" && (
                         <tr>
-                          <td className="py-2 text-accent">
-                            {inv.discount_type === "percentage"
-                              ? `Discount (${inv.discount_value}%) — Base`
-                              : "Discount — Base"}
-                            {inv.discount_label ? ` · ${inv.discount_label}` : ""}
+                          <td colSpan={4} className="px-3 py-2 text-right text-xs text-accent">
+                            {inv.discount_label || "Discount"}
+                            {inv.discount_type === "percentage" ? ` (${inv.discount_value}%)` : ""}
                           </td>
-                          <td className="py-2 text-right font-medium text-accent">
+                          <td className="px-3 py-2 text-right text-sm font-medium text-accent">
                             −{fmtMoney(inv.discount_amount)}
                           </td>
                         </tr>
-                        <tr className="text-xs text-muted-foreground">
-                          <td className="py-1.5">Taxable Base</td>
-                          <td className="py-1.5 text-right">
-                            {fmtMoney(Number(inv.base_amount) - Number(inv.discount_amount))}
-                          </td>
-                        </tr>
-                      </>
-                    )}
-                    <tr>
-                      <td className="py-2 text-muted-foreground">
-                        GST ({inv.gst_percentage}%)
-                      </td>
-                      <td className="py-2 text-right font-medium">
-                        {fmtMoney(inv.gst_amount)}
-                      </td>
-                    </tr>
-                    {inv.line_items && inv.line_items.map((item, i) => (
-                      <tr key={i}>
-                        <td className="py-2 text-muted-foreground">{item.description}</td>
-                        <td className="py-2 text-right font-medium">{fmtMoney(item.amount)}</td>
+                      )}
+                      <tr className="bg-primary text-white">
+                        <td colSpan={4} className="px-3 py-3 text-right text-sm font-bold">Grand Total</td>
+                        <td className="px-3 py-3 text-right text-base font-bold">{fmtMoney(inv.total_amount)}</td>
                       </tr>
-                    ))}
-                    {/* Overall-scope discount shows after all items, before total */}
-                    {Number(inv.discount_amount) > 0 && inv.discount_scope === "overall" && (
-                      <tr>
-                        <td className="py-2 text-accent">
-                          {inv.discount_type === "percentage"
-                            ? `Discount (${inv.discount_value}%) — Overall`
-                            : "Discount — Overall"}
-                          {inv.discount_label ? ` · ${inv.discount_label}` : ""}
-                        </td>
-                        <td className="py-2 text-right font-medium text-accent">
-                          −{fmtMoney(inv.discount_amount)}
-                        </td>
-                      </tr>
-                    )}
-                    <tr className="font-semibold">
-                      <td className="py-2 text-foreground">Total Amount</td>
-                      <td className="py-2 text-right text-base font-bold text-primary">
-                        {fmtMoney(inv.total_amount)}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                    </tfoot>
+                  </table>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -843,35 +926,42 @@ export function InvoiceDetailPage() {
 
       {/* ── Edit Dialog ────────────────────────────────────────────────── */}
       <Dialog open={editDialog} onClose={() => setEditDialog(false)} title="Edit Invoice">
-        <div className="max-h-[80vh] space-y-5 overflow-y-auto pr-1">
+        <div className="max-h-[80vh] space-y-6 overflow-y-auto pr-1">
 
-          {/* Dates */}
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Billing Period & Dates</p>
+          {/* Billing period */}
+          <div className="rounded-lg border border-border bg-muted/20 p-4">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Billing Period</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium">Billing Period Start</label>
+                <label className="text-xs font-medium text-foreground">Period Start</label>
                 <input type="date" value={editBillingStart}
                   onChange={(e) => setEditBillingStart(e.target.value)}
                   className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium">Billing Period End</label>
+                <label className="text-xs font-medium text-foreground">Period End</label>
                 <input type="date" value={editBillingEnd}
                   onChange={(e) => setEditBillingEnd(e.target.value)}
                   className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Invoice & due dates */}
+          <div className="rounded-lg border border-border bg-muted/20 p-4">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Invoice Dates</p>
+            <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium">Invoice Date</label>
+                <label className="text-xs font-medium text-foreground">Invoice Date</label>
                 <input type="date" value={editInvoiceDate}
                   onChange={(e) => setEditInvoiceDate(e.target.value)}
                   className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium">Due Date</label>
+                <label className="text-xs font-medium text-foreground">Due Date</label>
                 <input type="date" value={editDueDate}
                   onChange={(e) => setEditDueDate(e.target.value)}
                   className="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
