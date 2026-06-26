@@ -21,7 +21,8 @@ export function useExport() {
       a.download = res.filename;
       a.click();
       URL.revokeObjectURL(url);
-    } catch {
+    } catch (err) {
+      console.error("Export failed:", err);
       showToast("Export failed. Please try again.", "error");
     } finally {
       setExporting(false);

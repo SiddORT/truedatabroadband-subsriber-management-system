@@ -16,6 +16,7 @@ const fmtINR = (v: number) =>
 const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
 const BUCKET_COLORS: Record<string, string> = {
+  "Current": "bg-green-100 text-green-800",
   "0-30": "bg-amber-100 text-amber-800",
   "31-60": "bg-orange-100 text-orange-800",
   "61-90": "bg-red-100 text-red-800",
@@ -122,8 +123,9 @@ export function OutstandingReportPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
           <SummaryCard label="Total Outstanding" value={summary ? fmtINR(summary.total_outstanding) : "—"} subcolor="text-red-700" />
+          <SummaryCard label="Current" value={summary ? fmtINR(summary.bucket_current) : "—"} subcolor="text-green-700" />
           <SummaryCard label="0–30 Days" value={summary ? fmtINR(summary.bucket_0_30) : "—"} subcolor="text-amber-700" />
           <SummaryCard label="31–60 Days" value={summary ? fmtINR(summary.bucket_31_60) : "—"} subcolor="text-orange-700" />
           <SummaryCard label="61–90 Days" value={summary ? fmtINR(summary.bucket_61_90) : "—"} subcolor="text-red-700" />

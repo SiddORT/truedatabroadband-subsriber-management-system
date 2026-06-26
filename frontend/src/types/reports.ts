@@ -145,6 +145,7 @@ export interface OutstandingReportRow {
 
 export interface OutstandingReportSummary {
   total_outstanding: number;
+  bucket_current: number;
   bucket_0_30: number;
   bucket_31_60: number;
   bucket_61_90: number;

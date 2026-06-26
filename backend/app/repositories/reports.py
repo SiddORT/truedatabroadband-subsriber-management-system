@@ -739,10 +739,10 @@ class ReportsRepository:
                 Invoice.connection_name_snapshot,
                 Invoice.due_date,
                 Invoice.balance_amount,
+                Invoice.status,
                 (func.current_date() - Invoice.due_date).label("days_overdue"),
             )
             .where(Invoice.deleted_at.is_(None))
-            .where(Invoice.due_date < func.current_date())
             .where(Invoice.balance_amount > 0)
         )
 
@@ -799,7 +799,9 @@ class ReportsRepository:
             rows = self.db.execute(stmt.offset((page - 1) * page_size).limit(page_size)).all()
 
         def _aging_bucket(days: int) -> str:
-            if days <= 30:
+            if days <= 0:
+                return "Current"
+            elif days <= 30:
                 return "0-30"
             elif days <= 60:
                 return "31-60"
@@ -828,7 +830,12 @@ class ReportsRepository:
                 func.coalesce(func.sum(Invoice.balance_amount), 0).label("total_outstanding"),
                 func.coalesce(
                     func.sum(Invoice.balance_amount).filter(
-                        func.current_date() - Invoice.due_date <= 30
+                        func.current_date() - Invoice.due_date <= 0
+                    ), 0
+                ).label("bucket_current"),
+                func.coalesce(
+                    func.sum(Invoice.balance_amount).filter(
+                        (func.current_date() - Invoice.due_date).between(1, 30)
                     ), 0
                 ).label("bucket_0_30"),
                 func.coalesce(
@@ -848,12 +855,12 @@ class ReportsRepository:
                 ).label("bucket_90_plus"),
             )
             .where(Invoice.deleted_at.is_(None))
-            .where(Invoice.due_date < func.current_date())
             .where(Invoice.balance_amount > 0)
         ).one()
 
         summary = {
             "total_outstanding": float(summary_row.total_outstanding),
+            "bucket_current": float(summary_row.bucket_current),
             "bucket_0_30": float(summary_row.bucket_0_30),
             "bucket_31_60": float(summary_row.bucket_31_60),
             "bucket_61_90": float(summary_row.bucket_61_90),
@@ -967,8 +974,7 @@ class ReportsRepository:
             import openpyxl
             from openpyxl.styles import Font, PatternFill, Alignment
         except ImportError:
-            self._write_csv(items, file_path.with_suffix(".csv"))
-            return
+            raise RuntimeError("openpyxl is required for XLSX export")
 
         wb = openpyxl.Workbook()
         ws = wb.active
